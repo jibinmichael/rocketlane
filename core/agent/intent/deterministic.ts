@@ -58,6 +58,10 @@ function targetSpan(match: RegExpMatchArray, groupIndex: number, utterance: stri
   return [{ start, end: start + cleaned.length }]
 }
 
+const APPROVE_WORD =
+  "(?:yes|yep|yeah|sure|approve|approved|confirm|confirmed|do\\s+it|go\\s+ahead|okay|ok|complete\\s+it|complete\\s+the\\s+project|run\\s+(?:it|them|the\\s+updates?))"
+const COURTESY = "(?:please|thanks|thank\\s+you)"
+
 const RULES: readonly Rule[] = [
   { pattern: /^\s*(stop|cancel|abort|never\s?mind|halt)\b/i, build: () => noTarget("cancel") },
   {
@@ -65,9 +69,16 @@ const RULES: readonly Rule[] = [
     build: () => noTarget("continue"),
   },
   {
-    pattern:
-      /^\s*(yes|yep|approve|approved|confirm|confirmed|do\s+it|go\s+ahead|ok|okay|complete\s+it|complete\s+the\s+project|run\s+(it|them|the\s+updates?))\s*[.!]?\s*$/i,
-    build: () => noTarget("approve"),
+    // One or two distinct approve words ("yes, do it"), an optional courtesy. "yes yes yes" is not a
+    // clean approval and stays unsupported.
+    pattern: new RegExp(
+      `^\\s*(${APPROVE_WORD})(?:\\s*,?\\s+(${APPROVE_WORD}))?(?:\\s*,?\\s+${COURTESY})?\\s*[.!]?\\s*$`,
+      "i",
+    ),
+    build: (m) =>
+      m[2] && m[1]?.toLowerCase() === m[2].toLowerCase()
+        ? noTarget("unsupported")
+        : noTarget("approve"),
   },
   {
     pattern: /^\s*(no|nope|not\s+now|decline|don'?t|do\s+not|leave\s+it)\s*[.!]?\s*$/i,

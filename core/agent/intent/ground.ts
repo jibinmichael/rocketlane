@@ -20,9 +20,18 @@ export function ground(
 ): Intent {
   const parsed = IntentProposalSchema.safeParse(rawProposal)
   if (!parsed.success) {
-    return { kind: "unsupported", reason: "out_of_scope", query: null, utterance, source: "model" }
+    return {
+      kind: "unsupported",
+      reason: "out_of_scope",
+      query: null,
+      utterance,
+      source: sourceOf(rawProposal),
+    }
   }
-  const proposal: IntentProposal = parsed.data
+  const proposal: IntentProposal = {
+    ...parsed.data,
+    targetSpans: parsed.data.targetSpans.filter((span) => !isPronoun(spanText(utterance, span))),
+  }
   const source = proposal.source
 
   switch (proposal.kind) {
@@ -37,7 +46,7 @@ export function ground(
       return { kind: "unsupported", reason: "out_of_scope", query: null, utterance, source }
     case "log_time": {
       const hours = proposal.hours
-      if (hours === null || !(hours > 0)) {
+      if (hours === null || !Number.isFinite(hours) || hours <= 0) {
         return { kind: "unsupported", reason: "no_target", query: null, utterance, source }
       }
       const span = proposal.targetSpans[0]
@@ -88,4 +97,19 @@ export function ground(
       return { kind: proposal.kind, targets, utterance, source }
     }
   }
+}
+
+/** "why is it blocked?" — a pronoun is a reference to the current mission, never a name to look up. */
+function isPronoun(text: string): boolean {
+  return /^(?:is\s+)?(?:it|this|that|the\s+(?:project|task|mission))?\s*(?:blocked|stuck)?\s*$/i.test(
+    text.trim(),
+  )
+}
+
+function sourceOf(raw: unknown): IntentProposal["source"] {
+  if (typeof raw === "object" && raw !== null && "source" in raw) {
+    const source = (raw as { source: unknown }).source
+    if (source === "deterministic" || source === "model") return source
+  }
+  return "model"
 }
