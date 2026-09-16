@@ -1,6 +1,7 @@
 import type { Actor } from "@/core/domain/entities"
 import type { WorkspaceGraph } from "@/core/domain/graph"
 import type { EntityRef } from "@/core/domain/ids"
+import { isTaskComplete } from "@/core/domain/status"
 import type { GovernanceConfig, Policy } from "@/core/governance/policy"
 import type {
   PermissionAction,
@@ -39,7 +40,7 @@ export type FlightPlan = {
 }
 
 export type PlanRejection = {
-  readonly reason: "NO_TARGETS" | "TARGET_NOT_FOUND"
+  readonly reason: "NO_TARGETS" | "TARGET_NOT_FOUND" | "UNSUPPORTED_TARGET_KIND"
   readonly detail: string
 }
 
@@ -68,7 +69,14 @@ export function validateFlightPlan(
   if (proposed.targets.length === 0) {
     return { ok: false, rejection: { reason: "NO_TARGETS", detail: "no target resolved" } }
   }
-  for (const target of proposed.targets) {
+  const targets = dedupe(proposed.targets)
+  for (const target of targets) {
+    if (target.kind === "phase") {
+      return {
+        ok: false,
+        rejection: { reason: "UNSUPPORTED_TARGET_KIND", detail: `${target.kind}:${target.id}` },
+      }
+    }
     if (!exists(target, ctx.graph)) {
       return {
         ok: false,
@@ -82,12 +90,17 @@ export function validateFlightPlan(
   const entityIds = new Set<string>()
   const openButNotRequired: Array<{ ref: EntityRef; label: string }> = []
   const permissionDenials: PermissionCheck[] = []
-  const isBatch = proposed.targets.length > (ctx.batchThreshold ?? 1)
+  const isBatch = targets.length > (ctx.batchThreshold ?? 1)
   const seen = new Set<string>()
 
-  for (const target of proposed.targets) {
+  for (const target of targets) {
     // "Leave X open" on a target drops it from the plan entirely; the outcome reports it as cancelled.
     if (excludedKeys.has(key(target))) continue
+    // A target the world has already completed needs no writes: the plan says so explicitly.
+    if (isComplete(target, ctx.graph)) {
+      steps.push(satisfiedStep(proposed.missionId, target, ctx.graph))
+      continue
+    }
     const closure = resolveClosure(
       target,
       ctx.graph,
@@ -134,7 +147,8 @@ export function validateFlightPlan(
     entityIds,
     openButNotRequired,
     permissionDenials,
-    requiresPlanConfirmation: isBatch && steps.some((s) => s.actionClass === "HIGH_IMPACT"),
+    requiresPlanConfirmation:
+      isBatch && steps.some((s) => s.status === "pending" && s.actionClass === "HIGH_IMPACT"),
   }
   return { ok: true, plan }
 }
@@ -162,6 +176,47 @@ function classify(ref: EntityRef, transition: PlanStep["transition"]): ActionCla
 function permissionActionFor(ref: EntityRef, transition: PlanStep["transition"]): PermissionAction {
   if (transition === "TIME_LOGGED") return "log_time"
   return ref.kind === "project" ? "complete_project" : "complete_task"
+}
+
+function satisfiedStep(missionId: string, target: EntityRef, graph: WorkspaceGraph): PlanStep {
+  return {
+    id: stepId(missionId, target, "COMPLETED"),
+    ref: target,
+    label: labelOf(target, graph),
+    transition: "COMPLETED",
+    forTarget: target,
+    actionClass: classify(target, "COMPLETED"),
+    status: "already_complete",
+    verification: "VERIFIED",
+    failureClass: null,
+    retries: 0,
+    observedVersion: versionOf(target, graph),
+    blockers: [],
+    note: null,
+  }
+}
+
+function isComplete(ref: EntityRef, graph: WorkspaceGraph): boolean {
+  switch (ref.kind) {
+    case "project":
+      return graph.project(ref.id)?.status === "COMPLETED"
+    case "task": {
+      const task = graph.task(ref.id)
+      return task !== null && isTaskComplete(task.status)
+    }
+    case "phase":
+      return false
+  }
+}
+
+function dedupe(refs: readonly EntityRef[]): readonly EntityRef[] {
+  const seen = new Set<string>()
+  return refs.filter((ref) => {
+    const k = key(ref)
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
 }
 
 function exists(ref: EntityRef, graph: WorkspaceGraph): boolean {

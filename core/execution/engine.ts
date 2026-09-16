@@ -14,7 +14,7 @@ import {
 import type { Mission, MissionOutcome, PlanStep, TargetOutcome } from "@/core/mission/mission"
 import { isTerminal } from "@/core/mission/mission"
 import type { MissionStore } from "@/core/mission/store"
-import { traceCurrentBlockers } from "@/core/resolver/blockers"
+import { humanBlockedBlocker, traceCurrentBlockers } from "@/core/resolver/blockers"
 import { labelOf } from "@/core/resolver/target"
 import type { Clock } from "@/core/system/clock"
 import {
@@ -81,14 +81,15 @@ export class MissionEngine {
   ): Promise<Mission> {
     const now = this.deps.clock.now()
     const graph = await this.deps.sor.snapshot()
+    const targets = dedupeRefs(proposed.targets)
     let mission: Mission = {
       id: proposed.missionId,
       correlationId: `mission:${proposed.missionId}`,
       datasetId: options.datasetId,
       actorId: proposed.actor.id,
       goalText: proposed.goalText,
-      targets: proposed.targets,
-      targetLabels: proposed.targets.map((t) => labelOf(t, graph)),
+      targets,
+      targetLabels: targets.map((t) => labelOf(t, graph)),
       excluded: proposed.excluded,
       state: "ACTIVE",
       plan: [],
@@ -105,8 +106,8 @@ export class MissionEngine {
       updatedAt: now,
       landedAt: null,
     }
-    this.emit(mission, "MISSION_STARTED", proposed.targets, { goal: proposed.goalText })
-    mission = this.plan(mission, proposed, graph)
+    this.emit(mission, "MISSION_STARTED", targets, { goal: proposed.goalText })
+    mission = this.plan(mission, { ...proposed, targets }, graph)
     this.commit(mission)
     return this.run(mission.id)
   }
@@ -117,7 +118,7 @@ export class MissionEngine {
     const step = mission.plan.find((s) => s.id === stepId)
     if (!step || step.status !== "waiting_input" || step.transition !== "TIME_LOGGED")
       return mission
-    if (!(hours > 0)) return mission
+    if (!Number.isFinite(hours) || hours <= 0) return mission
     mission = this.decide(mission, "input", stepId, `${hours}h`)
     mission = {
       ...this.setStep(mission, stepId, { status: "running" }, "EXECUTING"),
@@ -338,7 +339,9 @@ export class MissionEngine {
     const kept = merged.length
     const steps = [
       ...merged,
-      ...dropped.map((s) => ({ ...s, note: "completed before scope change" })),
+      ...dropped.map((s) =>
+        cause === "scope" ? { ...s, note: "completed before scope change" } : s,
+      ),
     ]
     const withPlan = this.applyFlightPlan(
       { ...mission, plan: steps },
@@ -386,6 +389,9 @@ export class MissionEngine {
 
   private async execute(mission: Mission, step: PlanStep): Promise<Mission> {
     const graph = await this.deps.sor.snapshot()
+    // The user may have cancelled while the read was in flight: nothing starts after a stop (§11).
+    const stored = this.require(mission.id)
+    if (isTerminal(stored)) return stored
     mission = { ...mission, currentStepId: step.id }
 
     // Already satisfied? (world may have done it, or an earlier replan)
@@ -400,6 +406,18 @@ export class MissionEngine {
         { status: "already_complete", verification: "VERIFIED" },
         "ACTIVE",
       )
+    }
+
+    // A human marked it BLOCKED: that is outside the system's authority, whatever the policies say.
+    const blockedTask = step.ref.kind === "task" ? graph.task(step.ref.id) : null
+    if (blockedTask?.status === "BLOCKED" && step.ref.kind === "task") {
+      this.emit(mission, "MISSION_BLOCKED", [step.ref], {
+        reason: "TASK_BLOCKED",
+        step: step.label,
+      })
+      return this.markTargetBlocked(mission, step, [
+        humanBlockedBlocker(step.forTarget, step.ref, [step.forTarget, step.ref]),
+      ])
     }
 
     if (step.transition === "TIME_LOGGED") {
@@ -477,6 +495,7 @@ export class MissionEngine {
       step.ref.kind === "project"
         ? { kind: "complete_project", projectId: step.ref.id }
         : { kind: "complete_task", taskId: step.ref.id }
+    if (isTerminal(this.require(mission.id))) return this.require(mission.id)
     mission = this.setStep(mission, step.id, { status: "running" }, "EXECUTING")
     this.commit(mission)
     return this.write(
@@ -728,6 +747,7 @@ export class MissionEngine {
     else if (outcome.completed > 0 || outcome.alreadyComplete > 0) state = "PARTIALLY_COMPLETED"
     else if (outcome.permissionDenied === mission.targets.length) state = "PERMISSION_DENIED"
     else if (outcome.blocked > 0) state = "BLOCKED"
+    else if (outcome.cancelled > 0 && outcome.failed === 0) state = "CANCELLED"
     else state = "FAILED"
 
     const landed = state === "COMPLETED" || state === "PARTIALLY_COMPLETED"
@@ -800,7 +820,13 @@ export class MissionEngine {
   }
 
   private commit(mission: Mission): void {
-    const stamped = { ...mission, updatedAt: this.deps.clock.now() }
+    // A terminal mission (cancelled by the user, say) is never revived by a stale in-flight copy.
+    const stored = this.deps.store.load(mission.id)
+    const next =
+      stored && isTerminal(stored) && !isTerminal(mission)
+        ? mergeStepResults(stored, mission)
+        : mission
+    const stamped = { ...next, updatedAt: this.deps.clock.now() }
     this.deps.store.save(stamped)
     for (const listener of this.listeners) listener(stamped)
   }
@@ -869,6 +895,10 @@ function sameRef(a: EntityRef, b: EntityRef): boolean {
   return a.kind === b.kind && a.id === b.id
 }
 
+function dedupeRefs(refs: readonly EntityRef[]): readonly EntityRef[] {
+  return refs.filter((ref, index) => refs.findIndex((other) => sameRef(other, ref)) === index)
+}
+
 function dedupeBlockers(blockers: readonly Blocker[]): readonly Blocker[] {
   const seen = new Set<string>()
   return blockers.filter((b) => {
@@ -887,14 +917,18 @@ export function aggregate(mission: Mission): MissionOutcome {
     let outcome: TargetOutcome = "pending"
     const excluded = mission.excluded.some((e) => sameRef(e, ref))
     if (excluded) outcome = "cancelled"
-    else if (steps.length === 0) outcome = "already_complete"
     else if (targetStep?.status === "succeeded") outcome = "completed"
     else if (targetStep?.status === "already_complete") outcome = "already_complete"
     else if (steps.some((s) => s.status === "permission_denied")) outcome = "permission_denied"
     else if (steps.some((s) => s.status === "blocked")) outcome = "blocked"
     else if (steps.some((s) => s.status === "failed")) outcome = "failed"
     else if (steps.some((s) => s.status === "cancelled")) outcome = "cancelled"
+    else if (steps.some((s) => s.status === "skipped" && s.note === "declined by user"))
+      outcome = "cancelled"
     else if (steps.some((s) => s.status === "skipped")) outcome = "blocked"
+    else if (steps.length === 0 && mission.blockers.some((b) => sameRef(b.target, ref)))
+      outcome = "blocked"
+    else if (steps.length === 0) outcome = "failed"
     return { ref, label: mission.targetLabels[index] ?? ref.id, outcome }
   })
   const count = (o: TargetOutcome) => perTarget.filter((t) => t.outcome === o).length
