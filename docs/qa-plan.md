@@ -31,6 +31,12 @@ Boundaries are the point: lanes cannot collide, cannot "fix" core while another 
 - Every surface has designed loading, empty, error and not-found states.
 - README, ledger and test-results updated. Build green.
 
+## Status (2026-09-16, end of QA phase)
+
+- Lanes reported: UX 30 findings, code quality 30, stress fixtures 10 datasets + 35 tests, adversarial 216 tests (22 red).
+- All lane tests pass: 342 tests, 21 files. Core has zero `as never`; tests still use it in helpers (allowed).
+- Not met yet, carried forward: one conductor for runtime and runner (R1); zod-validated `localStorage` shapes; typed step notes instead of strings; a11y pass (`aria-describedby`, focus to first action); dark-mode review (R9).
+
 ## Remaining build order (after QA)
 
 Locked order from the spec resumes where the 8-hour compression stopped. Each item names its gate.

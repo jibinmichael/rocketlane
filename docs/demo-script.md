@@ -18,7 +18,7 @@ What to say: the agent resolved the project, checked the four policies, and foun
 
 It asks for one thing it cannot invent: hours on QA Complete. Type **2** in the field, **Log time**.
 
-Watch six updates verify in dependency order. The band moves from 0 of 6 to 5 of 6. Then the high-impact confirmation, in the thread, with the consequence stated: one task remains open and does not block under current policies. **Complete project.**
+Watch the time entry and then five completions verify in dependency order. The band moves from 0 of 6 to 5 of 6. Then the high-impact confirmation, in the thread, with the consequence stated: one task remains open and does not block under current policies. **Complete project.**
 
 Landed. **View activity** shows who, what, why, when, result, verified.
 
@@ -28,13 +28,13 @@ Tab one: type **complete acme** on a fresh dataset (Test Lab → Reset first, or
 
 Tab two: **Test Lab → World**. Project Acme Implementation, task Train admins, status completed, acting as Mei Tanaka. **Apply.**
 
-Tab one, hands off the keyboard: the mission pauses. "Acme Implementation changed while I was working. I paused before the next update." What changed, what it affects. **Continue.** Replanned: 5 of 6 updates still apply; the world already did one.
+Tab one, hands off the keyboard: the mission pauses. "Acme Implementation changed while I was working. I paused before the next update." What changed, what it affects. **Continue.** Replanned: 5 of 6 updates still apply; the world already did one, and the band now counts 5.
 
 Single-screen fallback: **Test Lab → Scenarios → Play** on "Mid-flight change".
 
 ## 3. Interruption
 
-Type **complete Beacon Rollout**. It runs straight to the project confirmation because Beacon has time logged everywhere. Type **actually leave Handover open**. The agent stops, records the scope change, and reports honestly that Handover had already been verified complete before you spoke. Nothing is reverted, because no policy grants reopen authority.
+Type **complete Beacon Rollout**. It runs straight to the project confirmation because Beacon has time logged everywhere. Type **actually leave Handover open**. The agent replies that Handover was already verified complete before you asked and that no policy lets it reopen it. Nothing is reverted.
 
 ## 4. Verification is real
 

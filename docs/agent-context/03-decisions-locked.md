@@ -82,6 +82,21 @@ Decisions already made. Do not re-open them in a later session without the human
 8. Web Worker transport: **no**; the two-tab boundary is the stand-in for the network boundary.
 9. Project completion gated by milestones only (D-07): **confirmed**.
 
+## QA-phase decisions (2026-09-16, applied in code, each reversible by one test)
+
+Found by the adversarial QA lanes; each changes observable behaviour, so it is recorded here rather than fixed silently.
+
+| # | Decision | Why |
+|---|---|---|
+| Q-01 | A task a human set to **BLOCKED** is never completed by the system, even when all four policies pass. Blocker `unblock_task`, outside the system's authority. | The resolver already declared it outside its authority; the engine then wrote anyway. A hold placed by a person is not a policy the system can satisfy. |
+| Q-02 | A-01 (`NA` counts as closed) now applies to policies 1 and 3 as well as 2. | Documented intent; the code only honoured it for subtasks. An NA milestone blocked its project forever and the plan would have completed an NA task. |
+| Q-03 | Declining a confirmation lands the mission **Cancelled**, not Blocked. | Nothing blocks it; the user said no. The chip said "Blocked" and the thread opened with "can be completed". |
+| Q-04 | Flagged data fails closed at plan time (no write steps under a flagged node). | Contract 07 said non-completable; the plan still counted the writes. |
+| Q-05 | Phase targets are rejected (`UNSUPPORTED_TARGET_KIND`) instead of landing as "already complete". | Completing a phase has no policy or write behind it. |
+| Q-06 | A target the world completed while the mission waited lands **already complete**, not Failed; "completed before scope change" is only written when the scope changed. | Honest reporting. |
+| Q-07 | Cancel is honoured while a step is in flight: a terminal mission is never revived by a stale copy, and no write starts after a stop. | Spec §11. |
+| Q-08 | "yes please", "ok go ahead", "yes, do it" approve; "yes yes yes" does not. Pronoun tails ("why is it blocked?") are never looked up as names. | Grammar gaps; the model interpreter already handled these but the fallback did not. |
+
 ## Open questions (new)
 
 None. Add here before guessing.

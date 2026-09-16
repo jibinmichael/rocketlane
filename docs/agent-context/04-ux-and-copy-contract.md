@@ -18,15 +18,15 @@ Templates carry `EntityRef` slots rendered as chips (shown here as **bold**). Po
 
 | Block | Copy |
 |---|---|
-| `outcome.blocked` | "I can't complete **{target}** yet." |
+| `outcome.blocked` | "I can't complete **{target}** yet." Chosen from mission state (`BLOCKED`), a pending time request, or a non-empty blocker list; never from the blocker list alone. |
 | `outcome.ready` | "**{target}** can be completed. {n} updates required." + flight plan artifact list |
-| `already_complete` | "**{target}** is already complete (since {date}). Nothing to do." |
+| `already_complete` | "**{target}** is already complete. Nothing to do." (the export carries no reliable completion date for projects, so none is claimed) |
 | `blocker` | "**{node}** can't complete: {policy.rule} — {evidence}." e.g. "Go-Live can't complete: predecessor Deploy API is incomplete." / "QA Complete can't complete: no time logged." |
 | `resolution_path` | "{n} updates to complete **{target}**. First: {action.label} on **{node}**." + expandable full path |
-| `action_request.input` | "I need {input.label} for **{node}**." inline numeric field · "Logged as {actor}" · `[Log time]`. Hours are never prefilled. |
+| `action_request.input` | "I need hours for **{node}**." · "Logged as {actor}." · inline numeric field · `[Log time]`. Hours are never prefilled. |
 | `action_request.confirm` | "Complete **{target}**? {milestonesDone} milestones complete. {openTasks} tasks remain open (does not block under current policies). Status → Completed." `[Complete project] [Not now]` — the block becomes the decision record: "Confirmed by {actor} at {time}". |
 | `action_request.batch_confirm` | "{n} updates across {projects} projects." list with per-item opt-out `[Run {n} updates] [Not now]` |
-| `declined` | "Not done. **{node}** stays {state}. Nothing was written." |
+| `declined` | "Not done. **{node}** stays {state}." then "Nothing was written." or "The {n} earlier updates stand; nothing further was written." The mission lands **Cancelled** (the user said no; nothing blocks it) and this block is the only stop line. |
 | `consequence` | "{n} tasks remain open in **{project}**. This does not block completion under current policies." expandable list |
 | `result.verified` | "Verified: **{node}** is {state}." |
 | `result.mismatch` | "The update did not verify. **{node}** is still {actual}. I have not marked it complete." |
@@ -35,9 +35,9 @@ Templates carry `EntityRef` slots rendered as chips (shown here as **bold**). Po
 | `replanned` | "Replanned. {kept} of {planned} updates still apply. Next: {action.label} on **{node}**." |
 | `stale_on_resume` | "**{project}** changed since this mission was planned." + diff, then `replanned` |
 | `scope_change` | "Stopped. **{node}** stays open. Continuing with {newScope}." + if any: "{n} updates completed before the change: {list}." |
-| `cancelled` | "Stopped. {n} updates completed before you cancelled; nothing further was written." |
+| `cancelled` | "Stopped. Nothing was written." or "Stopped. {n} updates completed before you cancelled; nothing further was written." |
 | `partial_summary` | Non-zero buckets only, each expandable: "{completed} completed." · "{blocked} blocked by governance." · "{already} already complete." · "{failed} failed — {failureClass}, state reconciled, not completed." · "{denied} not permitted." · "{cancelled} cancelled." |
-| `permission_denied` | "Only the project owner can complete **{target}**. **{owner}** owns it." `[Ask {owner} to complete] [Show what I can do]` — first action creates a `WAITING` mission addressed to the owner (the notification primitive). |
+| `permission_denied` | "Only the project owner can complete **{target}**. {owner} owns it." · "Ask {owner} to complete it, or switch the acting user in the Test Lab." No button until the notification primitive exists (R3/R4): a receipt for a no-op is worse than a sentence. |
 | `clarification` | "Which project do you mean?" + candidate artifacts (row density) |
 | `boundary` | "I can only act on projects, tasks and governance in this workspace." |
 | `routine.created` | "Every morning I'll check **{target}**. If all milestones are complete I'll notify you and complete it." + routine artifact (`Run now · Pause · Stop`) |
@@ -56,7 +56,7 @@ Calm, direct, precise, accountable, concise. First person for the agent's own ac
 | Session state | Token | Motion | Label |
 |---|---|---|---|
 | READY | `state.ready` | none | "Ready" |
-| UNDERSTANDING | `state.working` | 1px indeterminate hairline | "Finding **{query}**" |
+| UNDERSTANDING | `state.working` | 1px indeterminate hairline | "Finding the target" |
 | PLANNING | `state.working` | hairline | "Planning" |
 | CHECKING | `state.working` | checks reveal (see cadence rule) | "Checking governance" / "Tracing dependencies" |
 | WAITING_FOR_USER | `state.waiting` | still | "Waiting for you" |
@@ -76,7 +76,7 @@ Calm, direct, precise, accountable, concise. First person for the agent's own ac
 
 `--motion-fast: 120ms` · `--motion-normal: 180ms` · `--motion-slow: 260ms` · `--ease-out: cubic-bezier(0.32, 0.72, 0, 1)` · `--ease-in-out: cubic-bezier(0.65, 0, 0.35, 1)`. Spring only for composer trailing controls. `prefers-reduced-motion` disables all non-essential transitions.
 
-- **Reveal cadence is a legibility aid, not simulated latency:** max 6 staggered items at 60ms; beyond 6, reveal as one group. Flight status shows true elapsed time.
+- **Reveal cadence is a legibility aid, not simulated latency:** max 6 staggered items at 60ms; beyond 6, reveal as one group. Block ids are content-derived so a block never re-animates because state changed elsewhere.
 - **Path contraction (blocker resolved):** node status crossfade 180ms ease-out → row collapse 260ms ease-in-out → next blocker enters after 60ms with 120ms fade.
 - **Course correction:** working → paused (180ms colour crossfade) → rechecking → replanned (holds 1.2s) → continuing. No bounce.
 - **Landing:** three beats, total under 600ms: block settles 2px **down** + opacity (260ms) → header chip crossfades to "Landed" (180ms) → activity row reveals after 120ms. No confetti, no rocket.
@@ -87,8 +87,8 @@ Calm, direct, precise, accountable, concise. First person for the agent's own ac
 - **Colour:** existing neutral oklch scale. One restrained accent chosen at Gate 10 from two candidates. Status colours desaturated (~60% chroma of defaults).
 - **Surfaces:** hairline `--border`, radius 6–10px, shadows only on floating layers. Rows and dividers by default; a bounded surface only when the artifact needs one (`density: "block"`).
 - **Density:** 32–36px rows, 8px grid, 720px thread column, 220px left nav.
-- **Chrome:** left nav (Projects · Governance Agent · Policies · Activity · Test Lab). One 52px mission band: goal left · "{done} of {total} updates" centre · state chip right · hairline bottom border. Composer pinned bottom. No third pinned region.
-- **Scroll rule:** stick to bottom only if the user is within 80px of it; otherwise a pill in the band: "Paused — project changed ↓".
+- **Chrome:** left nav (Projects · Governance Agent · Policies · Activity · Test Lab). One 52px mission band: goal left · current activity while working · "{done} of {total} updates" · state chip right · hairline bottom border. Composer pinned bottom. No third pinned region.
+- **Scroll rule:** stick to bottom only if the user is within 80px of it; otherwise a pill in the band labelled with the mission state, e.g. "Paused — project changed ↓".
 - **Agent home:** composer at the **top** ("What do you want done?"), missions listed below as `mission` artifacts, needs-input first. The home is the inbox; there is no notification center. Starting a mission routes to `/m/[id]`.
 - **Post-landing rule:** read intents stay in the thread; write intents start a new mission with "from mission {id}" in its band.
 - **Empty states:** one sentence + one action. No illustrations.

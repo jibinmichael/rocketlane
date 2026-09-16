@@ -28,11 +28,11 @@ Every entity carries an integer `version`, incremented by the system of record o
 | `Status` | `status` | `To do→TODO`, `In progress→IN_PROGRESS`, `Completed→COMPLETED`, `Blocked→BLOCKED`, `NA→NA`; anything else → row rejected `UNKNOWN_STATUS` |
 | `PhaseId`, `Phase` | Phase entity (upsert per project) | phase ids are unique across projects in this export; still scoped by project |
 | `Assignee` | `assigneeNames[]` | split on `, ` |
-| `HoursTracked` | one synthetic `TimeEntry { hours, actorId: "import", at: CompletedAt ?? ActualStartDate ?? null }` when > 0; `hoursTracked` is always the derived sum | float, default 0; negative → rejected |
+| `HoursTracked` | one synthetic `TimeEntry { hours, actorId: "import", at: CompletedAt ?? ActualStartDate ?? null }` when > 0; `hoursTracked` is always the derived sum | strict decimal (exponent allowed), default 0; negative → row rejected `NEGATIVE_HOURS`; anything else non-empty (`abc`, `Infinity`, `1e400`) → no time entry + warning `MALFORMED_HOURS`. Never silently zero. |
 | `Is this a Billing Milestone?` | `isMilestone` | `"true"` → true; blank → false |
 | `Dependency` | `predecessorIds[]` | **Longest-match resolution against the project's task-name set** (12 task names in this export contain `, `, so naive splitting is unsafe): try the whole string, then every split at `, ` boundaries, preferring the segmentation that consumes the string with the fewest, longest known names. Any unresolved fragment → task flagged `DEPENDENCY_UNRESOLVED` and **non-completable** (fail closed, same as `CYCLE`), reported as a finding. A fragment matching >1 task → `DEPENDENCY_AMBIGUOUS`, same handling. Never drop an edge silently. |
-| `ParentTaskId` | `parentTaskId` | must exist in same project else `UNRESOLVED_PARENT` |
-| `CompletedAt`, dates | dates | ISO `YYYY-MM-DD`; malformed → field null + warning (not a row rejection) |
+| `ParentTaskId` | `parentTaskId` | must exist in the **same project** and must not be the task itself, else `UNRESOLVED_PARENT` warning and `parentTaskId = null` |
+| `CompletedAt`, dates | dates | ISO `YYYY-MM-DD` **and calendar-valid** (`2026-13-45` is malformed); malformed → field null + warning (not a row rejection) |
 | `Billable`, `Category` | passthrough | |
 
 Known anomalies in the supplied export (must appear in the Lab's ingestion report, not be hidden):
@@ -60,6 +60,10 @@ IngestionReport {
 ```
 
 Cycles in predecessor edges are detected with a DFS at graph build; a cycle is a `CYCLE` finding and every task on it is non-completable with reason `DEPENDENCY_CYCLE`.
+
+**Fail closed at plan time.** A flagged task (`CYCLE`, `DEPENDENCY_UNRESOLVED`, `DEPENDENCY_AMBIGUOUS`) and everything beneath it produce no write steps; the closure still records the subtree so it is never reported as "open but not required", and the blocker names the fix (`fix_data`, outside the system's authority). A cycle the importer did not flag (hand-built graphs) is caught again by the blocker trace when a path revisits a node.
+
+**CSV records.** A stray quote inside an unquoted field is reported as `MALFORMED_ROW` and the whole record is dropped; the parser never guesses where the field should have ended.
 
 ## Fixtures (all under `fixtures/`, each with a `README.md` stating what it proves)
 
