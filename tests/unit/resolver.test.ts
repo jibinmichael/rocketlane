@@ -128,3 +128,13 @@ describe("dependency resolution — real export, arbitrary depth", () => {
     expect(deepest.dependencyPath.length).toBeGreaterThanOrEqual(3)
   })
 })
+
+describe("an exact task name resolves even when a longer name starts with it", () => {
+  it("'Legacy Migration' is not ambiguous against 'Legacy Migration scope, strategy and plan'", () => {
+    const real = ingestFixture("rocketlane-export").graph
+    const project = real.projects.find((p) => p.name.startsWith("Bowen-Chapman"))!
+    const resolved = resolveAny("Legacy Migration", real, { projectId: project.id })
+    expect(resolved.status).toBe("resolved")
+    expect(resolved.status === "resolved" && resolved.label).toBe("Legacy Migration")
+  })
+})

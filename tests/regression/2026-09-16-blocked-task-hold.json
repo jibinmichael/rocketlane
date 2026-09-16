@@ -1,0 +1,23 @@
+{
+  "id": "reg-2026-09-16-blocked-task-hold",
+  "discoveredAt": "2026-09-16",
+  "source": "tests/qa/governance-weird-data.test.ts: the engine never completes a task a human has marked BLOCKED",
+  "diagnosis": "A task in status BLOCKED with time logged and no open predecessors passed all four supplied policies, so the engine completed it, although the resolver had already declared the change outside the system's authority (unblock_task, systemCanAct=false). The system contradicted itself. Fix: the engine and the blocker trace hold BLOCKED tasks; only a human clears a human hold (decision Q-01).",
+  "originalOutcome": "COMPLETED",
+  "scenario": {
+    "id": "blocked-task-hold",
+    "title": "Real export: a human hold (BLOCKED) is never overridden by the system",
+    "datasetId": "rocketlane-export",
+    "actorName": "Jordan Henderson",
+    "projectName": "Bowen-Chapman - Enterprise Rollout",
+    "turns": [
+      { "kind": "user", "text": "complete Legacy Migration" },
+      { "kind": "hours", "hours": 2 }
+    ],
+    "expect": {
+      "outcome": "BLOCKED",
+      "invariants": ["no_policy_violation", "no_unverified_completion", "no_scope_expansion"],
+      "finalStates": { "Legacy Migration": "BLOCKED" }
+    }
+  }
+}

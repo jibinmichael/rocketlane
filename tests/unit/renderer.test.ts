@@ -59,7 +59,9 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
     expect(flat(blocks[2]!.lines)).toBe(
       "6 updates to complete [Acme Implementation]. First: log time on [QA Complete].",
     )
-    expect(flat(blocks[3]!.lines)).toBe("I need hours for [QA Complete].\nLogged as Priya Raman.")
+    expect(flat(blocks[3]!.lines)).toBe(
+      "I need hours for [QA Complete].\nIt's assigned to Mei Tanaka; hours you enter are recorded as yours.",
+    )
     expect(blocks[3]!.actions).toEqual([
       { kind: "log_time", stepId: mission.plan[0]!.id, label: "Log time" },
     ])

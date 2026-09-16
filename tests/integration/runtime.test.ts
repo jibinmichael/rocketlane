@@ -140,3 +140,24 @@ describe("Runtime — the conversation surface end to end, headless", () => {
     expect(rt.mission(id)?.pending).toEqual({ kind: "confirm_plan" })
   })
 })
+
+describe("Runtime — a typed question never strands a pending decision", () => {
+  it("the confirmation's buttons stay live after 'why is it blocked?'", async () => {
+    const rt = makeRuntime()
+    await rt.boot()
+    const priya = rt.getSnapshot().actors.find((a) => a.name === "Priya Raman")!
+    rt.setActor(priya.id)
+    const id = (await rt.send("complete Beacon Rollout", null))!
+    const before = rt.liveBlocks(id).find((b) => b.type === "action_request.confirm")!
+    expect(before.actions.length).toBeGreaterThan(0)
+
+    await rt.send("why is it blocked?", id)
+    const after = rt.liveBlocks(id).find((b) => b.type === "action_request.confirm")
+    expect(after?.actions.length).toBeGreaterThan(0)
+    // The answer landed in the thread; the decision did not.
+    const frozenTypes = rt
+      .thread(id)
+      .flatMap((e) => (e.kind === "agent" ? e.blocks.map((b) => b.type) : []))
+    expect(frozenTypes).not.toContain("action_request.confirm")
+  })
+})

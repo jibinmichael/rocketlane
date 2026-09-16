@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { runScenario } from "@/core/evaluation/runner"
 import { BUILT_IN_SCENARIOS } from "@/core/evaluation/scenarios"
 import { SUPPLIED_POLICIES } from "@/core/governance/policies/supplied-policies"
+import { nextActionable, traceCurrentBlockers } from "@/core/resolver/blockers"
 import { ingestFixture } from "../helpers/fixtures"
 
 const datasets = {
@@ -38,5 +39,16 @@ describe("the evaluator catches a weakened engine (spec §48 step 19-20)", () =>
     expect(violation.passed).toBe(false)
     expect(violation.detail).toMatch(/violated the reference policies/)
     expect(result.passed).toBe(false)
+  })
+})
+
+describe("the real export carries a genuine cascade (brief: 4-level conflict)", () => {
+  it("Stone-Gonzalez: project → milestone → predecessor → predecessor, nearest action four deep", () => {
+    const { graph } = datasets["rocketlane-export"]
+    const project = graph.projects.find((p) => p.name.startsWith("Stone-Gonzalez"))!
+    const blockers = traceCurrentBlockers({ kind: "project", id: project.id }, graph)
+    const deepest = nextActionable(blockers)!
+    expect(deepest.dependencyPath.length).toBeGreaterThanOrEqual(4)
+    expect(deepest.dependencyPath[0]).toEqual({ kind: "project", id: project.id })
   })
 })

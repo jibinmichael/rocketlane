@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { DeterministicInterpreter } from "@/core/agent/intent/deterministic"
 import { ground } from "@/core/agent/intent/ground"
+import { reconcile } from "@/core/agent/intent/reconcile"
 import type { InterpretationContext } from "@/core/agent/intent/intent"
 import { ingestFixture } from "../helpers/fixtures"
 
@@ -178,5 +179,104 @@ describe("DeterministicInterpreter + ground", () => {
     expect(intent.kind).toBe("complete_target")
     if (intent.kind === "complete_target")
       expect(intent.targets).toHaveLength(graph.projects.length)
+  })
+})
+
+describe("scope is never widened silently (spec §0.10)", () => {
+  const det = new DeterministicInterpreter()
+  const real = ingestFixture("rocketlane-export").graph
+  const idleCtx = { entityNames: [], hasActiveMission: false, pendingDecision: null } as const
+  const robert = real.actors.find((a) => a.name === "Robert Oconnell")!
+
+  it("'Mark all my projects as completed.' resolves to the actor's own projects, not the workspace", () => {
+    const u = "Mark all my projects as completed."
+    const intent = ground(det.interpret(u, idleCtx), u, real, { actorId: robert.id })
+    expect(intent.kind).toBe("complete_target")
+    if (intent.kind !== "complete_target") return
+    expect(intent.targets.length).toBe(real.projects.filter((p) => p.ownerId === robert.id).length)
+    expect(intent.targets.length).toBeLessThan(real.projects.length)
+  })
+
+  it("'complete all projects' still means the whole workspace", () => {
+    const u = "complete all projects"
+    const intent = ground(det.interpret(u, idleCtx), u, real, { actorId: robert.id })
+    expect(intent.kind === "complete_target" && intent.targets.length).toBe(real.projects.length)
+  })
+
+  it("'my projects' for an actor who owns none is a clear reply, not an empty batch", () => {
+    const member = real.actors.find((a) => a.role !== "owner")!
+    const u = "complete my projects"
+    const intent = ground(det.interpret(u, idleCtx), u, real, { actorId: member.id })
+    expect(intent).toMatchObject({ kind: "unsupported", reason: "none_owned" })
+  })
+
+  it("assignee and date scoping are named as unsupported, not as out of the product's scope", () => {
+    const u = "Wrap up all tasks assigned to John before the end of the week."
+    const intent = ground(det.interpret(u, idleCtx), u, real, { actorId: robert.id })
+    expect(intent).toMatchObject({ kind: "unsupported", reason: "unsupported_scope" })
+  })
+})
+
+describe("reconcile: the grammar vetoes a model result only when the sentence plainly carries more", () => {
+  const det = new DeterministicInterpreter()
+  const beacon = graph.projects.find((p) => p.name === "Beacon Rollout")!
+  const confirm: InterpretationContext = {
+    entityNames: [],
+    hasActiveMission: true,
+    pendingDecision: "confirm_step",
+  }
+  const local = (u: string) => ground(det.interpret(u, confirm), u, graph, { projectId: beacon.id })
+  const bare = (kind: "continue" | "approve" | "decline" | "cancel", utterance: string) =>
+    ({ kind, utterance, source: "model" }) as const
+
+  it("'actually leave Handover open' beats a bare continue", () => {
+    const u = "actually leave Handover open"
+    expect(reconcile(bare("continue", u), local(u)).kind).toBe("change_scope")
+  })
+
+  it("a bare 'yes' from the model stands: the grammar carries nothing more", () => {
+    const u = "yes"
+    expect(reconcile(bare("approve", u), local(u)).kind).toBe("approve")
+  })
+
+  it("a model 'unsupported' loses to a grammar hit; a grammar miss lets the model stand", () => {
+    const u = "complete Beacon Rollout"
+    const unsupported = {
+      kind: "unsupported",
+      reason: "out_of_scope",
+      query: null,
+      utterance: u,
+      source: "model",
+    } as const
+    expect(reconcile(unsupported, local(u)).kind).toBe("complete_target")
+    const free = "could you wrap things up for the Beacon account please"
+    const modelTargets = {
+      kind: "complete_target",
+      targets: [{ kind: "project", id: beacon.id }],
+      utterance: free,
+      source: "model",
+    } as const
+    expect(reconcile(modelTargets, local(free))).toBe(modelTargets)
+  })
+
+  it("'mine' is a scope even when the model also returned a span", () => {
+    const real = ingestFixture("rocketlane-export").graph
+    const robert = real.actors.find((a) => a.name === "Robert Oconnell")!
+    const u = "Mark all my projects as completed."
+    const intent = ground(
+      {
+        kind: "complete_target",
+        targetSpans: [{ start: 9, end: 24 }],
+        hours: null,
+        all: false,
+        mine: true,
+        confidence: 0.8,
+        source: "model",
+      },
+      u,
+      real,
+      { actorId: robert.id },
+    )
+    expect(intent.kind === "complete_target" && intent.targets.length).toBe(2)
   })
 })
