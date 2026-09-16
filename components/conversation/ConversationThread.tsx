@@ -92,6 +92,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                     index={j}
                     frozen
                     actionTaken={entry.actionTaken}
+                    isLast={j === entry.blocks.length - 1}
                     onAction={onAction}
                   />
                 ))}

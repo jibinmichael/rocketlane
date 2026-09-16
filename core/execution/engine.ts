@@ -635,18 +635,29 @@ export class MissionEngine {
       summary: change.summary,
       actorId: change.actorId,
       affectedStepIds: affected,
+      replan: null,
     }
     this.emit(mission, "MISSION_PAUSED", [change.ref], {
       reason: "STATE_CHANGED",
       summary: change.summary,
     })
+    const planned = mission.plan.filter((s) => s.transition === "COMPLETED").length
     const paused: Mission = {
       ...mission,
       state: "STALE",
       pending: null,
       stateChanges: [...mission.stateChanges, notice],
     }
-    return this.replan(paused, graph, "state_change")
+    const replanned = this.replan(paused, graph, "state_change")
+    const kept = replanned.plan.filter(
+      (s) =>
+        s.transition === "COMPLETED" &&
+        (s.status === "pending" || s.status === "succeeded" || s.status === "already_complete"),
+    ).length
+    const notices = replanned.stateChanges.map((n, i) =>
+      i === replanned.stateChanges.length - 1 ? { ...n, replan: { kept, planned } } : n,
+    )
+    return { ...replanned, stateChanges: notices }
   }
 
   // ---------------------------------------------------------------------------------------------

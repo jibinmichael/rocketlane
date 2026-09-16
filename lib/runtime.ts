@@ -639,7 +639,7 @@ export class Runtime {
             await this.act(missionId!, {
               kind: "approve",
               stepId: mission.pending.stepId,
-              label: "Confirm",
+              label: "Complete project",
               impact: "high",
             })
           else if (mission?.pending?.kind === "confirm_plan")
@@ -711,7 +711,7 @@ export class Runtime {
 }
 
 function blockKey(block: Block): string {
-  return `${block.type}|${JSON.stringify(block.lines)}|${JSON.stringify(block.actions.map((a) => a.kind + ("stepId" in a ? a.stepId : "")))}`
+  return `${block.type}|${JSON.stringify(block.lines)}`
 }
 
 function isTerminalState(state: Mission["state"]): boolean {

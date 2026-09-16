@@ -1,10 +1,10 @@
 # Rocketlane Governance Agent
 
-A project governance agent: a reliable action-taking system whose primary interface happens to be conversational. You state an outcome ("Mark Acme Implementation as completed"); the system resolves the target, checks governance, traces dependencies, exposes the shortest useful path, lets you act inside the conversation, executes with verification, pauses when the world changes, and lands the mission with an auditable record.
+A project governance agent: a reliable action-taking system whose primary interface happens to be conversational. You state an outcome ("Mark Acme Implementation as completed"); the system resolves the target, checks the four governance policies, traces dependencies, shows the shortest useful path, lets you act inside the conversation, executes with verification, pauses when the world changes, and lands the mission with an auditable record.
 
 > Make the complexity disappear. Never make the consequences disappear.
 
-**Status:** build step 02 of 25. The engine and conversation surface are being built in a locked order; see [docs/agent-context/05-build-ledger.md](docs/agent-context/05-build-ledger.md) for what exists today.
+Built in one day against [the spec](docs/spec/ROCKETLANE_AGENT_BUILD_SPEC.md). Status per step: [build ledger](docs/agent-context/05-build-ledger.md). Interview walkthrough: [demo script](docs/demo-script.md).
 
 ## Operating model
 
@@ -12,14 +12,16 @@ A project governance agent: a reliable action-taking system whose primary interf
 USER GOAL → INTENT + SCOPE → CONTEXT → PLAN → GOVERNANCE → DEPENDENCY RESOLUTION → EXECUTION → REVALIDATION → RESULT
 ```
 
-The model (Claude) is used for one thing: turning a sentence into a structured, span-grounded intent. Everything after that is deterministic code that owns state, enforces the four supplied governance policies, executes writes, verifies them by re-reading, and revalidates before every next step. The model is never the authority. A deterministic interpreter is the fallback and the oracle, so the app runs without an API key and evaluation stays reproducible.
+The model (Claude, optional) does one thing: it turns a sentence into a closed intent plus spans of that sentence. It never names entities, never sees project content as instructions, and nothing it returns is executable. Deterministic code grounds spans to ids, derives every step from the dependency closure, enforces the policies, writes, verifies by re-reading, and revalidates before each next step. A deterministic interpreter is the fallback and the oracle, so the app runs without a key and evaluation stays reproducible.
 
-The four governance policies (from the brief, the only ones that exist):
+The four governance policies (from the brief; the only ones that exist):
 
 1. A project cannot be completed until all milestones are complete.
 2. A milestone cannot be completed while it has open subtasks.
 3. A task cannot be completed while a predecessor is incomplete.
 4. A task cannot be completed without time logged.
+
+Where the brief is silent (for example what the `NA` status means) the interpretation is a documented switch, shown on the Policies page, never a hidden constant.
 
 ## Run it
 
@@ -27,48 +29,51 @@ Prerequisites: Node 20+ and pnpm 10+.
 
 ```bash
 pnpm install
-cp .env.example .env.local        # optional: add ANTHROPIC_API_KEY for the model interpreter
+cp .env.example .env.local        # optional: ANTHROPIC_API_KEY enables the model interpreter
 pnpm dev                          # http://localhost:3000
 ```
 
-Without a key the agent runs on the deterministic interpreter and says so in its flight status.
+Without a key the agent runs on the deterministic interpreter and the mission band says so.
 
 ## Test it
 
 ```bash
-pnpm test              # unit, integration, scenario and regression suites
+pnpm test              # 89 tests: unit, type-level, integration, scenarios
 pnpm typecheck && pnpm lint && pnpm build
 ```
 
+Results and the failures found along the way: [docs/test-results](docs/test-results/2026-09-16-build-day.md).
+
 ## Load a dataset
 
-Open **Test Lab** and upload either the two-file Rocketlane export (`projects.csv`, `tasks.csv`) or the brief's five-file shape (`projects, phases, tasks, dependencies, time_entries`). The ingestion report lists every rejected row, warning and finding. The supplied export lives in [fixtures/rocketlane-export](fixtures/rocketlane-export). *(Arrives at build step 18–19.)*
+**Test Lab → Dataset.** Load the demo workspace, the real masked Rocketlane export (`fixtures/rocketlane-export`), or upload your own two-file export (`projects.csv` + `tasks.csv`). Files are parsed in the browser; nothing leaves your machine. The ingestion report lists every rejected row, warning and finding. Name-based predecessors are resolved by longest match and fail closed.
 
 ## Run the evaluation
 
-In **Test Lab**, pick or author a scenario (dataset, actor, turns, scripted world changes, fault injection, expected outcome) and run it. Assertions are machine-checkable: no policy violation, no unauthorized write, no unverified completion, no scope expansion, no stale plan executed, final state equals expected. Failures become regression records under `tests/regression`. *(Arrives at build step 20–21.)*
+**Test Lab → Scenarios.** Eleven built-in scenarios run through an isolated engine (fresh system of record, virtual clock) that is the same core the conversation uses. Assertions are machine-checkable: no policy violation, no unauthorized write, no unverified completion, no scope expansion, no stale plan executed, final states, outcome. Weaken any policy in the engine and the evaluator, which judges every write against the reference policies, flags it and produces a regression record. **Play** runs a scenario through the live conversation; `/lab?run=<scenarioId>` does the same by URL.
 
 ## Where the logic lives
 
-- `core/` — the framework-free engine (domain, governance, resolver, mission, agent, execution, system, ingestion, telemetry, routine, evaluation). See [core/README.md](core/README.md).
-- `components/` and `app/` — React renders mission and system state; it owns no domain state.
-- `fixtures/` — datasets and scenarios as data.
-- `tests/` — vitest.
+- `core/` — the framework-free engine. [Architecture overview](docs/architecture/overview.md) and [module contract](docs/agent-context/02-architecture-contract.md).
+- `components/`, `app/`, `hooks/`, `lib/runtime.ts` — React renders mission and system state; it owns no domain state.
+- `fixtures/` — datasets as data. `tests/` — vitest.
+- `docs/agent-context/` — the anti-drift docs any contributor (human or agent) reads first.
 
 ## Key decisions
 
-- [ADR 0004](docs/adr/0004-framework-free-core-engine.md) — framework-free `core/` with an enforced import boundary
-- [ADR 0005](docs/adr/0005-deterministic-intent-interpreter.md) — model for language, deterministic grounding and fallback, enforcement never swappable
-- [ADR 0006](docs/adr/0006-in-memory-system-of-record.md) — in-memory, versioned, fault-injectable system of record behind a port
-- The full decision log: [docs/agent-context/03-decisions-locked.md](docs/agent-context/03-decisions-locked.md)
-- The build spec (source of truth): [docs/spec/ROCKETLANE_AGENT_BUILD_SPEC.md](docs/spec/ROCKETLANE_AGENT_BUILD_SPEC.md)
+- [ADR 0004](docs/adr/0004-framework-free-core-engine.md) framework-free `core/` with an enforced import boundary
+- [ADR 0005](docs/adr/0005-deterministic-intent-interpreter.md) model for language only, deterministic grounding and fallback, enforcement never swappable
+- [ADR 0006](docs/adr/0006-in-memory-system-of-record.md) in-memory, versioned, fault-injectable system of record behind a port
+- The full decision log with assumptions: [docs/agent-context/03-decisions-locked.md](docs/agent-context/03-decisions-locked.md)
 
 ## Known limitations
 
-- Single-browser truth: the system of record is in memory, persisted per browser. A second tab is the stand-in for an external change; there is no shared server.
-- Routine checks run on a browser scheduler; "every morning" fires only while a tab is open, with one catch-up on reload.
-- Permissions are an abstract role boundary (owner / member / viewer), not Rocketlane's real model.
-- Interpretations the brief does not settle (for example how `NA` status counts) are switches, listed as assumptions in the decision log.
+- **Routine checks and notifications** are designed (D-24) but not built. The home inbox orders missions that need you first; scheduled missions do not exist yet.
+- **Single-browser truth.** The system of record is in memory, persisted per browser. A second tab is a real external actor via `BroadcastChannel`; there is no shared server.
+- **Permissions** are an abstract role boundary (owner / member / viewer), ours, not Rocketlane's.
+- **Ingestion** accepts the two-file Rocketlane export. The brief's five-file shape is designed, not built.
+- **Model interpreter** is implemented but was not exercised live during the build (no key present). Fallback is exercised by construction.
+- **Not built:** scale dataset generator, replay cassettes for model answers, scenario authoring UI, dark-mode review.
 
 ## Contributing
 

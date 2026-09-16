@@ -109,7 +109,14 @@ export function renderMission(
 
   // 6. State changes (course correction)
   for (const notice of mission.stateChanges) {
-    const affected = mission.plan.filter((s) => notice.affectedStepIds.includes(s.id))
+    const affectedSteps = mission.plan.filter((s) => notice.affectedStepIds.includes(s.id))
+    const seenRefs = new Set<string>()
+    const affected = affectedSteps.filter((s) => {
+      const key = `${s.ref.kind}:${s.ref.id}`
+      if (seenRefs.has(key)) return false
+      seenRefs.add(key)
+      return true
+    })
     blocks.push(
       block(
         "state_change",
@@ -142,18 +149,14 @@ export function renderMission(
           : [],
       ),
     )
-    if (mission.state !== "STALE") {
-      const kept = mission.plan.filter(
-        (s) =>
-          s.status === "pending" || s.status === "succeeded" || s.status === "already_complete",
-      ).length
+    if (mission.state !== "STALE" && notice.replan) {
       blocks.push(
         block("replanned", "neutral", [
           [
             text("Replanned. "),
-            count(kept),
+            count(notice.replan.kept),
             text(` of `),
-            count(mission.plan.length),
+            count(notice.replan.planned),
             text(" updates still apply."),
           ],
         ]),

@@ -25,12 +25,14 @@ export function ConversationBlockItem({
   index,
   frozen,
   actionTaken,
+  isLast = false,
   onAction,
 }: {
   block: Block
   index: number
   frozen: boolean
   actionTaken: string | null
+  isLast?: boolean
   onAction: (action: BlockAction, payload?: { hours?: number }) => void
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -131,8 +133,11 @@ export function ConversationBlockItem({
             )}
           </div>
         )}
-        {frozen && actionTaken && index === 0 && (
-          <span className="text-muted-foreground mt-1 text-[12px]">{actionTaken}</span>
+        {frozen && actionTaken && isLast && (
+          <span className="text-muted-foreground mt-1 inline-flex items-center gap-1.5 text-[12px]">
+            <span aria-hidden className="bg-state-completed size-1.5 rounded-full" />
+            {actionTaken}
+          </span>
         )}
       </div>
     </motion.li>

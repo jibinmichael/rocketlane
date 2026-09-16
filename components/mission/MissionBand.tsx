@@ -15,7 +15,7 @@ const SESSION_LABEL: Record<AgentSessionState, string> = {
   EXECUTING: "Updating",
   VERIFYING: "Verifying",
   RECHECKING: "Rechecking",
-  COMPLETED: "Landed",
+  COMPLETED: "Every update verified by re-read",
   ERROR: "Could not continue",
   CANCELLED: "Stopped",
 }
