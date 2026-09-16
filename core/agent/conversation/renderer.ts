@@ -83,7 +83,9 @@ export function renderMission(
     return blocks
   }
   const initialBlocked =
-    mission.plan.some((s) => s.transition === "TIME_LOGGED") || mission.blockers.length > 0
+    mission.state === "BLOCKED" ||
+    mission.plan.some((s) => s.transition === "TIME_LOGGED") ||
+    mission.blockers.length > 0
   if (initialBlocked && !mission.landedAt) {
     blocks.push(
       block("outcome.blocked", "blocked", [
@@ -464,6 +466,8 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
         ),
       ]
     case "CANCELLED": {
+      // A decline is its own record ("Not done. X stays open."); no second stop line.
+      if (mission.plan.some((s) => s.note === "declined by user")) return []
       const written = mission.plan.filter(
         (s) => s.status === "succeeded" && s.transition === "COMPLETED",
       ).length
