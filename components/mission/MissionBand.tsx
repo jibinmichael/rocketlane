@@ -15,6 +15,8 @@ const SESSION_LABEL: Record<AgentSessionState, string> = {
   EXECUTING: "In flight",
   VERIFYING: "Verifying",
   RECHECKING: "Course correction",
+  PAUSING: "Pausing · finishing the current update",
+  PAUSED: "Paused",
   COMPLETED: "Landed",
   ERROR: "Could not continue",
   CANCELLED: "Stopped",
@@ -27,6 +29,7 @@ const WORKING: ReadonlySet<AgentSessionState> = new Set([
   "EXECUTING",
   "VERIFYING",
   "RECHECKING",
+  "PAUSING",
 ])
 
 /**

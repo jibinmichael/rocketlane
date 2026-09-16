@@ -25,7 +25,11 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   const thread = snapshot.status === "ready" ? runtime.thread(missionId) : []
   const live = snapshot.status === "ready" ? runtime.liveBlocks(missionId) : []
   const session = runtime.session(missionId)
-  const executing = session === "EXECUTING" || session === "VERIFYING" || session === "RECHECKING"
+  const executing =
+    session === "EXECUTING" ||
+    session === "VERIFYING" ||
+    session === "RECHECKING" ||
+    session === "PAUSING"
 
   // Scroll rule: stick to bottom only when the user is already near it (spec §26 / UX contract).
   useEffect(() => {
@@ -50,11 +54,12 @@ export function ConversationThread({ missionId }: { missionId: string }) {
     })
   }
 
-  // Esc stops the mission from anywhere in the thread while it is executing (spec §11).
+  // Esc pauses the mission from anywhere in the thread while it is executing (spec §11). Pause
+  // controls future execution; it never cancels.
   useEffect(() => {
     if (!executing) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onAction({ kind: "cancel", label: "Stop" })
+      if (e.key === "Escape") onAction({ kind: "pause", label: "Pause" })
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
@@ -172,7 +177,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
         <div className="mx-auto w-full max-w-[720px]">
           <ConversationComposer
             onSend={(t) => void onSend(t)}
-            onStop={() => onAction({ kind: "cancel", label: "Stop" })}
+            onStop={() => onAction({ kind: "pause", label: "Pause" })}
             executing={executing}
             focusKey={mission?.pending?.kind === "input" ? mission.pending.stepId : null}
             placeholder={

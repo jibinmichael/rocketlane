@@ -22,7 +22,7 @@ const MODEL_ID = process.env["AGENT_MODEL"] || "claude-haiku-4-5"
 const SYSTEM_PROMPT = `You interpret one user sentence for a project governance agent. Return exactly one propose_intent tool call.
 
 Rules:
-- Choose the intent from the closed list. If the sentence is not about completing projects or tasks, logging time, explaining blockers, showing status or path, cancelling, continuing, approving, declining, changing scope, or creating a routine check, use "unsupported".
+- Choose the intent from the closed list. If the sentence is not about completing projects or tasks, logging time, explaining blockers, showing status or path, cancelling, pausing, continuing, approving, declining, changing scope, or creating a routine check, use "unsupported".
 - Never answer the user. Never add facts. You have no knowledge outside this sentence.
 - Entity references are SPANS: 0-based character offsets [start, end) into the utterance exactly as given. Do not return names.
 - "all" is true only for requests like "complete all projects".

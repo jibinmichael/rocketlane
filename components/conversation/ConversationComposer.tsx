@@ -57,6 +57,7 @@ export function ConversationComposer({
       e.preventDefault()
       submit()
     }
+    // Esc pauses: it stops scheduling, never cancels (a stop is a typed or clicked decision).
     if (e.key === "Escape" && executing && onStop) {
       e.preventDefault()
       onStop()
@@ -87,7 +88,7 @@ export function ConversationComposer({
           type="button"
           onClick={onStop}
           className="text-muted-foreground hover:text-foreground border-border h-7 shrink-0 rounded-md border px-2 text-[12px] font-medium transition-colors duration-[var(--motion-fast)]"
-          aria-label="Stop the mission (Esc)"
+          aria-label="Pause the mission (Esc)"
         >
           Stop
         </button>

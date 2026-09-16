@@ -41,6 +41,8 @@ export type AgentSessionState =
   | "EXECUTING"
   | "VERIFYING"
   | "RECHECKING"
+  | "PAUSING"
+  | "PAUSED"
   | "COMPLETED"
   | "ERROR"
   | "CANCELLED"
@@ -344,7 +346,10 @@ export class Runtime {
     if (busy) return busy
     const mission = this.mission(missionId)
     if (!mission) return "READY"
+    if (mission.pauseRequested) return "PAUSING"
     switch (mission.state) {
+      case "PAUSED":
+        return "PAUSED"
       case "READY":
         return "READY"
       case "ACTIVE":
@@ -622,6 +627,9 @@ export class Runtime {
           break
         case "cancel":
           this.engine.cancel(missionId)
+          break
+        case "pause":
+          this.engine.pause(missionId)
           break
         case "view_activity":
           break
