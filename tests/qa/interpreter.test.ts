@@ -107,7 +107,7 @@ const TABLE: Row[] = [
   ["check on Acme Implementation every morning", "create_routine"],
   ["daily check Acme", "create_routine"],
   ["what is the weather", "unsupported"],
-  ["hello", "unsupported"],
+  ["hello", "help"],
   ["", "unsupported"],
   ["   ", "unsupported"],
   ["complete", "unsupported"],

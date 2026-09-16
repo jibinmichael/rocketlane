@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+
+import { placementClass, useCardPlacement } from "@/hooks/use-card-placement"
 import Image from "next/image"
 
 import { LinearIcon, type LinearIconName } from "@/components/shared/LinearIcon"
@@ -196,6 +198,7 @@ function ProjectHover({
   graph: WorkspaceGraph | null
   children: React.ReactNode
 }) {
+  const { placement, place } = useCardPlacement(320, 190)
   const project = graph?.project(id) ?? null
   if (!project || !graph) return <>{children}</>
   const tasks = graph.tasksOf(project.id)
@@ -211,13 +214,20 @@ function ProjectHover({
   if (project.customerName) facts.unshift(["Customer", project.customerName])
   if (project.dueDate) facts.push(["Due", project.dueDate])
   return (
-    <span className="group/project relative inline-block">
+    <span
+      className="group/project relative inline-block"
+      onMouseEnter={(e) => place(e.currentTarget)}
+      onFocus={(e) => place(e.currentTarget)}
+    >
       <span tabIndex={0} className="cursor-help rounded-full outline-none">
         {children}
       </span>
       <span
         role="tooltip"
-        className="bg-card text-card-foreground border-border pointer-events-none absolute top-full left-0 z-30 mt-1.5 hidden w-max max-w-[320px] flex-col gap-1 rounded-lg border px-3 py-2 text-[12px] shadow-[var(--shadow-lg)] group-focus-within/project:flex group-hover/project:flex"
+        className={cn(
+          "bg-card text-card-foreground border-border pointer-events-none absolute z-30 hidden w-max max-w-[320px] flex-col gap-1 rounded-lg border px-3 py-2 text-[12px] shadow-[var(--shadow-lg)] group-focus-within/project:flex group-hover/project:flex",
+          placementClass(placement),
+        )}
       >
         <span className="text-foreground font-medium">{project.name}</span>
         {facts.map(([k, v]) => (

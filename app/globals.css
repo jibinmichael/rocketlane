@@ -7,6 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-agent: var(--agent);
   --font-sans:
     -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
@@ -124,6 +125,8 @@
 :root {
   --background: oklch(0.988 0 0);
   --foreground: #26273b;
+  /* The mark's purple: the one accent a control may carry (active send). */
+  --agent: #6a2be8;
   --card: oklch(1 0 0);
   --card-foreground: #26273b;
   --popover: oklch(1 0 0);

@@ -48,6 +48,7 @@ export function ground(
     case "approve":
     case "decline":
     case "show_status":
+    case "help":
       return { kind: proposal.kind, utterance, source }
     case "unsupported":
     case "ambiguous":
@@ -142,7 +143,8 @@ function asksForUnsupportedScope(utterance: string): boolean {
 
 /** "why is it blocked?" — a pronoun is a reference to the current mission, never a name to look up. */
 function isPronoun(text: string): boolean {
-  return /^(?:is\s+)?(?:it|this|that|the\s+(?:project|task|mission))?\s*(?:blocked|stuck)?\s*$/i.test(
+  // "why can't you do that?", "can you explain?", "what's blocking this?": about the mission, not a name.
+  return /^(?:is\s+)?(?:can'?t|couldn'?t|won'?t|didn'?t|not)?\s*(?:you\s+)?(?:do|help|complete|finish|act|explain)?\s*(?:with\s+|on\s+)?(?:it|this|that|the\s+(?:project|task|mission))?\s*(?:blocked|stuck)?\s*\??\s*$/i.test(
     text.trim(),
   )
 }

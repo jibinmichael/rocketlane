@@ -255,9 +255,7 @@ export function ConversationComposer({
                 transition={springEnter}
                 className={cn(
                   "flex size-8 shrink-0 items-center justify-center rounded-full transition-[background,color,transform] duration-[var(--motion-normal)]",
-                  hasText && !disabled
-                    ? "bg-foreground text-background"
-                    : "bg-muted text-muted-foreground",
+                  hasText && !disabled ? "bg-agent text-white" : "bg-muted text-muted-foreground",
                 )}
               >
                 <LinearIcon name="arrow-right" className="size-4" />

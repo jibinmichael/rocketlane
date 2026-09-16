@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useId, useState } from "react"
+
+import { placementClass, useCardPlacement } from "@/hooks/use-card-placement"
 import Image from "next/image"
 import { AnimatePresence, motion } from "motion/react"
 
@@ -396,9 +398,14 @@ function EvidenceHover({
   children: React.ReactNode
 }) {
   const tipId = useId()
+  const { placement, place } = useCardPlacement(360, 220)
   if (!evidence || evidence.length === 0) return <>{children}</>
   return (
-    <span className="group/evidence relative inline-flex">
+    <span
+      className="group/evidence relative inline-flex"
+      onMouseEnter={(e) => place(e.currentTarget)}
+      onFocus={(e) => place(e.currentTarget)}
+    >
       <span
         tabIndex={0}
         aria-describedby={tipId}
@@ -409,7 +416,10 @@ function EvidenceHover({
       <span
         id={tipId}
         role="tooltip"
-        className="bg-card text-card-foreground border-border pointer-events-none absolute top-full left-0 z-30 mt-1.5 hidden w-max max-w-[360px] flex-col gap-1 rounded-lg border px-3 py-2 text-[12px] shadow-[var(--shadow-lg)] group-focus-within/evidence:flex group-hover/evidence:flex"
+        className={cn(
+          "bg-card text-card-foreground border-border pointer-events-none absolute z-30 hidden w-max max-w-[360px] flex-col gap-1 rounded-lg border px-3 py-2 text-[12px] shadow-[var(--shadow-lg)] group-focus-within/evidence:flex group-hover/evidence:flex",
+          placementClass(placement),
+        )}
       >
         {evidence.map((line, i) => (
           <span key={i} className="flex items-baseline gap-2">

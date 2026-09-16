@@ -1334,14 +1334,51 @@ export function renderIntentReply(
       }
       return [
         block("boundary", "neutral", [
-          [text("I can only act on projects, tasks and governance in this workspace.")],
+          [
+            text(
+              "That one's outside what I do here. I get project work done: I check governance, trace dependencies, resolve blockers, make the authorized updates and verify the result.",
+            ),
+          ],
+          [text("Tell me the outcome you want and I'll take it from there.")],
         ]),
       ]
+    case "help": {
+      if (mission && !isTerminal(mission) && mission.targets[0]) {
+        return [
+          block("status", "neutral", [
+            [
+              text("Right now I'm working on "),
+              entity(
+                mission.targets[0],
+                mission.targetLabels[0] ?? labelOf(mission.targets[0], graph),
+              ),
+              text(
+                ". You can ask what's blocking it, tell me to pause, answer what I've asked for, or state another outcome.",
+              ),
+            ],
+          ]),
+        ]
+      }
+      return [
+        block("status", "neutral", [
+          [
+            text(
+              "I can help you get project work done: check governance, trace dependencies, resolve blockers, make authorized updates and verify the result.",
+            ),
+          ],
+          [text("Tell me what you want done and I'll take it from there.")],
+        ]),
+      ]
+    }
     case "show_status": {
       if (!mission)
         return [
           block("status", "neutral", [
-            [text("No mission is running. Tell me what you want done.")],
+            [
+              text(
+                "Nothing is running right now. Tell me the outcome you want and I'll start on it.",
+              ),
+            ],
           ]),
         ]
       const writes = mission.plan.filter((s) => s.transition === "COMPLETED")
@@ -1364,7 +1401,7 @@ export function renderIntentReply(
       if (!mission)
         return [
           block("status", "neutral", [
-            [text("No mission is running. Name a project and I'll trace the path for you.")],
+            [text("Nothing is running right now. Name a project and I'll trace the path for you.")],
           ]),
         ]
       const blocker = nextActionable(mission.blockers)
@@ -1392,11 +1429,28 @@ export function renderIntentReply(
       if (!mission)
         return [
           block("status", "neutral", [
-            [text("No mission is running. Name a project and I'll tell you what's blocking it.")],
+            [
+              text(
+                "Nothing is running right now. Name a project and I'll tell you what stands in its way.",
+              ),
+            ],
           ]),
         ]
       const blocker = nextActionable(mission.blockers)
-      if (!blocker) return [block("status", "neutral", [[text("Nothing is blocked right now.")]])]
+      if (!blocker) {
+        // "Why can't you?" after the mission ended: the ending is the answer.
+        const target = mission.targets[0]
+        const ending =
+          target && isTerminal(mission)
+            ? renderTerminal(
+                { mission, graph, events: [] },
+                target,
+                mission.targetLabels[0] ?? labelOf(target, graph),
+              )
+            : []
+        if (ending.length > 0) return ending
+        return [block("status", "neutral", [[text("Nothing is blocked right now.")]])]
+      }
       return renderBlockerChain({ mission, graph, events: [] }, blocker)
     }
     case "change_scope": {
