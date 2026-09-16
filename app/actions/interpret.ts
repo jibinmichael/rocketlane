@@ -17,7 +17,7 @@ import {
  * The key lives server-side only. Returning null makes the runtime fall back, visibly.
  */
 
-const MODEL_ID = process.env["AGENT_MODEL"] ?? "claude-haiku-4-5"
+const MODEL_ID = process.env["AGENT_MODEL"] || "claude-haiku-4-5"
 
 const SYSTEM_PROMPT = `You interpret one user sentence for a project governance agent. Return exactly one propose_intent tool call.
 
@@ -79,7 +79,6 @@ export async function interpretUtterance(
               kind: { type: "string", enum: [...INTENT_KINDS] },
               targetSpans: {
                 type: "array",
-                maxItems: 4,
                 items: {
                   type: "object",
                   additionalProperties: false,
