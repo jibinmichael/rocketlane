@@ -42,11 +42,13 @@ describe("Runtime — the conversation surface end to end, headless", () => {
     expect(rt.thread(id).map((e) => e.kind)).toEqual(["user"])
 
     const input = live.find((b) => b.type === "action_request.input")!
-    await rt.act(id, input.actions[0]!, { hours: 2 })
-    // The input block froze into the thread with the decision recorded; live shows only what is new.
+    expect(input.actions).toEqual([])
+    // The value is given in the conversation, the way a person would say it.
+    await rt.send("2 hours", id)
+    // The narrative froze into the thread; the ask itself is answered, so nothing is left waiting.
     const frozen = rt.thread(id).filter((e) => e.kind === "agent")
-    expect(frozen).toHaveLength(1)
-    expect(frozen[0]!.kind === "agent" && frozen[0]!.actionTaken).toBe("Logged 2h by Priya Raman")
+    expect(frozen.length).toBeGreaterThanOrEqual(1)
+    expect(rt.mission(id)?.pending?.kind).toBe("confirm_step")
     live = rt.liveBlocks(id)
     expect(live.map((b) => b.type).filter((t) => t === "result.verified")).toHaveLength(6)
     expect(live[live.length - 1]!.type).toBe("action_request.confirm")
@@ -63,7 +65,7 @@ describe("Runtime — the conversation surface end to end, headless", () => {
     const rt = makeRuntime()
     await rt.boot()
     const id = (await rt.send("complete acme", null))!
-    expect(rt.mission(id)?.pending?.kind).toBe("input_hours")
+    expect(rt.mission(id)?.pending?.kind).toBe("input")
     await rt.send("2h", id)
     expect(rt.mission(id)?.pending?.kind).toBe("confirm_step")
     await rt.send("yes", id)

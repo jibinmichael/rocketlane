@@ -16,7 +16,7 @@ const idle: InterpretationContext = {
 const waitingHours: InterpretationContext = {
   ...idle,
   hasActiveMission: true,
-  pendingDecision: "input_hours",
+  pendingDecision: "input",
 }
 const waitingConfirm: InterpretationContext = {
   ...idle,

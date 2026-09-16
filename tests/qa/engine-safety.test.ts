@@ -29,7 +29,7 @@ async function acmeAtHours(h = harness()) {
     h.propose(priya, "Complete Acme", [h.project("Acme Implementation")]),
     { datasetId: "x" },
   )
-  expect(mission.pending?.kind).toBe("input_hours")
+  expect(mission.pending?.kind).toBe("input")
   return { h, mission, priya }
 }
 
@@ -198,7 +198,7 @@ describe("engine — cancel / scope / resume on odd states", () => {
     let mission = await h.engine.start(h.propose(priya, "Complete Documentation", [doc]), {
       datasetId: "x",
     })
-    expect(mission.pending?.kind).toBe("input_hours")
+    expect(mission.pending?.kind).toBe("input")
     mission = await h.engine.changeScope(mission.id, doc)
     expect(h.sor.current().task(doc.id as never)?.status).toBe("TODO")
     expect(mission.state).not.toBe("COMPLETED")
@@ -225,7 +225,7 @@ describe("engine — cancel / scope / resume on odd states", () => {
     const { h, mission } = await acmeAtHours()
     const count = changes(h)
     const after = await h.engine.resume(mission.id)
-    expect(after.pending?.kind).toBe("input_hours")
+    expect(after.pending?.kind).toBe("input")
     expect(changes(h)).toBe(count)
   })
 
@@ -532,7 +532,7 @@ describe("engine — odd targets", () => {
     const mission = await h.engine.start(h.propose(priya, "Complete Documentation", [doc]), {
       datasetId: "x",
     })
-    expect(mission.pending?.kind).toBe("input_hours")
+    expect(mission.pending?.kind).toBe("input")
     await h.sor.externalWrite(
       { kind: "set_task_status", taskId: doc.id as never, status: "COMPLETED" },
       priya.id,

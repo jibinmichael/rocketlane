@@ -286,12 +286,15 @@ describe("renderer — robustness across every reachable mission state", () => {
     }
   })
 
-  it("a mission waiting for a decision always renders exactly one action-bearing request block", async () => {
+  it("a mission waiting for a decision always renders exactly one request block; decisions carry buttons, inputs are answered in the composer", async () => {
     for (const s of await reachable()) {
       if (!s.mission.pending) continue
-      const requests = render(s).filter((b) => b.type.startsWith("action_request"))
+      const requests = render(s).filter(
+        (b) => b.type.startsWith("action_request") || b.type === "notification.blocked",
+      )
       expect(requests, s.name).toHaveLength(1)
-      expect(requests[0]!.actions.length, s.name).toBeGreaterThan(0)
+      if (s.mission.pending.kind === "input") expect(requests[0]!.actions, s.name).toEqual([])
+      else expect(requests[0]!.actions.length, s.name).toBeGreaterThan(0)
     }
   })
 

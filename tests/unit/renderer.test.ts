@@ -60,11 +60,14 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
       "6 updates to complete [Acme Implementation]. First: log time on [QA Complete].",
     )
     expect(flat(blocks[3]!.lines)).toBe(
-      "I need hours for [QA Complete].\nIt's assigned to Mei Tanaka; hours you enter are recorded as yours.",
+      [
+        "[QA Complete] has no logged time. Policy 4 requires hours before completion.",
+        "How many hours should I log for [QA Complete]?",
+        "QA Complete is assigned to Mei Tanaka; I'll record the hours as yours, Priya Raman.",
+      ].join("\n"),
     )
-    expect(blocks[3]!.actions).toEqual([
-      { kind: "log_time", stepId: mission.plan[0]!.id, label: "Log time" },
-    ])
+    // The composer is the input: the ask carries no form and no button.
+    expect(blocks[3]!.actions).toEqual([])
     // No banned words anywhere.
     const all = blocks.map((b) => flat(b.lines)).join(" ")
     expect(all).not.toMatch(/thinking|oops|great news|snag|AI\b/i)

@@ -22,9 +22,10 @@ describe("MissionEngine — hero journey: Mark Acme Implementation as completed"
     )
 
     expect(mission.state).toBe("WAITING")
-    expect(mission.pending).toEqual({
-      kind: "input_hours",
+    expect(mission.pending).toMatchObject({
+      kind: "input",
       stepId: stepByLabel(mission, "QA Complete", "TIME_LOGGED").id,
+      input: { field: "hours", policyId: "P4_TASK_TIME", reasonCode: "NO_TIME_LOGGED" },
     })
     // Every step is derived from the closure; the model never supplied any of them.
     expect(mission.plan.map((s) => `${s.label}:${s.transition}`)).toEqual([
