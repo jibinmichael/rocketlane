@@ -35,7 +35,8 @@ Boundaries are the point: lanes cannot collide, cannot "fix" core while another 
 
 - Lanes reported: UX 30 findings, code quality 30, stress fixtures 10 datasets + 35 tests, adversarial 216 tests (22 red).
 - All lane tests pass: 342 tests, 21 files. Core has zero `as never`; tests still use it in helpers (allowed).
-- Not met yet, carried forward: one conductor for runtime and runner (R1); zod-validated `localStorage` shapes; typed step notes instead of strings; a11y pass (`aria-describedby`, focus to first action); dark-mode review (R9).
+- Done in the Staff review that followed: conductor (R1), validated persistence, typed step notes, described hours input + live region, first committed regression record (R7), real-export cascade scenario (R11 as a scenario). Focus is not moved programmatically: the QA lane showed focus theft while typing; new blocks are announced instead.
+- Still open: dark-mode review (R9), path-contraction motion (R8), routines (R3–R4), replay cassettes (R5), scenario authoring (R6).
 
 ## Remaining build order (after QA)
 

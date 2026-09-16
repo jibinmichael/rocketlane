@@ -23,6 +23,14 @@ USER GOAL → INTENT + SCOPE → CONTEXT → PLAN → GOVERNANCE → DEPENDENCY 
 | Rendering | `core/agent/conversation` | mission state → typed blocks with entity/policy/count/time slots | free-form prose |
 | UI | `components/`, `app/`, `hooks/`, `lib/runtime.ts` | React over the runtime snapshot; composition root | domain state |
 
+## Interpretation: model proposes, grammar can veto
+
+Both interpreters see every sentence. The deterministic grammar is high precision and narrow; the model handles free text. Both results are grounded to entity refs, then `core/agent/intent/reconcile.ts` decides: the grammar wins only when the model found nothing usable or reduced a sentence that names a target to a bare decision. Everything else is the model's call, and the band says which one answered.
+
+## One turn, one conductor
+
+`core/agent/conductor.ts` maps a grounded `Intent` to exactly one engine command (start, provide hours, approve, decline, cancel, resume, change scope) or to a reply. The live runtime and the scenario runner both call it, so the Lab exercises the same routing the conversation uses. The conductor depends on a structural `MissionCommands` port, not on the engine class, which keeps `core/agent` free of execution imports.
+
 ## Boundaries that are enforced, not described
 
 - ESLint forbids React/Next/motion inside `core/`, relative parent imports inside `core/`, and `core/agent` importing `core/execution` or `core/system` (`eslint.config.mjs`).
@@ -30,6 +38,8 @@ USER GOAL → INTENT + SCOPE → CONTEXT → PLAN → GOVERNANCE → DEPENDENCY 
 - The evaluator wraps the system of record and judges every write against `SUPPLIED_POLICIES` at write time, independent of the engine's configuration. Weakening the engine is caught (`tests/scenarios/built-in.test.ts`).
 
 ## Safe execution loop
+
+Every completion write leaves four events in order for its entity: `PERMISSION_CHECKED`, `POLICY_CHECKED`, `ACTION_STARTED`, `ACTION_COMPLETED` with `verified: true`. `tests/integration/write-order.test.ts` asserts that order over the audit log rather than over implementation details.
 
 ```
 step

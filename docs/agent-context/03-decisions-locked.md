@@ -66,6 +66,10 @@ Decisions already made. Do not re-open them in a later session without the human
 
 **A-05 · High-impact actions requiring explicit confirmation:** completing a project; completing a project with zero tasks on record; any batch (one confirmation for the whole set with per-item opt-out); any action on a project the actor does not own. Everything else is `SAFE_WRITE`.
 
+**A-08 · "Is this a Billing Milestone?" is the milestone flag.** It is the only milestone marker in the export; the brief's "milestone tasks" map to it. Configurable at ingestion.
+
+**A-09 · Project status "Not Started"** (named in the brief, absent from the export) parses as an open, non-completed status and behaves like In Progress for governance.
+
 **A-07 · Time is recorded as `AddTimeEntry { taskId, hours, actorId, at }`;** `hoursTracked` is the derived sum. The export seeds one synthetic entry per task with hours > 0, attributed to `import`. Configurable.
 
 **A-06 · The human commits.** The agent prepares conventional-commit-sized changes and proposes messages; `git init` and commits are executed by the human unless they say otherwise (CLAUDE.md §7).
@@ -96,6 +100,12 @@ Found by the adversarial QA lanes; each changes observable behaviour, so it is r
 | Q-06 | A target the world completed while the mission waited lands **already complete**, not Failed; "completed before scope change" is only written when the scope changed. | Honest reporting. |
 | Q-07 | Cancel is honoured while a step is in flight: a terminal mission is never revived by a stale copy, and no write starts after a stop. | Spec §11. |
 | Q-08 | "yes please", "ok go ahead", "yes, do it" approve; "yes yes yes" does not. Pronoun tails ("why is it blocked?") are never looked up as names. | Grammar gaps; the model interpreter already handled these but the fallback did not. |
+| Q-09 | The hours request names the consequence: "It's assigned to {assignees}; hours you enter are recorded as yours." (or "Hours you enter are recorded as yours." when the actor is the assignee). | "Logged as Priya Raman." read as past tense and hid that a PM was logging time on someone else's task. North star. |
+| Q-10 | "my projects" means projects the acting user **owns**. It narrows `all`; it never widens. An actor who owns nothing gets "You don't own a project in this workspace." | The brief's headline example, "Mark all my projects as completed.", expanded to all 31 projects through the model path and failed through the deterministic one. Spec §0.10. |
+| Q-11 | Requests scoped by assignee or date ("assigned to John", "before end of week") answer "I can't scope by assignee or date yet", not the knowledge-boundary line. | Those requests are inside the product; saying "I can only act on projects, tasks and governance" was untrue. |
+| Q-13 | The grammar can veto the model, deterministically, in two cases only: the model returned nothing usable and the grammar found an intent; or the sentence names a target and the model reduced it to a bare decision (continue / approve / decline / cancel / status). The band then says "Interpreted locally". | Haiku read "actually leave Handover open" during a confirmation as "continue", and "Mark all my projects as completed." as a name lookup. The model proposes; it is not the authority (spec §3). |
+| Q-14 | A typed turn freezes the narrative but never an open decision: blocks with actions stay live and re-anchor below the reply. | Asking "why is it blocked?" while a decision was pending froze the confirmation and its buttons disappeared: a dead end. |
+| Q-12 | An exact task name resolves even when a longer task name starts with it ("Legacy Migration" vs "Legacy Migration scope, strategy and plan"). | The 0.15 ambiguity margin treated an exact match as a tie with a prefix match. |
 
 ## Open questions (new)
 

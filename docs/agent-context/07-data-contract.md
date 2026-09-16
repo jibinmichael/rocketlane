@@ -25,11 +25,11 @@ Every entity carries an integer `version`, incremented by the system of record o
 | Column | → field | Rule |
 |---|---|---|
 | `ProjectId`, `TaskId`, `TaskName` | ids/name | trim; ids must match `^[A-Z]+-\d+$` or be accepted verbatim with a warning |
-| `Status` | `status` | `To do→TODO`, `In progress→IN_PROGRESS`, `Completed→COMPLETED`, `Blocked→BLOCKED`, `NA→NA`; anything else → row rejected `UNKNOWN_STATUS` |
+| `Status` | `status` | `To do→TODO`, `In progress→IN_PROGRESS`, `Completed→COMPLETED`, `Blocked→BLOCKED`, `NA→NA`; anything else → row rejected `UNKNOWN_STATUS`. Project status: `In progress`, `Completed`; anything else (the brief's `Not Started`) is an open status (A-09). |
 | `PhaseId`, `Phase` | Phase entity (upsert per project) | phase ids are unique across projects in this export; still scoped by project |
 | `Assignee` | `assigneeNames[]` | split on `, ` |
 | `HoursTracked` | one synthetic `TimeEntry { hours, actorId: "import", at: CompletedAt ?? ActualStartDate ?? null }` when > 0; `hoursTracked` is always the derived sum | strict decimal (exponent allowed), default 0; negative → row rejected `NEGATIVE_HOURS`; anything else non-empty (`abc`, `Infinity`, `1e400`) → no time entry + warning `MALFORMED_HOURS`. Never silently zero. |
-| `Is this a Billing Milestone?` | `isMilestone` | `"true"` → true; blank → false |
+| `Is this a Billing Milestone?` | `isMilestone` | `"true"` → true; blank → false. The only milestone marker in the export (A-08). |
 | `Dependency` | `predecessorIds[]` | **Longest-match resolution against the project's task-name set** (12 task names in this export contain `, `, so naive splitting is unsafe): try the whole string, then every split at `, ` boundaries, preferring the segmentation that consumes the string with the fewest, longest known names. Any unresolved fragment → task flagged `DEPENDENCY_UNRESOLVED` and **non-completable** (fail closed, same as `CYCLE`), reported as a finding. A fragment matching >1 task → `DEPENDENCY_AMBIGUOUS`, same handling. Never drop an edge silently. |
 | `ParentTaskId` | `parentTaskId` | must exist in the **same project** and must not be the task itself, else `UNRESOLVED_PARENT` warning and `parentTaskId = null` |
 | `CompletedAt`, dates | dates | ISO `YYYY-MM-DD` **and calendar-valid** (`2026-13-45` is malformed); malformed → field null + warning (not a row rejection) |

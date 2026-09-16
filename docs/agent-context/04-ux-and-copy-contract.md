@@ -10,6 +10,8 @@ Grammar: **Outcome → Blocker → Reason → Resolution path → Action → Res
 
 ## Rule zero: nothing leaves the thread
 
+A block that carries a pending decision (hours input, confirmation, batch confirmation, clarification) is never frozen by a typed turn. The reply lands above it and the block re-anchors below, so a question never costs the user the decision.
+
 Every end-user action is a block with inline actions or an inline input. There are no modals for confirmation, inspection or input. Entity and policy references inside the thread expand **in place**; left-nav routes exist for cross-mission browsing only. Pending decisions are mission state (`WAITING`) rendered as blocks, so they survive reload.
 
 ## Canonical block list (single source; glossary mirrors this)
@@ -23,9 +25,9 @@ Templates carry `EntityRef` slots rendered as chips (shown here as **bold**). Po
 | `already_complete` | "**{target}** is already complete. Nothing to do." (the export carries no reliable completion date for projects, so none is claimed) |
 | `blocker` | "**{node}** can't complete: {policy.rule} — {evidence}." e.g. "Go-Live can't complete: predecessor Deploy API is incomplete." / "QA Complete can't complete: no time logged." |
 | `resolution_path` | "{n} updates to complete **{target}**. First: {action.label} on **{node}**." + expandable full path |
-| `action_request.input` | "I need hours for **{node}**." · "Logged as {actor}." · inline numeric field · `[Log time]`. Hours are never prefilled. |
+| `action_request.input` | "I need hours for **{node}**." · "It's assigned to {assignees}; hours you enter are recorded as yours." (or "Hours you enter are recorded as yours." when the actor is the assignee) · inline numeric field described by the block text · `[Log time]`. Hours are never prefilled. |
 | `action_request.confirm` | "Complete **{target}**? {milestonesDone} milestones complete. {openTasks} tasks remain open (does not block under current policies). Status → Completed." `[Complete project] [Not now]` — the block becomes the decision record: "Confirmed by {actor} at {time}". |
-| `action_request.batch_confirm` | "{n} updates across {projects} projects." list with per-item opt-out `[Run {n} updates] [Not now]` |
+| `action_request.batch_confirm` | "{n} updates across {projects} projects. One confirmation covers the set." + expandable list of the projects (the scope the user asked for: "my projects" lists only owned projects) `[Run {n} updates] [Not now]` |
 | `declined` | "Not done. **{node}** stays {state}." then "Nothing was written." or "The {n} earlier updates stand; nothing further was written." The mission lands **Cancelled** (the user said no; nothing blocks it) and this block is the only stop line. |
 | `consequence` | "{n} tasks remain open in **{project}**. This does not block completion under current policies." expandable list |
 | `result.verified` | "Verified: **{node}** is {state}." |
@@ -39,7 +41,7 @@ Templates carry `EntityRef` slots rendered as chips (shown here as **bold**). Po
 | `partial_summary` | Non-zero buckets only, each expandable: "{completed} completed." · "{blocked} blocked by governance." · "{already} already complete." · "{failed} failed — {failureClass}, state reconciled, not completed." · "{denied} not permitted." · "{cancelled} cancelled." |
 | `permission_denied` | "Only the project owner can complete **{target}**. {owner} owns it." · "Ask {owner} to complete it, or switch the acting user in the Test Lab." No button until the notification primitive exists (R3/R4): a receipt for a no-op is worse than a sentence. |
 | `clarification` | "Which project do you mean?" + candidate artifacts (row density) |
-| `boundary` | "I can only act on projects, tasks and governance in this workspace." |
+| `boundary` | "I can only act on projects, tasks and governance in this workspace." · unsupported scope: "I can't scope by assignee or date yet. Name a project or task and I'll take it from there." · nothing owned: "You don't own a project in this workspace. Name one and I'll check what I'm allowed to do." |
 | `routine.created` | "Every morning I'll check **{target}**. If all milestones are complete I'll notify you and complete it." + routine artifact (`Run now · Pause · Stop`) |
 | `routine.check.not_ready` | collapsed by default: "Checked {time}. Not ready — {blocker}." |
 | `notification.ready` | "**{target}** is ready. {what changed}. The remaining governance checks pass. I can complete it now." `[Complete project] [Review checks]` |
