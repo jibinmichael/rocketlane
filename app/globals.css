@@ -111,6 +111,10 @@
   --color-state-completed: var(--state-completed);
   --color-accent-brand: var(--accent-brand);
   --color-accent-brand-soft: var(--accent-brand-soft);
+  --color-vibe-1: var(--vibe-1);
+  --color-vibe-2: var(--vibe-2);
+  --color-vibe-3: var(--vibe-3);
+  --color-vibe-4: var(--vibe-4);
 
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
@@ -174,9 +178,32 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
-  /* The composer: hairline ring plus a soft lift; stronger ring while focused. */
+  /* Vibrance (docs/design/visual-direction.md): four stops, used only for the presence halo, the
+     composer focus ring, the active Send and the Stop ring. Everything else stays neutral. */
+  --vibe-1: #7b68ee;
+  --vibe-2: #ff6ec7;
+  --vibe-3: #ffb955;
+  --vibe-4: #49ccf9;
+  --vibe-gradient: linear-gradient(
+    135deg,
+    var(--vibe-1),
+    var(--vibe-2) 45%,
+    var(--vibe-3) 75%,
+    var(--vibe-4)
+  );
+  --vibe-halo: conic-gradient(
+    from 0deg,
+    var(--vibe-1),
+    var(--vibe-4),
+    var(--vibe-2),
+    var(--vibe-3),
+    var(--vibe-1)
+  );
+  /* The composer: hairline ring plus a soft lift at rest; a soft vibrant ring while focused. */
   --shadow-composer: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.05);
-  --shadow-composer-focus: 0 0 0 1px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow-composer-focus:
+    0 0 0 1px rgba(123, 104, 238, 0.35), 0 0 0 4px rgba(123, 104, 238, 0.08),
+    0 12px 32px rgba(0, 0, 0, 0.06);
 
   /* Motion tokens (spec §0B). Mirrored in lib/motion.ts */
   --motion-fast: 120ms;
@@ -309,5 +336,16 @@
   }
   96% {
     transform: scaleY(1);
+  }
+}
+@keyframes presence-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-1px);
   }
 }

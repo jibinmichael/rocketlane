@@ -12,13 +12,17 @@ One direction for the last pass. Decided against the references the human holds,
 | **Notion** | Calm density, generous vertical rhythm, text-first blocks, inline entity tokens that read as data. | Serif display, emoji icons. |
 | **Zapier Agents, Linear agent demo, Rocketlane agentic PSA shots** | Needs-action first, attach and send inside the field, soft status chips in tables. | Template galleries, third-party app chips. |
 
+## Vibrance (decided with the ClickUp Brain² reference, 2026-09-16)
+
+Four stops, used in four places only: Iris `#7B68EE` → Pink `#FF6EC7` → Amber `#FFB955` → Sky `#49CCF9`. Presence halo (blurred, turning while working), composer focus ring (soft iris), active Send, Stop ring. Everything else neutral. Type scale matched to ClickUp, Linear and Notion: greeting 20/600, body 13, meta 12, eyebrow 11, composer 14.
+
 ## Decisions
 
 - **Accent: none.** Neutral grey only. Colour is reserved for state dots and state icons (success, waiting, blocked, paused, error) at the restrained chroma already in the tokens. The indigo `--accent-brand` token is neutralised, not used.
 - **Font: Avenir Next** (installed on the recording machine, no font files in the repo, not Wati's identity). System stack as fallback. Weights 400/500/600.
 - **Dark mode: skipped** for this pass. Tokens stay defined, nothing is reviewed.
 - **No left borders, no bubbles for the agent, no emoji anywhere.** Warnings and state use lucide icons at 14px, tone-coloured, subordinate to text.
-- **Mascot:** `AgentPresence`. Two 5px square eyes, blink every 5s, neutral grey halo. The halo rotates only while the agent is working; it fades on landing; eyes rest half-closed while paused. It is the agent's face on the home page (60px) and the agent's marker on the thread's working row (16px). It never emotes beyond state.
+- **Mascot:** `AgentPresence`. Two square eyes on a white disc, blink every 5s, the vibrant halo behind. The halo rotates only while the agent is working; it fades on landing; eyes rest half-closed while paused. It is the agent's face on the home page (60px) and the agent's marker on the thread's working row (16px). It never emotes beyond state.
 - **Home is a peer-agent landing, not a form.** Vertically centred: presence, "Your projects are already moving. I'll help keep them on course.", support line, composer, four quick actions that map to real capabilities (complete the first project, what blocks it, complete my projects, test with project data), trust line, previous missions below the fold.
 - **Composer** is one component on the home and the mission page: attach inside (opens "Test with project data" in place), trailing control swaps Send → Pause (Esc) → Resume by state, rotating placeholder only on the home.
 - **Surfaces:** canvas `--background` off-white, `--card` white for composer, panels, dialogs; hairline `--border`; shadows only on the composer and floating layers.

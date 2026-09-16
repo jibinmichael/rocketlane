@@ -26,7 +26,7 @@ import {
 } from "@/core/mission/mission"
 import { activityPhases } from "@/core/agent/conversation/activity"
 import { type EvaluationCheckId, evaluateMission } from "@/core/evaluation/mission-evaluation"
-import { type Blocker, nextActionable } from "@/core/resolver/blockers"
+import { type Blocker, nextActionable, traceCurrentBlockers } from "@/core/resolver/blockers"
 import { labelOf } from "@/core/resolver/target"
 import { fnv1a } from "@/core/ingestion/hash"
 import { MISSION_LABEL } from "@/core/mission/labels"
@@ -451,6 +451,34 @@ function renderCourseCorrection(
 function renderBlockerChain(ctx: Ctx, current: Blocker): Block[] {
   const { graph, mission } = ctx
   const blocks: Block[] = []
+  const { lines, pathNodes } = chainOf(current, graph)
+  blocks.push({ ...block("blocker", "blocked", lines), path: pathNodes })
+
+  const remaining = mission.plan.filter(
+    (s) =>
+      s.transition === "COMPLETED" && (s.status === "pending" || s.status === "waiting_confirm"),
+  ).length
+  const first = firstActionLabel(current, graph)
+  blocks.push(
+    block("resolution_path", "neutral", [
+      [
+        count(remaining),
+        text(` ${plural(remaining, "update")} to complete `),
+        entity(current.target, labelOf(current.target, graph)),
+        text(". First: "),
+        ...first,
+        text("."),
+      ],
+    ]),
+  )
+  return blocks
+}
+
+/** The hop-by-hop explanation from the target down to the actionable node, plus the path nodes. */
+function chainOf(
+  current: Blocker,
+  graph: WorkspaceGraph,
+): { lines: Inline[][]; pathNodes: PathNode[] } {
   const path = current.dependencyPath
   // Each hop explains why the node above cannot complete, from the target down to the actionable node.
   const lines: Inline[][] = []
@@ -529,26 +557,115 @@ function renderBlockerChain(ctx: Ctx, current: Blocker): Block[] {
             ? "complete"
             : "open",
   }))
-  blocks.push({ ...block("blocker", "blocked", lines), path: pathNodes })
+  return { lines, pathNodes }
+}
 
-  const remaining = mission.plan.filter(
-    (s) =>
-      s.transition === "COMPLETED" && (s.status === "pending" || s.status === "waiting_confirm"),
-  ).length
+/**
+ * A question answered, not executed (final brief: answer, summarise, conclude, then offer the
+ * next step). Read-only: the blockers are traced from the live graph; nothing is planned or written.
+ */
+function renderBlockerAnswer(target: EntityRef, graph: WorkspaceGraph, withPath: boolean): Block[] {
+  const label = labelOf(target, graph)
+  const complete = `Complete ${label}`
+  const next: BlockAction = { kind: "resend", text: complete, label: complete }
+  if (isComplete(target, graph)) {
+    return [
+      block("status", "neutral", [
+        [entity(target, label), text(" is already complete. Nothing is blocking it.")],
+        [text("Want to check another project, or look at the full activity log?")],
+      ]),
+    ]
+  }
+  const blockers = traceCurrentBlockers(target, graph)
+  const current = nextActionable(blockers) ?? blockers[0] ?? null
+  if (!current) {
+    return [
+      block(
+        "status",
+        "neutral",
+        [
+          [text("Nothing is blocking "), entity(target, label), text(" right now.")],
+          [text("Governance is satisfied. Want me to complete it?")],
+        ],
+        [next],
+      ),
+    ]
+  }
+  const { lines, pathNodes } = chainOf(current, graph)
   const first = firstActionLabel(current, graph)
-  blocks.push(
-    block("resolution_path", "neutral", [
+  return [
+    {
+      ...block("blocker", "blocked", [
+        [text("Here's what stands between you and "), entity(target, label), text(":")],
+        ...lines,
+      ]),
+      path: withPath ? pathNodes : null,
+    },
+    block(
+      "status",
+      "neutral",
       [
-        count(remaining),
-        text(` ${plural(remaining, "update")} to complete `),
-        entity(current.target, labelOf(current.target, graph)),
-        text(". First: "),
-        ...first,
-        text("."),
+        [text("The first thing to act on is "), ...first, text(".")],
+        [text("Want me to take it from here? I'll resolve the chain and verify each step.")],
       ],
-    ]),
-  )
-  return blocks
+      [{ kind: "resend", text: complete, label: "Yes, complete it" }],
+    ),
+  ]
+}
+
+/** Nearest workspace names to a query the grounding could not place: a typo, a shortened name. */
+function closestNames(query: string, graph: WorkspaceGraph, limit = 3): string[] {
+  const norm = (v: string) =>
+    v
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim()
+  const q = norm(query)
+  if (q.length < 3) return []
+  const names = [...graph.projects.map((p) => p.name), ...graph.tasks.map((t) => t.name)]
+  const scored = names
+    .map((name) => ({ name, score: similarity(q, norm(name)) }))
+    .filter((x) => x.score > 0)
+    .sort((x, y) => y.score - x.score)
+  const out: string[] = []
+  for (const x of scored) {
+    if (!out.includes(x.name)) out.push(x.name)
+    if (out.length === limit) break
+  }
+  return out
+}
+
+/** 0 when unrelated; higher is closer. Whole-string edit distance plus per-token near-matches. */
+function similarity(q: string, name: string): number {
+  const whole = levenshtein(q, name)
+  const budget = Math.max(2, Math.floor(Math.max(q.length, name.length) * 0.34))
+  let score = whole <= budget ? 2 + (budget - whole) : 0
+  const nameTokens = name.split(" ")
+  for (const qt of q.split(" ")) {
+    if (qt.length < 4) continue
+    for (const nt of nameTokens) {
+      if (nt === qt) score += 1
+      else if (nt.length >= 4 && levenshtein(qt, nt) <= Math.max(1, Math.floor(nt.length * 0.25)))
+        score += 1
+    }
+  }
+  return score
+}
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0
+  const prev = new Array<number>(b.length + 1)
+  for (let j = 0; j <= b.length; j += 1) prev[j] = j
+  for (let i = 1; i <= a.length; i += 1) {
+    let diag = prev[0]!
+    prev[0] = i
+    for (let j = 1; j <= b.length; j += 1) {
+      const tmp = prev[j]!
+      prev[j] = Math.min(prev[j]! + 1, prev[j - 1]! + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1))
+      diag = tmp
+    }
+  }
+  return prev[b.length]!
 }
 
 function firstActionLabel(blocker: Blocker, graph: WorkspaceGraph): Inline[] {
@@ -992,13 +1109,29 @@ export function renderIntentReply(
       ]
     case "unsupported":
       if (intent.reason === "target_not_found") {
+        const query = intent.query ?? ""
+        const near = closestNames(query, graph)
+        if (near.length > 0) {
+          const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")
+          return [
+            block(
+              "clarification",
+              "waiting",
+              [[text(`I couldn't find "${query}". Did you mean one of these?`)]],
+              near.map((name) => ({
+                kind: "resend",
+                text: pattern.test(intent.utterance)
+                  ? intent.utterance.replace(pattern, name)
+                  : `${intent.utterance} ${name}`,
+                label: name,
+              })),
+            ),
+          ]
+        }
         return [
           block("boundary", "neutral", [
-            [
-              text(
-                `I couldn't find "${intent.query}" among the projects and tasks in this workspace.`,
-              ),
-            ],
+            [text(`I couldn't find "${query}" among the projects and tasks in this workspace.`)],
+            [text("Name a project or task and I'll take it from there.")],
           ]),
         ]
       }
@@ -1075,7 +1208,13 @@ export function renderIntentReply(
       ]
     }
     case "show_path": {
-      if (!mission) return [block("status", "neutral", [[text("No mission is running.")]])]
+      if (!mission && intent.targets[0]) return renderBlockerAnswer(intent.targets[0], graph, true)
+      if (!mission)
+        return [
+          block("status", "neutral", [
+            [text("No mission is running. Name a project and I'll trace the path for you.")],
+          ]),
+        ]
       const blocker = nextActionable(mission.blockers)
       if (!blocker) return [block("status", "neutral", [[text("Nothing is blocked right now.")]])]
       return [
@@ -1097,7 +1236,13 @@ export function renderIntentReply(
       ]
     }
     case "explain_blocker": {
-      if (!mission) return [block("status", "neutral", [[text("No mission is running.")]])]
+      if (!mission && intent.targets[0]) return renderBlockerAnswer(intent.targets[0], graph, false)
+      if (!mission)
+        return [
+          block("status", "neutral", [
+            [text("No mission is running. Name a project and I'll tell you what's blocking it.")],
+          ]),
+        ]
       const blocker = nextActionable(mission.blockers)
       if (!blocker) return [block("status", "neutral", [[text("Nothing is blocked right now.")]])]
       return renderBlockerChain({ mission, graph, events: [] }, blocker)

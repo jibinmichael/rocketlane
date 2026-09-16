@@ -62,15 +62,14 @@ export function MissionBand({
 
   return (
     <header className="border-border/70 bg-background/90 sticky top-0 z-10 border-b backdrop-blur">
-      <div className="mx-auto flex h-[52px] w-full max-w-[680px] items-center gap-4 px-6">
-        <h1 className="text-foreground min-w-0 flex-1 truncate text-[14px] font-medium tracking-[-0.005em]">
-          {mission.goalText}
-        </h1>
-        {working && (
-          <span aria-live="polite" className="text-muted-foreground shrink-0 text-[12px]">
-            {activity}
-          </span>
-        )}
+      <div className="mx-auto flex h-10 w-full max-w-[680px] items-center gap-4 px-6">
+        <h1 className="sr-only">{mission.goalText}</h1>
+        <span
+          aria-live="polite"
+          className="text-muted-foreground min-w-0 flex-1 truncate text-[12px]"
+        >
+          {working ? activity : MISSION_LABEL[mission.state]}
+        </span>
         {!pinned && (
           <button
             type="button"
@@ -89,7 +88,8 @@ export function MissionBand({
         {working && (
           <span
             aria-hidden
-            className="bg-foreground/35 absolute top-0 left-0 h-px w-1/3 animate-[flight-hairline_1.2s_var(--ease-in-out)_infinite]"
+            className="absolute top-0 left-0 h-px w-1/3 animate-[flight-hairline_1.2s_var(--ease-in-out)_infinite]"
+            style={{ background: "var(--vibe-gradient)" }}
           />
         )}
         {mission.state === "COMPLETED" && (

@@ -27,6 +27,8 @@ export type BlockAction =
   | { readonly kind: "cancel"; readonly label: string }
   | { readonly kind: "view_activity"; readonly label: string }
   | { readonly kind: "pick_candidate"; readonly ref: EntityRef; readonly label: string }
+  /** Sends `text` as the user's next turn (a "did you mean" or a suggested next step). */
+  | { readonly kind: "resend"; readonly text: string; readonly label: string }
 
 /**
  * Semantic icons: each answers "what kind of work is this?" (spec §26). Names, not glyphs; the UI
@@ -97,7 +99,8 @@ export function carriesDecision(block: Pick<Block, "type">): boolean {
     block.type.startsWith("action_request") ||
     block.type === "notification.blocked" ||
     block.type === "clarification" ||
-    block.type === "paused"
+    block.type === "paused" ||
+    block.type === "status"
   )
 }
 
