@@ -167,7 +167,7 @@ export function ConversationComposer({
                   {current.text}
                 </span>
                 {current.suggestion && (
-                  <kbd className="bg-muted text-muted-foreground inline-flex shrink-0 items-center rounded-[4px] px-1.5 py-0.5 font-sans text-[11px] leading-none font-semibold">
+                  <kbd className="bg-muted text-muted-foreground inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 font-sans text-[11px] leading-none font-semibold">
                     tab
                   </kbd>
                 )}

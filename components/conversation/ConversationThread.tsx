@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 
 import { AgentDataDialog } from "@/components/agent/AgentDataDialog"
-import { AgentPresence, AgentPresenceStreaming } from "@/components/agent/AgentPresence"
+import { AgentMark } from "@/components/agent/AgentMark"
 import { ArtifactStateChip } from "@/components/artifacts/ArtifactStateChip"
 import { ConversationBlockItem } from "@/components/conversation/ConversationBlockItem"
 import { ConversationComposer } from "@/components/conversation/ConversationComposer"
@@ -19,13 +19,13 @@ import type { Block, BlockAction } from "@/core/agent/conversation/blocks"
 import { isTerminal, type MissionState } from "@/core/mission/mission"
 import { usePacedReveal } from "@/hooks/use-paced-reveal"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
+import { avatarFor } from "@/lib/avatar"
 import type { AgentSessionState } from "@/lib/runtime"
 import { crossfade, expand, settle, springEnter } from "@/lib/motion"
 import { SESSION_LABEL, WORKING_STATES } from "@/lib/session-label"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
 const AGENT_NAME = "Governance Agent"
-const AVATARS = 8
 
 /** How long a block takes to finish on screen: its lines typing, or its steps landing. */
 function durationOf(block: Block): number {
@@ -90,7 +90,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   const session = runtime.session(missionId)
   const actorIndex = snapshot.actors.findIndex((a) => a.id === snapshot.actorId)
   const actor = actorIndex >= 0 ? snapshot.actors[actorIndex] : undefined
-  const avatar = `/avatars/a${(Math.max(0, actorIndex) % AVATARS) + 1}.jpg`
+  const avatar = avatarFor(actorIndex)
   const executing =
     session === "EXECUTING" ||
     session === "VERIFYING" ||
@@ -259,7 +259,6 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                 <AgentTurn
                   key={`a-${i}`}
                   at={entry.at}
-                  state={settled ? "idle" : "working"}
                   pill={!showLive && i === thread.length - 1 ? pill : null}
                 >
                   <ul className="flex flex-col">
@@ -293,12 +292,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                   exit={{ opacity: 0 }}
                   transition={settle}
                 >
-                  <AgentTurn
-                    at={null}
-                    state={working || revealing ? "working" : "idle"}
-                    live
-                    pill={working || revealing ? null : pill}
-                  >
+                  <AgentTurn at={null} live pill={working || revealing ? null : pill}>
                     {/* Live region: new agent blocks are announced; frozen history is not re-read. */}
                     <ul className="flex flex-col" aria-live="polite" aria-relevant="additions">
                       {pacedLive.map((block) => (
@@ -326,7 +320,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                           aria-live="polite"
                         >
                           <span className="absolute top-1/2 -left-[29px] flex w-5 -translate-y-1/2 justify-center">
-                            <AgentPresenceStreaming />
+                            <AgentMark size={16} />
                           </span>
                           <AnimatePresence mode="popLayout" initial={false}>
                             <motion.span
@@ -454,13 +448,11 @@ function UserTurn({
 /** The agent's turn: the rocket as the avatar, name, time, the state pill, then the blocks. */
 function AgentTurn({
   at,
-  state,
   live = false,
   pill,
   children,
 }: {
   at: number | null
-  state: "idle" | "working"
   live?: boolean
   pill: { state: MissionState; session: AgentSessionState } | null
   children: React.ReactNode
@@ -468,7 +460,7 @@ function AgentTurn({
   return (
     <div className="flex gap-3">
       <span className="flex w-5 shrink-0 justify-center pt-px">
-        <AgentPresence state={state} size={20} />
+        <AgentMark size={20} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">

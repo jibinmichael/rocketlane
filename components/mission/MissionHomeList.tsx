@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 
 import { AgentDataDialog } from "@/components/agent/AgentDataDialog"
-import { AgentPresence } from "@/components/agent/AgentPresence"
+import { AgentMark } from "@/components/agent/AgentMark"
 import { ConversationComposer } from "@/components/conversation/ConversationComposer"
 import { MissionHistoryRow } from "@/components/mission/MissionHistoryRow"
 import { MissionQuickActions, quickActionsFor } from "@/components/mission/MissionQuickActions"
@@ -85,7 +85,7 @@ export function MissionHomeList() {
   )
   const trust = sending ? (
     <div className="flex items-center gap-2 pt-1">
-      <AgentPresence state="working" size={18} />
+      <AgentMark size={16} />
       <Body muted className="text-[12px]">
         Preparing mission
       </Body>
@@ -104,7 +104,7 @@ export function MissionHomeList() {
           <div className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-6 pt-8 pb-4">
             <div className="flex gap-3">
               <span className="flex w-5 shrink-0 justify-center pt-px">
-                <AgentPresence state={sending ? "working" : "idle"} size={20} />
+                <AgentMark size={20} />
               </span>
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <span className="text-foreground text-[13px] font-semibold">{AGENT_NAME}</span>
@@ -158,7 +158,7 @@ export function MissionHomeList() {
                 transition={settle}
                 className="flex flex-1 flex-col items-center justify-end gap-5 pt-16 pb-6 text-center"
               >
-                <AgentPresence state="idle" size={56} />
+                <AgentMark size={56} />
                 <div className="flex flex-col gap-1.5">
                   <h1 className="text-foreground text-[20px] leading-[1.3] font-semibold tracking-[-0.015em]">
                     Your projects are already moving. I&apos;ll help keep them on course.

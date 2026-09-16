@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { motion } from "motion/react"
+import { AnimatePresence, motion } from "motion/react"
 
 import { ConversationIcon } from "@/components/conversation/ConversationIcon"
 import {
@@ -15,7 +15,7 @@ import { LinearIcon } from "@/components/shared/LinearIcon"
 import { StateChip } from "@/components/shared/StateChip"
 import { Button } from "@/components/ui/button"
 import type { ActivityItem, Block, BlockAction } from "@/core/agent/conversation/blocks"
-import { revealDelay, settle, STEP_CADENCE_MS } from "@/lib/motion"
+import { crossfade, revealDelay, settle, STEP_CADENCE_MS } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
@@ -305,7 +305,9 @@ function StepSpine({
       {items.map((item, i) => {
         const current = live && i === items.length - 1
         const failed = item.icon === "error"
-        const done = item.icon === "check"
+        // A step is done once the next one has started, and every step is done once the phase is over.
+        const done = item.icon === "check" || !live || i < items.length - 1
+        const marker = failed ? "close" : done ? "check" : current ? "status-1" : "circle"
         return (
           <motion.li
             key={`${item.icon}-${item.label}-${i}`}
@@ -318,19 +320,30 @@ function StepSpine({
               aria-hidden
               className="bg-card absolute top-1/2 left-[-3px] flex size-[13px] -translate-y-1/2 items-center justify-center"
             >
-              <LinearIcon
-                name={failed ? "close" : done ? "check" : current ? "status-1" : "circle"}
-                className={cn(
-                  "size-[13px]",
-                  failed
-                    ? "text-state-error/80"
-                    : done
-                      ? "text-state-completed/80"
-                      : current
-                        ? "text-foreground/80"
-                        : "text-muted-foreground/60",
-                )}
-              />
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                  key={marker}
+                  initial={{ opacity: 0, scale: 0.7 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.7 }}
+                  transition={crossfade}
+                  className="flex"
+                >
+                  <LinearIcon
+                    name={marker}
+                    className={cn(
+                      "size-[13px]",
+                      failed
+                        ? "text-state-error/80"
+                        : done
+                          ? "text-state-completed/80"
+                          : current
+                            ? "text-foreground/80"
+                            : "text-muted-foreground/60",
+                    )}
+                  />
+                </motion.span>
+              </AnimatePresence>
             </span>
             <span className={cn("text-[13px]", current ? "text-foreground" : "text-foreground/85")}>
               {item.label}

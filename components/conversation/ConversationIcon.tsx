@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
  * `SemanticIcon` to the Linear icon set; the glyph answers "what is happening", never decorates.
  */
 const ICON: Record<SemanticIcon, { name: LinearIconName; rotate?: number }> = {
-  project: { name: "board" },
+  project: { name: "network" },
   milestone: { name: "two-flags" },
   task: { name: "issues" },
   time: { name: "clock" },
@@ -27,13 +27,14 @@ const ICON: Record<SemanticIcon, { name: LinearIconName; rotate?: number }> = {
   landing: { name: "rocket" },
 }
 
+/** Context-aware, never loud: state colour at reduced strength; everything else muted grey. */
 const TONE_COLOR: Record<Block["tone"], string> = {
   neutral: "text-muted-foreground",
-  blocked: "text-muted-foreground",
-  waiting: "text-muted-foreground",
-  success: "text-muted-foreground",
-  paused: "text-muted-foreground",
-  error: "text-muted-foreground",
+  blocked: "text-state-error/80",
+  waiting: "text-state-waiting/80",
+  success: "text-state-completed/80",
+  paused: "text-state-paused/80",
+  error: "text-state-error/80",
 }
 
 export function ConversationIcon({

@@ -21,7 +21,7 @@ export function AppHeader({ loadFixture }: { loadFixture: FixtureLoader }) {
           >
             <span
               aria-hidden
-              className="bg-foreground text-background flex size-5 items-center justify-center rounded-[5px] text-[11px] leading-none font-bold"
+              className="bg-foreground text-background flex size-5 items-center justify-center rounded-full text-[11px] leading-none font-bold"
             >
               A
             </span>

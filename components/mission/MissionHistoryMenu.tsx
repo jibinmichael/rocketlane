@@ -101,6 +101,20 @@ export function MissionHistoryMenu() {
               <LinearIcon name="plus" className="text-muted-foreground size-3.5" />
               New chat
             </button>
+            {missions.length > 0 && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false)
+                  void runtime.resetDataset().then(() => router.push("/"))
+                }}
+                className="text-muted-foreground hover:bg-muted hover:text-foreground flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors duration-[var(--motion-fast)]"
+              >
+                <LinearIcon name="close" className="size-3.5" />
+                Clear all chats
+              </button>
+            )}
             {groups.length === 0 ? (
               <p className="text-muted-foreground px-2.5 py-2 text-[12px]">
                 Nothing yet. The first outcome you state starts one.
