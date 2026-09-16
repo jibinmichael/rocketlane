@@ -167,3 +167,34 @@ describe("Runtime — a typed question never strands a pending decision", () => 
     expect(frozenTypes).not.toContain("action_request.confirm")
   })
 })
+
+describe("Runtime — pause is a first-class control, distinct from stop", () => {
+  it("the Pause action (Esc) pauses a waiting mission; 'resume' typed revalidates and re-asks; 'stop' cancels", async () => {
+    const rt = makeRuntime()
+    await rt.boot()
+    const priya = rt.getSnapshot().actors.find((a) => a.name === "Priya Raman")!
+    rt.setActor(priya.id)
+    const id = (await rt.send("complete acme", null))!
+    expect(rt.mission(id)?.pending?.kind).toBe("input")
+
+    await rt.act(id, { kind: "pause", label: "Pause" })
+    expect(rt.mission(id)?.state).toBe("PAUSED")
+    expect(rt.session(id)).toBe("PAUSED")
+    const paused = rt.liveBlocks(id).find((b) => b.type === "paused")!
+    expect(paused.actions.map((a) => a.kind)).toEqual(["continue", "cancel"])
+
+    await rt.send("resume", id)
+    expect(rt.mission(id)?.state).toBe("WAITING")
+    expect(rt.mission(id)?.pending?.kind).toBe("input")
+    const types = rt.liveBlocks(id).map((b) => b.type)
+    expect(types).toContain("resumed")
+
+    await rt.send("stop", id)
+    expect(rt.mission(id)?.state).toBe("CANCELLED")
+    expect(
+      rt
+        .getSnapshot()
+        .graph!.tasks.every((t) => t.timeEntries.length === 0 || t.name !== "QA Complete"),
+    ).toBe(true)
+  })
+})
