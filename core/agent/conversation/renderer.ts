@@ -993,7 +993,7 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
       if (project?.ownerName) {
         lines.push([
           text(
-            `Ask ${project.ownerName} to complete it, or switch the acting user in the Test Lab.`,
+            `Ask ${project.ownerName} to complete it, or switch the acting user from the workspace menu.`,
           ),
         ])
       }
