@@ -31,6 +31,8 @@ export function MissionHomeList() {
   const [sending, setSending] = useState(false)
   const [dataOpen, setDataOpen] = useState(false)
   const [fill, setFill] = useState<{ text: string; key: number } | null>(null)
+  const [recentOpen, setRecentOpen] = useState(true)
+  const [recentAll, setRecentAll] = useState(false)
   const fillKey = useRef(0)
   // Relative times are computed against the moment the page rendered; rows never re-tick.
   const [now] = useState(() => Date.now())
@@ -64,7 +66,7 @@ export function MissionHomeList() {
       const bNeeds = b.pending ? 0 : 1
       return aNeeds - bNeeds || b.updatedAt - a.updatedAt
     })
-    .slice(0, 6)
+  const recent = recentAll ? missions : missions.slice(0, 3)
 
   const composer = (
     <ConversationComposer
@@ -96,12 +98,12 @@ export function MissionHomeList() {
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-6 pt-8 pb-4">
             <div className="flex gap-3">
-              <span className="flex w-7 shrink-0 justify-center pt-px">
-                <AgentPresence state={sending ? "working" : "idle"} size={26} />
+              <span className="flex w-5 shrink-0 justify-center pt-px">
+                <AgentPresence state={sending ? "working" : "idle"} size={20} />
               </span>
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <span className="text-foreground text-[13px] font-semibold">{AGENT_NAME}</span>
-                <p className="text-foreground text-[14px] leading-[1.6]">
+                <p className="text-foreground text-[15px] leading-[22px]">
                   Your projects are already moving. I&apos;ll help keep them on course. State an
                   outcome and I&apos;ll check governance, trace blockers, make the authorized
                   changes and verify the result.
@@ -188,8 +190,20 @@ export function MissionHomeList() {
               >
                 <MissionQuickActions actions={actions} onPick={pick} />
                 <section className="flex flex-col gap-1">
-                  <h2 className="text-muted-foreground px-2.5 text-[12px] font-medium">Recent</h2>
-                  {snapshot.status === "error" ? (
+                  <button
+                    type="button"
+                    onClick={() => setRecentOpen((v) => !v)}
+                    aria-expanded={recentOpen}
+                    className="text-muted-foreground hover:text-foreground flex h-7 w-fit items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium transition-colors duration-[var(--motion-fast)]"
+                  >
+                    Recent
+                    <LinearIcon
+                      name="chevron-down"
+                      rotate={recentOpen ? 0 : -90}
+                      className="size-3 transition-transform duration-[var(--motion-fast)]"
+                    />
+                  </button>
+                  {!recentOpen ? null : snapshot.status === "error" ? (
                     <Body className="text-state-error px-2.5 text-[13px]">
                       The workspace could not load: {snapshot.error}. Use the workspace menu to
                       reset the project data.
@@ -204,9 +218,20 @@ export function MissionHomeList() {
                     </Body>
                   ) : (
                     <ul className="flex flex-col">
-                      {missions.map((m) => (
+                      {recent.map((m) => (
                         <MissionHistoryRow key={m.id} mission={m} now={now} />
                       ))}
+                      {missions.length > 3 && (
+                        <li>
+                          <button
+                            type="button"
+                            onClick={() => setRecentAll((v) => !v)}
+                            className="text-muted-foreground hover:text-foreground h-8 px-2.5 text-[12px] font-medium transition-colors duration-[var(--motion-fast)]"
+                          >
+                            {recentAll ? "Show fewer" : `Show all ${missions.length}`}
+                          </button>
+                        </li>
+                      )}
                     </ul>
                   )}
                 </section>

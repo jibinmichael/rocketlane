@@ -27,10 +27,10 @@ const AVATARS = 8
 
 /** How long the agent visibly works before a block appears: steps are walked one by one. */
 function delayForBlock(block: Block, index: number): number {
-  if (index === 0) return 760
-  if (block.type === "activity") return 520 + 460 * (block.activity?.length ?? 0)
-  if (block.type === "landing" || block.type === "evaluation") return 900
-  return 560
+  if (index === 0) return 1100
+  if (block.type === "activity") return 700 + 650 * (block.activity?.length ?? 0)
+  if (block.type === "landing" || block.type === "evaluation") return 1200
+  return 800
 }
 
 /** Walks a list of labels on a fixed beat; null when the list is empty. */
@@ -68,7 +68,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
     nextBlock?.type === "activity" && nextBlock.activity
       ? nextBlock.activity.map((i) => i.label)
       : []
-  const stepLabel = useCycle(nextSteps, 460)
+  const stepLabel = useCycle(nextSteps, 650)
   const session = runtime.session(missionId)
   const actorIndex = snapshot.actors.findIndex((a) => a.id === snapshot.actorId)
   const actor = actorIndex >= 0 ? snapshot.actors[actorIndex] : undefined
@@ -251,6 +251,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                       isLast={j === entry.blocks.length - 1}
                       decidedAt={entry.at}
                       onAction={onAction}
+                      personAvatar={avatar}
                     />
                   ))}
                 </ul>
@@ -278,6 +279,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                     frozen={false}
                     actionTaken={null}
                     onAction={onAction}
+                    personAvatar={avatar}
                   />
                 ))}
               </ul>
@@ -375,9 +377,9 @@ function UserTurn({
       <Image
         src={avatar}
         alt=""
-        width={28}
-        height={28}
-        className="mt-px size-7 shrink-0 rounded-full object-cover"
+        width={20}
+        height={20}
+        className="mt-px size-5 shrink-0 rounded-full object-cover"
       />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-baseline gap-2">
@@ -386,7 +388,7 @@ function UserTurn({
             {timeFormat.format(new Date(at))}
           </span>
         </div>
-        <p className="text-foreground text-[14px] leading-[1.55]">{text}</p>
+        <p className="text-foreground text-[15px] leading-[22px]">{text}</p>
       </div>
     </div>
   )
@@ -408,8 +410,8 @@ function AgentTurn({
 }) {
   return (
     <div className="flex gap-3">
-      <span className="flex w-7 shrink-0 justify-center pt-px">
-        <AgentPresence state={state} size={26} />
+      <span className="flex w-5 shrink-0 justify-center pt-px">
+        <AgentPresence state={state} size={20} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">

@@ -1,10 +1,14 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { motion } from "motion/react"
 
 import { ConversationIcon } from "@/components/conversation/ConversationIcon"
-import { ConversationInlineText } from "@/components/conversation/ConversationInlineText"
+import {
+  ConversationInlineText,
+  lineTypingMs,
+} from "@/components/conversation/ConversationInlineText"
 import { MissionPathList } from "@/components/mission/MissionPathList"
 import { LinearIcon } from "@/components/shared/LinearIcon"
 import { Button } from "@/components/ui/button"
@@ -28,6 +32,7 @@ export function ConversationBlockItem({
   isLast = false,
   decidedAt = null,
   onAction,
+  personAvatar = null,
 }: {
   block: Block
   index: number
@@ -36,6 +41,8 @@ export function ConversationBlockItem({
   isLast?: boolean
   decidedAt?: number | null
   onAction: (action: BlockAction) => void
+  /** The acting user's photo, shown in place of the person glyph. */
+  personAvatar?: string | null
 }) {
   const [open, setOpen] = useState<boolean | null>(null)
   const isActivity = block.type === "activity"
@@ -64,8 +71,8 @@ export function ConversationBlockItem({
         : `Finished in ${items.length} ${items.length === 1 ? "step" : "steps"}`
     return (
       <motion.li
-        initial={{ opacity: 0, y: -2 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         transition={{ ...settle, delay: frozen ? 0 : revealDelay(index) }}
         className="flex flex-col gap-1 py-1"
         data-block-type={block.type}
@@ -85,15 +92,25 @@ export function ConversationBlockItem({
 
   return (
     <motion.li
-      initial={{ opacity: 0, y: isLanding ? 2 : -2 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={{ ...settle, delay: frozen ? 0 : revealDelay(index) }}
       className={cn("relative flex", speech ? "py-1.5" : "py-1")}
       data-block-type={block.type}
     >
       {block.icon && (
-        <span className="absolute top-[9px] -left-[26px] flex w-4 justify-center">
-          <ConversationIcon name={block.icon} tone={block.tone} />
+        <span className="absolute top-[8px] -left-[26px] flex w-4 justify-center">
+          {block.icon === "person" && personAvatar ? (
+            <Image
+              src={personAvatar}
+              alt=""
+              width={14}
+              height={14}
+              className="size-3.5 rounded-full object-cover"
+            />
+          ) : (
+            <ConversationIcon name={block.icon} tone={block.tone} />
+          )}
         </span>
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -102,12 +119,14 @@ export function ConversationBlockItem({
             <ConversationInlineText
               key={i}
               line={line}
+              typing={!frozen}
+              startDelayMs={visibleLines
+                .slice(0, i)
+                .reduce((ms, prev) => ms + lineTypingMs(prev) + 220, 0)}
               className={cn(
-                !frozen && "line-reveal",
                 isLanding && i === 0 && "font-medium",
-                isEvaluation && "text-muted-foreground text-[13px]",
+                isEvaluation && "text-muted-foreground text-[13px] leading-[20px]",
               )}
-              {...(!frozen ? { style: { animationDelay: `${i * 140}ms` } } : {})}
             />
           ))}
         </div>
@@ -269,7 +288,7 @@ function StepSpine({
 }) {
   return (
     <ul className={cn("relative ml-[7px] flex flex-col", compact ? "mt-0.5" : "mt-1")}>
-      <span aria-hidden className="bg-border absolute top-2 bottom-2 left-[3px] w-px" />
+      <span aria-hidden className="bg-border absolute top-2 bottom-2 left-[3.5px] w-px" />
       {items.map((item, i) => {
         const current = live && i === items.length - 1
         const failed = item.icon === "error"
@@ -277,24 +296,29 @@ function StepSpine({
         return (
           <motion.li
             key={`${item.icon}-${item.label}-${i}`}
-            initial={{ opacity: 0, y: -2 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...settle, delay: live ? i * 0.26 : 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ ...settle, delay: live ? i * 0.45 : 0 }}
             className={cn("relative flex items-center gap-2.5 pl-5", compact ? "py-[3px]" : "py-1")}
           >
             <span
               aria-hidden
-              className={cn(
-                "absolute top-1/2 left-0 size-[7px] -translate-y-1/2 rounded-[1.5px] border",
-                failed
-                  ? "border-state-error bg-state-error"
-                  : done
-                    ? "border-state-completed bg-state-completed"
-                    : current
-                      ? "border-foreground bg-foreground"
-                      : "border-muted-foreground/50 bg-card",
-              )}
-            />
+              className="bg-card absolute top-1/2 left-[-3px] flex size-[13px] -translate-y-1/2 items-center justify-center"
+            >
+              <LinearIcon
+                name={failed ? "close" : done ? "check" : current ? "status-1" : "circle"}
+                className={cn(
+                  "size-[13px]",
+                  failed
+                    ? "text-state-error"
+                    : done
+                      ? "text-state-completed"
+                      : current
+                        ? "text-foreground"
+                        : "text-muted-foreground/70",
+                )}
+              />
+            </span>
             <span className={cn("text-[13px]", current ? "text-foreground" : "text-foreground/85")}>
               {item.label}
             </span>

@@ -8,8 +8,8 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans:
-    "Avenir Next", Avenir, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial,
-    "Noto Sans", sans-serif;
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --font-heading: var(--font-sans);
@@ -895,23 +895,5 @@
     animation: none;
     color: var(--muted-foreground);
     background: none;
-  }
-}
-
-/* Live lines write themselves in: a left-to-right wipe, one line after another. */
-.line-reveal {
-  display: block;
-  clip-path: inset(0 100% 0 0);
-  animation: line-reveal 420ms var(--ease-out) both;
-}
-@keyframes line-reveal {
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .line-reveal {
-    animation: none;
-    clip-path: none;
   }
 }
