@@ -109,17 +109,19 @@ export function MissionHomeList() {
                   dependencies, and verification.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {actions.map((a) => (
-                    <button
-                      key={a.id}
-                      type="button"
-                      onClick={() => pick(a)}
-                      className="group border-border text-foreground hover:border-foreground/30 flex h-8 items-center gap-2 rounded-full border px-3 text-[13px] transition-colors duration-[var(--motion-fast)]"
-                    >
-                      <LinearIcon name={a.icon} className="icon-vibe size-3.5" />
-                      <span className="text-vibe-hover">{a.title}</span>
-                    </button>
-                  ))}
+                  {actions
+                    .filter((a) => a.id !== "data")
+                    .map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => pick(a)}
+                        className="group border-border text-foreground hover:border-foreground/30 flex h-8 items-center gap-2 rounded-full border px-3 text-[13px] transition-colors duration-[var(--motion-fast)]"
+                      >
+                        <LinearIcon name={a.icon} className="icon-vibe size-3.5" />
+                        <span className="text-vibe-hover">{a.title}</span>
+                      </button>
+                    ))}
                 </div>
               </div>
             </div>

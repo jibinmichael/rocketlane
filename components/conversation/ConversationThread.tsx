@@ -15,22 +15,30 @@ import { ConversationFeedbackRow } from "@/components/conversation/ConversationF
 import { MissionActivityPanel } from "@/components/mission/MissionActivityPanel"
 import { Body } from "@/components/shared/Typography"
 import { Button } from "@/components/ui/button"
-import type { Block, BlockAction } from "@/core/agent/conversation/blocks"
+import type { Block, BlockAction, Inline } from "@/core/agent/conversation/blocks"
 import { isTerminal, type MissionState } from "@/core/mission/mission"
 import { usePacedReveal } from "@/hooks/use-paced-reveal"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
 import { avatarFor } from "@/lib/avatar"
 import type { AgentSessionState } from "@/lib/runtime"
-import { crossfade, expand, settle, STEP_CADENCE_MS } from "@/lib/motion"
+import { crossfade, expand, LINE_GAP_MS, settle, STEP_CADENCE_MS } from "@/lib/motion"
 import { SESSION_LABEL, WORKING_STATES } from "@/lib/session-label"
+import { cn } from "@/lib/utils"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
 const AGENT_NAME = "Governance Agent"
 
-/** How long a block takes to finish on screen: its lines typing, or its steps landing. */
+/** The lines a block actually types; the rest live inside its fold and cost no time. */
+function typedLines(block: Block): readonly (readonly Inline[])[] {
+  if (block.type === "blocker") return block.lines.slice(0, 1)
+  if (block.type === "evaluation") return block.lines.slice(1, 2)
+  return block.lines
+}
+
+/** How long a block takes to finish on screen: its typed lines, or its steps landing. */
 function durationOf(block: Block): number {
   if (block.type === "activity") return STEP_CADENCE_MS * (block.activity?.length ?? 0) + 300
-  return block.lines.reduce((ms, line) => ms + lineTypingMs(line) + 320, 0)
+  return typedLines(block).reduce((ms, line) => ms + lineTypingMs(line) + LINE_GAP_MS, 0)
 }
 
 /**
@@ -39,10 +47,10 @@ function durationOf(block: Block): number {
  */
 function delayForBlock(block: Block, index: number, previous: Block | undefined): number {
   const settle = previous ? durationOf(previous) : 0
-  if (index === 0) return 1100
-  if (block.type === "activity") return settle + 900
-  if (block.type === "landing" || block.type === "evaluation") return settle + 1100
-  return settle + 700
+  if (index === 0) return 900
+  if (block.type === "activity") return settle + 600
+  if (block.type === "landing" || block.type === "evaluation") return settle + 800
+  return settle + 500
 }
 
 /** Walks a list of labels on a fixed beat; null when the list is empty. */
@@ -67,6 +75,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   const snapshot = useRuntimeSnapshot()
   const router = useRouter()
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
   const [pinned, setPinned] = useState(true)
   const [dataOpen, setDataOpen] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
@@ -74,17 +83,41 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   const mission = snapshot.status === "ready" ? runtime.mission(missionId) : null
   const thread = snapshot.status === "ready" ? runtime.thread(missionId) : []
   const live = snapshot.status === "ready" ? runtime.liveBlocks(missionId) : []
-  // A mission opened from history is history: no pacing, no typing. A fresh one is paced.
+  // A turn is fresh when its user message was typed in this session (or the mission was just
+  // started); history renders whole. Decided per user turn, so replies in an opened mission type.
   const [openedAt] = useState(() => Date.now())
-  const [freshness, setFreshness] = useState<boolean | null>(null)
-  if (freshness === null && mission) setFreshness(openedAt - mission.createdAt < 8000)
-  const [skipped, setSkipped] = useState(false)
-  const fresh = freshness ?? true
+  const lastUserAt =
+    [...thread].reverse().find((e) => e.kind === "user")?.at ?? mission?.createdAt ?? null
+  const fresh = lastUserAt !== null && lastUserAt > openedAt - 8000
+  // Esc skips the current turn's animation only; the next turn animates again. Blocks already on
+  // screen when a user turn arrives (a pending ask) are remembered so they never type twice.
+  const [skipState, setSkipState] = useState<{
+    at: number | null
+    skipped: boolean
+    seen: ReadonlySet<string>
+  }>({ at: lastUserAt, skipped: false, seen: new Set() })
+  if (skipState.at !== lastUserAt) {
+    setSkipState({ at: lastUserAt, skipped: false, seen: new Set(live.map((b) => b.id)) })
+  }
+  const skipped = skipState.skipped
+  const seen = skipState.seen
   const {
     shown: pacedLive,
     revealing,
     skip,
   } = usePacedReveal(live, (next, i) => delayForBlock(next, i, live[i - 1]), !fresh)
+  // The last block keeps typing after it is revealed; states that mark "done" wait for it.
+  const lastLive = live[live.length - 1]
+  const tailKey = `${live.length}:${lastLive?.id ?? ""}`
+  const tailMs = lastLive && fresh && !skipped && !seen.has(lastLive.id) ? durationOf(lastLive) : 0
+  const [tail, setTail] = useState({ key: tailKey, done: tailMs === 0 })
+  if (tail.key !== tailKey) setTail({ key: tailKey, done: tailMs === 0 })
+  useEffect(() => {
+    if (revealing || tail.done) return
+    const t = window.setTimeout(() => setTail((s) => ({ ...s, done: true })), tailMs)
+    return () => window.clearTimeout(t)
+  }, [revealing, tail.done, tail.key, tailMs])
+  const animating = revealing || !tail.done
   const nextBlock = live[pacedLive.length]
   const nextSteps =
     nextBlock?.type === "activity" && nextBlock.activity
@@ -105,7 +138,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
     !working && (mission?.state === "PAUSED" || mission?.state === "STALE" || session === "PAUSED")
   const settled =
     !working &&
-    !revealing &&
+    !animating &&
     (mission === null || isTerminal(mission) || mission.state === "BLOCKED")
 
   // Scroll rule: stick to bottom only when the user is already near it (spec §26 / UX contract).
@@ -114,6 +147,17 @@ export function ConversationThread({ missionId }: { missionId: string }) {
     if (!el || !pinned) return
     el.scrollTop = el.scrollHeight
   }, [snapshot.revision, pinned, pacedLive.length])
+  // Typing grows the column without a snapshot change; while pinned, the view follows it.
+  useEffect(() => {
+    const el = scrollRef.current
+    const inner = contentRef.current
+    if (!el || !inner || !pinned) return
+    const ro = new ResizeObserver(() => {
+      el.scrollTop = el.scrollHeight
+    })
+    ro.observe(inner)
+    return () => ro.disconnect()
+  }, [pinned])
 
   const onScroll = () => {
     const el = scrollRef.current
@@ -127,9 +171,9 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   }
 
   const onAction = (action: BlockAction) => {
-    if (action.kind === "pause" && revealing && !executing) {
+    if (action.kind === "pause" && animating && !executing) {
       skip()
-      setSkipped(true)
+      setSkipState((s) => ({ ...s, skipped: true }))
       return
     }
     if (action.kind === "view_activity") {
@@ -148,14 +192,15 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   // Esc pauses the mission from anywhere in the thread while it is executing (spec §11). Pause
   // controls future execution; it never cancels.
   useEffect(() => {
-    if (!executing && !revealing) return
+    if (!executing && !animating) return
+    if (dataOpen || activityOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onAction({ kind: "pause", label: "Pause" })
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [executing, revealing, missionId])
+  }, [executing, animating, missionId, dataOpen, activityOpen])
 
   if (snapshot.status === "error") {
     return (
@@ -186,7 +231,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   const currentStep = mission?.currentStepId
     ? mission.plan.find((s) => s.id === mission.currentStepId)
     : null
-  const workingLabel = revealing
+  const workingLabel = animating
     ? (stepLabel ?? "Writing")
     : session === "EXECUTING" && currentStep
       ? `Updating ${currentStep.label}`
@@ -250,7 +295,10 @@ export function ConversationThread({ missionId }: { missionId: string }) {
     <div className="flex min-h-0 flex-1">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-6 pt-8 pb-4">
+          <div
+            ref={contentRef}
+            className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-6 pt-8 pb-4"
+          >
             {thread.map((entry, i) =>
               entry.kind === "user" ? (
                 <UserTurn
@@ -262,8 +310,9 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                 />
               ) : (
                 <AgentTurn
-                  key={`a-${entry.at}-${entry.blocks.length}`}
+                  key={`a-${entry.at}-${entry.blocks.length}-${entry.actionTaken ?? ""}`}
                   at={entry.at}
+                  continued={thread[i - 1]?.kind === "agent"}
                   pill={!showLive && i === thread.length - 1 ? pill : null}
                 >
                   <ul className="flex flex-col">
@@ -297,7 +346,12 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                   exit={{ opacity: 0 }}
                   transition={settle}
                 >
-                  <AgentTurn at={null} live pill={working || revealing ? null : pill}>
+                  <AgentTurn
+                    at={null}
+                    live
+                    continued={thread[thread.length - 1]?.kind === "agent"}
+                    pill={working || animating ? null : pill}
+                  >
                     {/* Live region: new agent blocks are announced; frozen history is not re-read. */}
                     <ul className="flex flex-col" aria-live="polite" aria-relevant="additions">
                       {pacedLive.map((block) => (
@@ -309,13 +363,13 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                           actionTaken={null}
                           onAction={onAction}
                           personAvatar={avatar}
-                          animate={fresh && !skipped}
-                          working={working}
+                          animate={fresh && !skipped && !seen.has(block.id)}
+                          working={working || animating}
                         />
                       ))}
                     </ul>
                     <AnimatePresence initial={false}>
-                      {(working || revealing) && (
+                      {(working || animating) && (
                         <motion.div
                           key="working"
                           initial={{ opacity: 0, y: -2 }}
@@ -364,7 +418,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                       key={f.label}
                       type="button"
                       onClick={f.run}
-                      className="border-border text-foreground hover:bg-muted h-8 rounded-full border px-3.5 text-[13px] transition-colors duration-[var(--motion-fast)]"
+                      className="border-border text-foreground hover:bg-muted focus-visible:ring-ring/50 h-8 rounded-full border px-3.5 text-[13px] transition-colors duration-[var(--motion-fast)] focus-visible:ring-2 focus-visible:outline-none"
                     >
                       {f.label}
                     </button>
@@ -381,11 +435,12 @@ export function ConversationThread({ missionId }: { missionId: string }) {
               onPause={() => onAction({ kind: "pause", label: "Pause" })}
               onResume={() => onAction({ kind: "continue", label: "Resume" })}
               onAttach={() => setDataOpen(true)}
-              executing={executing || revealing}
+              executing={executing}
+              skipping={animating && !executing}
               paused={paused}
               focusKey={mission?.pending?.kind === "input" ? mission.pending.stepId : null}
               placeholder={
-                mission?.pending?.kind === "input"
+                mission?.pending?.kind === "input" && !animating
                   ? "Reply with the hours, e.g. 2 hours"
                   : paused
                     ? "Resume, or state a new outcome"
@@ -455,25 +510,32 @@ function UserTurn({
 function AgentTurn({
   at,
   live = false,
+  continued = false,
   pill,
   children,
 }: {
   at: number | null
   live?: boolean
+  /** Follows another agent entry: one turn on screen, so no second header. */
+  continued?: boolean
   pill: { state: MissionState; session: AgentSessionState } | null
   children: React.ReactNode
 }) {
   return (
-    <div className="flex gap-3">
+    <div className={cn("flex gap-3", continued && "-mt-4")}>
       <span className="flex w-5 shrink-0 justify-center pt-px">
-        <AgentMark size={20} />
+        {!continued && <AgentMark size={20} />}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className="text-foreground text-[13px] font-semibold">{AGENT_NAME}</span>
-          <span className="text-muted-foreground text-[11px] tabular-nums">
-            {at === null ? (live ? "Now" : "") : timeFormat.format(new Date(at))}
-          </span>
+        <div className={cn("flex items-center gap-2", continued && !pill && "hidden")}>
+          {!continued && (
+            <>
+              <span className="text-foreground text-[13px] font-semibold">{AGENT_NAME}</span>
+              <span className="text-muted-foreground text-[11px] tabular-nums">
+                {at === null ? (live ? "Now" : "") : timeFormat.format(new Date(at))}
+              </span>
+            </>
+          )}
           <AnimatePresence initial={false}>
             {pill && (
               <motion.span

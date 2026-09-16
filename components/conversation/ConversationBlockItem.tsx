@@ -17,7 +17,7 @@ import { LinearIcon } from "@/components/shared/LinearIcon"
 import { StateChip } from "@/components/shared/StateChip"
 import { Button } from "@/components/ui/button"
 import type { ActivityItem, Block, BlockAction } from "@/core/agent/conversation/blocks"
-import { crossfade, revealDelay, settle, STEP_CADENCE_MS } from "@/lib/motion"
+import { LINE_GAP_MS, crossfade, revealDelay, settle, STEP_CADENCE_MS } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
@@ -59,16 +59,27 @@ export function ConversationBlockItem({
   const isEvaluation = block.type === "evaluation"
   const isLanding = block.type === "landing"
   const isBlocker = block.type === "blocker"
-  // Everything stays open while the mission is live; it compacts only once the turn is frozen.
-  const defaultOpen = isActivity ? !block.collapsed && !frozen : !frozen
+  // Live work stays open; it compacts once the turn is frozen. The landing and its evaluation are
+  // completion itself: their evidence starts folded, one click away.
+  const defaultOpen = isActivity
+    ? !block.collapsed && !frozen
+    : isLanding || isEvaluation
+      ? false
+      : !frozen
   // A fold's detail waits for its sentence to finish typing before it opens.
   const typedLines = isEvaluation
     ? block.lines.slice(1, 2)
     : isBlocker
       ? block.lines.slice(0, 1)
       : block.lines
-  const typingMs = typedLines.reduce((ms, line) => ms + lineTypingMs(line) + 320, 0)
+  const typingMs = typedLines.reduce((ms, line) => ms + lineTypingMs(line) + LINE_GAP_MS, 0)
   const [typed, setTyped] = useState(!(animate && !frozen) || isActivity)
+  // A skip ends the animation: the text is whole, so the fold and the buttons follow at once.
+  const [animatedFor, setAnimatedFor] = useState(animate)
+  if (animatedFor !== animate) {
+    setAnimatedFor(animate)
+    if (!animate) setTyped(true)
+  }
   useEffect(() => {
     if (typed) return
     const t = window.setTimeout(() => setTyped(true), typingMs)
@@ -81,6 +92,7 @@ export function ConversationBlockItem({
   // long as nothing was chosen; decisions do not.
   const showActions =
     block.actions.length > 0 &&
+    (frozen || typed) &&
     (!frozen || (actionTaken === null && block.actions.every((a) => a.kind === "resend")))
   const speech = block.icon === null && !isActivity
 
@@ -147,7 +159,7 @@ export function ConversationBlockItem({
               typing={!frozen && animate}
               startDelayMs={visibleLines
                 .slice(0, i)
-                .reduce((ms, prev) => ms + lineTypingMs(prev) + 320, 0)}
+                .reduce((ms, prev) => ms + lineTypingMs(prev) + LINE_GAP_MS, 0)}
               className={cn(
                 isLanding && i === 0 && "font-medium",
                 isEvaluation && "text-muted-foreground text-[13px] leading-[20px]",
@@ -287,7 +299,7 @@ function Fold({
       onClick={onToggle}
       aria-expanded={open}
       className={cn(
-        "hover:bg-muted -ml-1.5 flex h-7 w-fit items-center gap-1 rounded-lg pr-2.5 pl-1.5 text-[13px] transition-colors duration-[var(--motion-fast)]",
+        "hover:bg-muted focus-visible:ring-ring/50 -ml-1.5 flex h-7 w-fit items-center gap-1 rounded-lg pr-2.5 pl-1.5 text-[13px] transition-colors duration-[var(--motion-fast)] focus-visible:ring-2 focus-visible:outline-none",
         strong ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground",
       )}
     >
@@ -328,7 +340,7 @@ function StepSpine({
         const marker = failed ? "close" : done ? "check" : current ? "status-1" : "circle"
         return (
           <motion.li
-            key={`${item.icon}-${item.label}-${i}`}
+            key={`${item.label}-${i}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ ...settle, delay: live ? (i * STEP_CADENCE_MS) / 1000 : 0 }}

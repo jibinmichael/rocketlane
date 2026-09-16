@@ -28,6 +28,7 @@ export function ConversationComposer({
   onAttach,
   disabled = false,
   executing = false,
+  skipping = false,
   paused = false,
   placeholder = "State an outcome.",
   placeholders,
@@ -42,6 +43,8 @@ export function ConversationComposer({
   onAttach?: () => void
   disabled?: boolean
   executing?: boolean
+  /** The thread is still animating a finished turn: Esc skips, nothing is paused. */
+  skipping?: boolean
   paused?: boolean
   placeholder?: string
   placeholders?: readonly ComposerPlaceholder[]
@@ -108,8 +111,9 @@ export function ConversationComposer({
       submit()
       return
     }
-    if (e.key === "Escape" && executing && onPause) {
+    if (e.key === "Escape" && (executing || skipping) && onPause) {
       e.preventDefault()
+      e.stopPropagation()
       onPause()
       return
     }
@@ -124,8 +128,14 @@ export function ConversationComposer({
     }
   }
 
-  const trailing: "send" | "stop" | "resume" =
-    executing && onPause ? "stop" : paused && onResume ? "resume" : "send"
+  const trailing: "send" | "stop" | "skip" | "resume" =
+    executing && onPause
+      ? "stop"
+      : skipping && onPause
+        ? "skip"
+        : paused && onResume
+          ? "resume"
+          : "send"
 
   return (
     <div
@@ -190,16 +200,16 @@ export function ConversationComposer({
             </button>
           )}
           <AnimatePresence initial={false}>
-            {executing && (
+            {(executing || skipping) && (
               <motion.span
-                key="esc"
+                key={executing ? "esc-pause" : "esc-skip"}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={crossfade}
                 className="text-muted-foreground truncate pl-1 text-[12px]"
               >
-                Esc pauses
+                {executing ? "Esc pauses" : "Esc skips"}
               </motion.span>
             )}
           </AnimatePresence>
@@ -207,24 +217,36 @@ export function ConversationComposer({
 
         <div className="flex items-center gap-1">
           <AnimatePresence mode="popLayout" initial={false}>
-            {trailing === "stop" ? (
+            {trailing === "stop" || trailing === "skip" ? (
               <motion.button
-                key="stop"
+                key={trailing}
                 type="button"
                 onClick={onPause}
-                aria-label="Pause the mission (Esc)"
-                title="Pause (Esc)"
+                aria-label={trailing === "stop" ? "Pause the mission (Esc)" : "Skip ahead (Esc)"}
+                title={trailing === "stop" ? "Pause (Esc)" : "Skip (Esc)"}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={springEnter}
-                className="bg-foreground relative flex size-8 shrink-0 items-center justify-center rounded-full"
+                className="bg-foreground focus-visible:ring-ring/50 relative flex size-8 shrink-0 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none"
               >
                 <span
                   aria-hidden
                   className="bg-card absolute inset-[3px] flex items-center justify-center rounded-full"
                 >
-                  <Pause className="text-foreground size-3" strokeWidth={2.5} fill="currentColor" />
+                  {trailing === "stop" ? (
+                    <Pause
+                      className="text-foreground size-3"
+                      strokeWidth={2.5}
+                      fill="currentColor"
+                    />
+                  ) : (
+                    <LinearIcon
+                      name="arrow-right"
+                      rotate={90}
+                      className="text-foreground size-3.5"
+                    />
+                  )}
                 </span>
               </motion.button>
             ) : trailing === "resume" ? (
@@ -254,7 +276,7 @@ export function ConversationComposer({
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={springEnter}
                 className={cn(
-                  "flex size-8 shrink-0 items-center justify-center rounded-full transition-[background,color,transform] duration-[var(--motion-normal)]",
+                  "focus-visible:ring-ring/50 flex size-8 shrink-0 items-center justify-center rounded-full transition-[background,color,transform] duration-[var(--motion-normal)] focus-visible:ring-2 focus-visible:outline-none",
                   hasText && !disabled ? "bg-agent text-white" : "bg-muted text-muted-foreground",
                 )}
               >

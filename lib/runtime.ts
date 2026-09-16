@@ -357,8 +357,9 @@ export class Runtime {
     for (const entry of this.thread(missionId)) {
       if (entry.kind === "agent") for (const b of entry.blocks) frozen.add(blockKey(b))
     }
+    // Records frozen before ids were mission-scoped carry the bare id; both spellings count.
     return renderMission(mission, graph, this.events.forMission(missionId)).filter(
-      (b) => !frozen.has(blockKey(b)),
+      (b) => !frozen.has(blockKey(b)) && !frozen.has(blockKey(b).slice(missionId.length + 1)),
     )
   }
 
@@ -541,9 +542,10 @@ export class Runtime {
       pendingDecision: current?.pending?.kind ?? null,
     }
     if (missionId) {
-      this.setBusy(missionId, "UNDERSTANDING")
       this.freeze(missionId, null)
       this.pushUser(missionId, utterance)
+      // The person's words are on screen before anything is interpreted or run.
+      this.setBusy(missionId, "UNDERSTANDING")
     }
     const groundingScope = {
       ...(scopeProject ? { projectId: scopeProject } : {}),

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { placementClass, useHoverCard } from "@/hooks/use-card-placement"
 import Image from "next/image"
@@ -34,10 +34,16 @@ function weight(part: Inline): number {
  */
 function useTypewriter(total: number, active: boolean, startDelayMs: number) {
   const [count, setCount] = useState(0)
+  const countRef = useRef(0)
+  useEffect(() => {
+    countRef.current = count
+  })
   useEffect(() => {
     if (!active) return
     let raf = 0
-    const start = performance.now() + startDelayMs
+    // A line whose copy changed mid-stream continues from where it was, never from zero.
+    const already = countRef.current
+    const start = performance.now() + (already > 0 ? 0 : startDelayMs) - already * MS_PER_CHAR
     const tick = (now: number) => {
       const n = Math.max(0, Math.min(total, Math.floor((now - start) / MS_PER_CHAR)))
       setCount(n)

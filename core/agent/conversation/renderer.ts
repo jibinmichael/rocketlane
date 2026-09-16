@@ -71,7 +71,7 @@ export function renderMission(
   events: readonly AgentEvent[] = [],
 ): Block[] {
   const ctx: Ctx = { mission, graph, events }
-  if (mission.targets.length > 1) return renderBatch(ctx)
+  if (mission.targets.length > 1) return scoped(renderBatch(ctx), mission.id)
 
   const target = mission.targets[0]
   if (!target) return []
@@ -117,7 +117,7 @@ export function renderMission(
         [entity(target, targetLabel), text(" is already complete. Nothing to do.")],
       ]),
     )
-    return finish(timeline)
+    return scoped(finish(timeline), mission.id)
   }
 
   // Outcome and the shortest useful path, anchored where the agent stopped.
@@ -232,11 +232,16 @@ export function renderMission(
   // Outcome, then the evidence that it held.
   add(last, 8, ...renderTerminal(ctx, target, targetLabel))
   if (terminal) add(last, 9, evaluationBlock(mission, events, graph))
-  return finish(timeline)
+  return scoped(finish(timeline), mission.id)
 }
 
 function finish(timeline: readonly Anchored[]): Block[] {
   return [...timeline].sort((a, b) => a.at - b.at || a.order - b.order).map((t) => t.block)
+}
+
+/** Ids carry the mission, so a record carried from an earlier mission never hides a new block. */
+function scoped(blocks: readonly Block[], missionId: string): Block[] {
+  return blocks.map((b) => ({ ...b, id: `${missionId}:${b.id}` }))
 }
 
 /** The agent's opening turn on a new chat: what it is for, in two lines. */

@@ -15,17 +15,12 @@ import { cn } from "@/lib/utils"
 export function ConversationFeedbackRow({ text }: { text: string }) {
   const [vote, setVote] = useState<"up" | "down" | null>(null)
   const [thanks, setThanks] = useState(false)
-  const [gone, setGone] = useState(false)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (!vote) return
     const a = window.setTimeout(() => setThanks(true), 720)
-    const b = window.setTimeout(() => setGone(true), 3000)
-    return () => {
-      window.clearTimeout(a)
-      window.clearTimeout(b)
-    }
+    return () => window.clearTimeout(a)
   }, [vote])
 
   const copy = async () => {
@@ -40,7 +35,7 @@ export function ConversationFeedbackRow({ text }: { text: string }) {
 
   return (
     <AnimatePresence initial={false}>
-      {!gone && (
+      {
         <motion.div
           key="feedback"
           initial={{ opacity: 0, height: 0 }}
@@ -66,13 +61,17 @@ export function ConversationFeedbackRow({ text }: { text: string }) {
             <>
               <Thumb kind="up" pressed={vote === "up"} onClick={() => setVote("up")} />
               <Thumb kind="down" pressed={vote === "down"} onClick={() => setVote("down")} />
-              <span aria-hidden className="bg-border mx-1 h-3.5 w-px" />
+            </>
+          )}
+          <span aria-hidden className="bg-border mx-1 h-3.5 w-px" />
+          {
+            <>
               <button
                 type="button"
                 aria-label={copied ? "Copied" : "Copy"}
                 title={copied ? "Copied" : "Copy"}
                 onClick={() => void copy()}
-                className="text-muted-foreground/60 hover:bg-muted hover:text-foreground flex size-7 items-center justify-center rounded-full transition-colors duration-[var(--motion-fast)]"
+                className="text-muted-foreground/60 hover:bg-muted hover:text-foreground focus-visible:ring-ring/50 flex size-7 items-center justify-center rounded-full transition-colors duration-[var(--motion-fast)] focus-visible:ring-2 focus-visible:outline-none"
               >
                 <LinearIcon
                   name={copied ? "check" : "document"}
@@ -80,9 +79,9 @@ export function ConversationFeedbackRow({ text }: { text: string }) {
                 />
               </button>
             </>
-          )}
+          }
         </motion.div>
-      )}
+      }
     </AnimatePresence>
   )
 }

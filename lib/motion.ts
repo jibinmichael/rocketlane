@@ -27,6 +27,8 @@ export const pop: Transition = { duration: 0.55, ease: easeOut }
 
 /** Live step rows land on this beat while a phase is streaming (the human's pacing call). */
 export const STEP_CADENCE_MS = 450
+/** Pause after a typed line before the next one starts. */
+export const LINE_GAP_MS = 220
 
 const REVEAL_STAGGER_MS = 60
 const REVEAL_STAGGER_MAX = 6
