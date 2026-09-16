@@ -789,7 +789,7 @@ export class Runtime {
 }
 
 function blockKey(block: Block): string {
-  return `${block.type}|${JSON.stringify(block.lines)}`
+  return block.id
 }
 
 function isTerminalState(state: Mission["state"]): boolean {

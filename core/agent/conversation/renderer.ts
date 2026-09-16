@@ -14,7 +14,7 @@ import {
 } from "@/core/agent/conversation/blocks"
 import type { Intent } from "@/core/agent/intent/intent"
 import type { WorkspaceGraph } from "@/core/domain/graph"
-import type { ActorId, EntityRef } from "@/core/domain/ids"
+import { type ActorId, type EntityRef, refKey } from "@/core/domain/ids"
 import { isTaskComplete } from "@/core/domain/status"
 import type { PolicyId, ReasonCode } from "@/core/governance/policy"
 import {
@@ -164,7 +164,8 @@ export function renderMission(
 
   // Every accepted answer is acknowledged before the work it unlocks.
   events.forEach((e, i) => {
-    if (e.type === "INPUT_RECEIVED") add(i, 0, acknowledgeInput(e, graph))
+    if (e.type === "INPUT_RECEIVED")
+      add(i, 0, keyed(acknowledgeInput(e, graph), `acknowledgement-input-${i}`))
   })
 
   // Durable step results: reconciliations, mismatches, declines.
@@ -520,6 +521,11 @@ function renderBlockerChain(ctx: Ctx, current: Blocker): Block[] {
       [text("I'll take it from here, starting with "), ...first, text(".")],
     ]),
   )
+  // Identity is the blocker, not the count: a count that ticks down is the same message.
+  blocks[blocks.length - 1] = keyed(
+    blocks[blocks.length - 1]!,
+    `resolution_path-${refKey(current.target)}-${refKey(current.actionable)}-${current.requiredChange.kind}`,
+  )
   return blocks
 }
 
@@ -856,7 +862,7 @@ function renderPending(ctx: Ctx, target: EntityRef): Block[] {
             ],
           ]
         : []
-    return [
+    const ask = keyed(
       block("action_request.input", "waiting", [
         [
           entity(step.ref, step.label),
@@ -868,7 +874,9 @@ function renderPending(ctx: Ctx, target: EntityRef): Block[] {
         [text(attribution)],
         ...batchHint,
       ]),
-    ]
+      `ask-${step.id}`,
+    )
+    return [ask]
   }
   if (pending.kind === "confirm_step") {
     const step = mission.plan.find((s) => s.id === pending.stepId)
@@ -935,6 +943,7 @@ function renderPending(ctx: Ctx, target: EntityRef): Block[] {
           },
           { kind: "decline", stepId: step.id, label: "Not now" },
         ]),
+        id: `confirm-${step.id}`,
         detail: open > 0 ? mission.openButNotRequired.map((t) => [entity(t.ref, t.label)]) : null,
       },
     ]
@@ -959,6 +968,11 @@ function humanStatus(raw: string | null): string {
   if (raw === null) return "its previous status"
   const words = raw.replace(/_/g, " ").toLowerCase()
   return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+/** A block whose identity is what it is about, not its current wording, so it never re-appears as new. */
+function keyed(b: Block, id: string): Block {
+  return { ...b, id }
 }
 
 /** Second landing line: how many supporting updates it took, or that none were needed. */
@@ -1022,6 +1036,7 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
             ],
             actions,
           ),
+          id: `landing-${mission.id}`,
           activity: evidence.map((s) => ({
             icon: "check" as const,
             label: s.label,

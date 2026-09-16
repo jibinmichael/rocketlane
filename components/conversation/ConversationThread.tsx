@@ -254,7 +254,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
             {thread.map((entry, i) =>
               entry.kind === "user" ? (
                 <UserTurn
-                  key={`u-${i}`}
+                  key={`u-${entry.at}-${entry.text.length}`}
                   name={actor?.name ?? "You"}
                   avatar={avatar}
                   text={entry.text}
@@ -262,7 +262,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                 />
               ) : (
                 <AgentTurn
-                  key={`a-${i}`}
+                  key={`a-${entry.at}-${entry.blocks.length}`}
                   at={entry.at}
                   pill={!showLive && i === thread.length - 1 ? pill : null}
                 >

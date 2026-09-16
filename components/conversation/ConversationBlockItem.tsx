@@ -94,7 +94,7 @@ export function ConversationBlockItem({
         : `Finished in ${items.length} ${items.length === 1 ? "step" : "steps"}`
     return (
       <motion.li
-        initial={{ opacity: 0 }}
+        initial={frozen || !animate ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ ...settle, delay: frozen || !animate ? 0 : revealDelay(index) }}
         className="flex flex-col gap-1 py-1"
@@ -117,7 +117,7 @@ export function ConversationBlockItem({
 
   return (
     <motion.li
-      initial={{ opacity: 0 }}
+      initial={frozen || !animate ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ ...settle, delay: frozen || !animate ? 0 : revealDelay(index) }}
       className={cn("relative flex", speech ? "py-1.5" : "py-1")}
