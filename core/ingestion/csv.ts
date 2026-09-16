@@ -17,6 +17,7 @@ export function parseCsv(input: string): CsvParseResult {
   const records: string[][] = []
   const recordLines: number[] = []
   const malformed: Array<{ line: number; reason: string }> = []
+  const badRecordLines = new Set<number>()
 
   let field = ""
   let record: string[] = []
@@ -56,7 +57,10 @@ export function parseCsv(input: string): CsvParseResult {
       continue
     }
     if (ch === '"') {
-      if (field.length > 0) malformed.push({ line, reason: "quote inside unquoted field" })
+      if (field.length > 0) {
+        malformed.push({ line, reason: "quote inside unquoted field" })
+        badRecordLines.add(recordStartLine)
+      }
       inQuotes = true
       i += 1
       continue
@@ -88,6 +92,8 @@ export function parseCsv(input: string): CsvParseResult {
   const lineNumbers: number[] = []
   for (let r = 1; r < records.length; r += 1) {
     const values = records[r]!
+    // A record with a stray quote is reported once and dropped whole: fail closed, never guess a field.
+    if (badRecordLines.has(recordLines[r]!)) continue
     if (values.length !== header.length) {
       malformed.push({
         line: recordLines[r]!,

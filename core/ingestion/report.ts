@@ -9,7 +9,12 @@ export type RejectCode =
   | "MALFORMED_ROW"
   | "MISSING_COLUMNS"
 
-export type WarnCode = "MALFORMED_DATE" | "UNRESOLVED_PARENT" | "DUPLICATE_NAME" | "NON_STANDARD_ID"
+export type WarnCode =
+  | "MALFORMED_DATE"
+  | "MALFORMED_HOURS"
+  | "UNRESOLVED_PARENT"
+  | "DUPLICATE_NAME"
+  | "NON_STANDARD_ID"
 
 export type FindingKind =
   | "HISTORICAL_POLICY_INCONSISTENCY"

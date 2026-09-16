@@ -166,8 +166,9 @@ export function ingestTwoFileExport(input: {
         })
         return
       }
-      const hours = Number.parseFloat(row["HoursTracked"] ?? "0")
-      if (Number.isFinite(hours) && hours < 0) {
+      const rawHours = (row["HoursTracked"] ?? "").trim()
+      const hours = parseHours(rawHours)
+      if (hours !== null && hours < 0) {
         rejected.push({
           file: "tasks.csv",
           line,
@@ -175,6 +176,14 @@ export function ingestTwoFileExport(input: {
           detail: `${id}: ${hours}`,
         })
         return
+      }
+      if (rawHours !== "" && hours === null) {
+        warnings.push({
+          file: "tasks.csv",
+          line,
+          reason: "MALFORMED_HOURS",
+          detail: `${id}: "${rawHours}" is not a number of hours; treated as no time logged`,
+        })
       }
       if (!ID_PATTERN.test(id))
         warnings.push({ file: "tasks.csv", line, reason: "NON_STANDARD_ID", detail: id })
@@ -216,6 +225,7 @@ export function ingestTwoFileExport(input: {
 
   // Second pass: resolve dependencies (longest match, fail closed), parents, time entries.
   const tasks: Task[] = []
+  const projectOfTask = new Map(rawTasks.map((t) => [t.id, t.projectId]))
   let dependencyCount = 0
   for (const raw of rawTasks) {
     const { row, line, id, projectId: pid } = raw
@@ -253,7 +263,8 @@ export function ingestTwoFileExport(input: {
     const rawParent = (row["ParentTaskId"] ?? "").trim()
     if (rawParent !== "") {
       const candidate = taskId(rawParent)
-      if (taskIds.has(candidate)) parentTaskId = candidate
+      // Contract 07: the parent must exist in the same project, and a task is never its own parent.
+      if (candidate !== id && projectOfTask.get(candidate) === pid) parentTaskId = candidate
       else
         warnings.push({
           file: "tasks.csv",
@@ -265,9 +276,9 @@ export function ingestTwoFileExport(input: {
 
     const completedAt = parseDate(row["CompletedAt"], "tasks.csv", line, warnings)
     const startDate = parseDate(row["StartDate"], "tasks.csv", line, warnings)
-    const hours = Number.parseFloat(row["HoursTracked"] ?? "0")
+    const hours = parseHours((row["HoursTracked"] ?? "").trim()) ?? 0
     const timeEntries: TimeEntry[] =
-      Number.isFinite(hours) && hours > 0
+      hours > 0
         ? [
             {
               id: timeEntryId(`${id}:import`),
@@ -462,7 +473,24 @@ function emptyToNull(value: string | null | undefined): string | null {
   return trimmed === "" ? null : trimmed
 }
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
+
+/** A calendar-valid ISO date, not just an ISO-shaped string. */
+function isValidDate(value: string): boolean {
+  const match = DATE_PATTERN.exec(value)
+  if (!match) return false
+  const [, y, m, d] = match.map(Number) as [number, number, number, number]
+  const date = new Date(Date.UTC(y, m - 1, d))
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d
+}
+
+/** Strict decimal hours; anything else is null so the caller can report it. */
+function parseHours(raw: string): number | null {
+  if (raw === "") return 0
+  if (!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i.test(raw)) return null
+  const value = Number(raw)
+  return Number.isFinite(value) ? value : null
+}
 
 function parseDate(
   value: string | undefined,
@@ -472,7 +500,7 @@ function parseDate(
 ): string | null {
   const trimmed = (value ?? "").trim()
   if (trimmed === "") return null
-  if (DATE_PATTERN.test(trimmed)) return trimmed
+  if (isValidDate(trimmed)) return trimmed
   warnings.push({ file, line, reason: "MALFORMED_DATE", detail: trimmed })
   return null
 }
