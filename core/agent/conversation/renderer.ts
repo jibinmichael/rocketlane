@@ -364,16 +364,15 @@ function renderResumed(event: AgentEvent): Block {
     ])
   }
   const changed = event.detail["changed"] === true
-  return block("resumed", "neutral", [
-    [text("Got it. I'll recheck the current state before continuing.")],
-    [
+  const lines: Inline[][] = [[text("Got it. I'll recheck the current state, then continue.")]]
+  if (changed) {
+    lines.push([
       text(
-        changed
-          ? "Resuming requires a course correction. The project changed while this mission was paused; I rechecked the current state and updated the plan before continuing."
-          : "Resuming from the current verified state.",
+        "Resuming requires a course correction. The project changed while this mission was paused. I rechecked the current state and updated the remaining plan.",
       ),
-    ],
-  ])
+    ])
+  }
+  return block("resumed", "neutral", lines)
 }
 
 function renderStateChange(
@@ -744,6 +743,12 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
                 text(`All required updates were completed and verified. Final state verified at `),
                 time(mission.landedAt ?? mission.updatedAt),
                 text("."),
+              ],
+              [
+                count(evidence.length),
+                text(` ${plural(evidence.length, "update")} completed · `),
+                count(mission.plan.filter((s) => s.status === "failed").length),
+                text(" failed"),
               ],
             ],
             [{ kind: "view_activity", label: "View activity" }],

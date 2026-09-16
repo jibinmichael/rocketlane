@@ -296,8 +296,7 @@ describe("pause: batch, faults and the world", () => {
     const text = resumedBlock.lines
       .map((l) => l.map((i) => ("text" in i ? i.text : "")).join(""))
       .join("\n")
-    expect(text).toContain("Resuming from the current verified state.")
-    expect(text).toContain("Got it. I'll recheck the current state before continuing.")
+    expect(text).toBe("Got it. I'll recheck the current state, then continue.")
   })
 })
 

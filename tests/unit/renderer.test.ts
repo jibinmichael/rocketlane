@@ -143,7 +143,11 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
     expect(t[t.length - 1]).toBe("evaluation")
     const landing = blocks[blocks.length - 2]!
     expect(flat(landing.lines)).toBe(
-      "[Acme Implementation] completed.\nAll required updates were completed and verified. Final state verified at {time}.",
+      [
+        "[Acme Implementation] completed.",
+        "All required updates were completed and verified. Final state verified at {time}.",
+        "5 updates completed · 0 failed",
+      ].join("\n"),
     )
     expect(landing.activity?.map((i) => i.label)).toContain("Deploy API")
     expect(flat(blocks.find((b) => b.type === "timeout_reconciled")!.lines)).toBe(
