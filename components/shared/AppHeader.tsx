@@ -10,8 +10,8 @@ import type { FixtureLoader } from "@/components/shared/RuntimeProvider"
  */
 export function AppHeader({ loadFixture }: { loadFixture: FixtureLoader }) {
   return (
-    <header className="border-border/70 bg-background/95 sticky top-0 z-20 border-b backdrop-blur">
-      <div className="mx-auto flex h-12 w-full max-w-[880px] items-center justify-between px-6">
+    <header className="border-border/60 bg-background/90 sticky top-0 z-20 border-b backdrop-blur">
+      <div className="mx-auto flex h-12 w-full max-w-[1040px] items-center justify-between px-6">
         <Link
           href="/"
           className="flex items-center gap-2.5 rounded-md text-[13px] font-semibold tracking-[-0.01em]"

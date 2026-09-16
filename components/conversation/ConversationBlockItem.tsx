@@ -143,6 +143,7 @@ export function ConversationBlockItem({
                 key={`${action.kind}-${"stepId" in action ? action.stepId : action.label}`}
                 type="button"
                 size="sm"
+                className="rounded-full px-3"
                 variant={
                   action.kind === "approve" && action.impact === "high"
                     ? "default"

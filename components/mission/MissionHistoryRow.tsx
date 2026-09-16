@@ -17,7 +17,7 @@ export function MissionHistoryRow({ mission, now }: { mission: Mission; now: num
     <li>
       <Link
         href={`/m/${mission.id}`}
-        className="hover:bg-muted/60 group flex min-h-10 items-center gap-3 rounded-md px-2 py-1.5 transition-colors duration-[var(--motion-fast)]"
+        className="hover:bg-muted group flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 transition-colors duration-[var(--motion-fast)]"
       >
         <span className="flex w-4 shrink-0 justify-center">
           <ConversationIcon name={icon} tone={tone} />

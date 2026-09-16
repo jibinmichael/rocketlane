@@ -1,12 +1,14 @@
 "use client"
 
+import { ArrowDown } from "lucide-react"
+
 import { ArtifactStateChip } from "@/components/artifacts/ArtifactStateChip"
 import { MISSION_LABEL } from "@/core/mission/labels"
 import type { Mission } from "@/core/mission/mission"
 import type { AgentSessionState } from "@/lib/runtime"
 
 /** What the agent is doing right now, in flight language (spec §25): never an operation count. */
-const SESSION_LABEL: Record<AgentSessionState, string> = {
+export const SESSION_LABEL: Record<AgentSessionState, string> = {
   READY: "Ready",
   UNDERSTANDING: "Preparing mission",
   PLANNING: "Preparing mission",
@@ -59,8 +61,8 @@ export function MissionBand({
       : SESSION_LABEL[session]
 
   return (
-    <header className="border-border bg-background/95 sticky top-0 z-10 border-b backdrop-blur">
-      <div className="mx-auto flex h-[52px] w-full max-w-[720px] items-center gap-4 px-6">
+    <header className="border-border/70 bg-background/90 sticky top-0 z-10 border-b backdrop-blur">
+      <div className="mx-auto flex h-[52px] w-full max-w-[680px] items-center gap-4 px-6">
         <h1 className="text-foreground min-w-0 flex-1 truncate text-[14px] font-medium tracking-[-0.005em]">
           {mission.goalText}
         </h1>
@@ -73,9 +75,10 @@ export function MissionBand({
           <button
             type="button"
             onClick={onJump}
-            className="border-border text-muted-foreground hover:text-foreground h-6 shrink-0 rounded-full border px-2 text-[12px] transition-colors duration-[var(--motion-fast)]"
+            className="border-border text-muted-foreground hover:text-foreground hover:bg-muted flex h-6 shrink-0 items-center gap-1 rounded-full border px-2 text-[12px] transition-colors duration-[var(--motion-fast)]"
           >
-            {MISSION_LABEL[mission.state]} ↓
+            {MISSION_LABEL[mission.state]}
+            <ArrowDown aria-hidden className="size-3" strokeWidth={2} />
           </button>
         )}
         <span title={interpretedNote ?? undefined}>
@@ -86,7 +89,7 @@ export function MissionBand({
         {working && (
           <span
             aria-hidden
-            className="bg-state-working absolute top-0 left-0 h-px w-1/3 animate-[flight-hairline_1.2s_var(--ease-in-out)_infinite]"
+            className="bg-foreground/35 absolute top-0 left-0 h-px w-1/3 animate-[flight-hairline_1.2s_var(--ease-in-out)_infinite]"
           />
         )}
         {mission.state === "COMPLETED" && (

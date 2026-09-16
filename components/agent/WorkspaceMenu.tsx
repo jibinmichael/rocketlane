@@ -14,7 +14,7 @@ import type { TaskStatus } from "@/core/domain/status"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
 
 const select =
-  "border-border bg-background text-foreground h-8 max-w-full rounded-md border px-2 text-[13px]"
+  "border-border bg-card text-foreground hover:bg-muted h-8 max-w-full rounded-lg border px-2 text-[13px] transition-colors duration-[var(--motion-fast)]"
 
 /**
  * Workspace controls behind the acting user's name (final brief §4: minimal account/workspace
@@ -54,7 +54,7 @@ export function WorkspaceMenu({ loadFixture }: { loadFixture: FixtureLoader }) {
         aria-expanded={open}
         aria-controls={panelId}
         aria-haspopup="dialog"
-        className="text-muted-foreground hover:text-foreground hover:bg-muted/60 flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] transition-colors duration-[var(--motion-fast)]"
+        className="text-muted-foreground hover:text-foreground hover:bg-muted flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[13px] transition-colors duration-[var(--motion-fast)]"
       >
         <span className="text-foreground">{actor?.name ?? "Workspace"}</span>
         <span className="text-muted-foreground hidden text-[12px] sm:inline">
@@ -67,7 +67,7 @@ export function WorkspaceMenu({ loadFixture }: { loadFixture: FixtureLoader }) {
           id={panelId}
           role="dialog"
           aria-label="Workspace"
-          className="border-border bg-popover text-popover-foreground absolute top-full right-0 z-30 mt-2 w-[360px] max-w-[calc(100vw-2rem)] rounded-lg border p-4 shadow-[var(--shadow-md)]"
+          className="border-border bg-card text-card-foreground absolute top-full right-0 z-30 mt-2 w-[380px] max-w-[calc(100vw-2rem)] rounded-xl border p-4 shadow-[var(--shadow-lg)]"
         >
           <div className="flex flex-col gap-5">
             <section className="flex flex-col gap-1.5">
@@ -103,6 +103,7 @@ export function WorkspaceMenu({ loadFixture }: { loadFixture: FixtureLoader }) {
                 <Button
                   size="sm"
                   variant="outline"
+                  className="rounded-full"
                   onClick={() =>
                     void loadFixture("cascading-conflicts").then((f) =>
                       runtime.loadCsv(f.id, f.projectsCsv, f.tasksCsv),
@@ -114,6 +115,7 @@ export function WorkspaceMenu({ loadFixture }: { loadFixture: FixtureLoader }) {
                 <Button
                   size="sm"
                   variant="outline"
+                  className="rounded-full"
                   onClick={() =>
                     void loadFixture("rocketlane-export").then((f) =>
                       runtime.loadCsv(f.id, f.projectsCsv, f.tasksCsv),
@@ -122,7 +124,12 @@ export function WorkspaceMenu({ loadFixture }: { loadFixture: FixtureLoader }) {
                 >
                   Rocketlane export
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => void runtime.resetDataset()}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="rounded-full"
+                  onClick={() => void runtime.resetDataset()}
+                >
                   Reset
                 </Button>
               </div>
@@ -238,7 +245,12 @@ function OutsideWorld() {
         </select>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={() => void apply()} disabled={!task || !actor}>
+        <Button
+          size="sm"
+          className="rounded-full"
+          onClick={() => void apply()}
+          disabled={!task || !actor}
+        >
           Apply
         </Button>
         <select
@@ -250,7 +262,7 @@ function OutsideWorld() {
           <option value="timeout_once">timeout once</option>
           <option value="fail_once">fail once</option>
         </select>
-        <Button size="sm" variant="outline" onClick={arm} disabled={!task}>
+        <Button size="sm" variant="outline" className="rounded-full" onClick={arm} disabled={!task}>
           Arm on next write
         </Button>
       </div>

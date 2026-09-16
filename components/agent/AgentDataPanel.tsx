@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useId, useState } from "react"
+import { FileText, TriangleAlert, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import type { IngestionReport } from "@/core/ingestion/report"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
+import { cn } from "@/lib/utils"
 
 /**
  * "Test with project data" (final brief §27–§28). Upload a Rocketlane two-file export; it is
@@ -12,7 +14,13 @@ import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
  * the same agent runs against it. Nothing is special-cased; the dataset changes, the engine does
  * not. Malformed records are rejected and listed, never dropped silently.
  */
-export function AgentDataPanel({ onLoaded }: { onLoaded?: () => void }) {
+export function AgentDataPanel({
+  onLoaded,
+  onClose,
+}: {
+  onLoaded?: () => void
+  onClose?: () => void
+}) {
   const runtime = useRuntime()
   const snapshot = useRuntimeSnapshot()
   const [projectsFile, setProjectsFile] = useState<File | null>(null)
@@ -39,36 +47,35 @@ export function AgentDataPanel({ onLoaded }: { onLoaded?: () => void }) {
   return (
     <section
       aria-label="Test with project data"
-      className="border-border flex flex-col gap-4 rounded-lg border p-4"
+      className="border-border bg-card flex flex-col gap-4 rounded-xl border p-4 shadow-[var(--shadow-sm)]"
     >
-      <div className="flex flex-col gap-1">
-        <span className="text-foreground text-[13px] font-medium">Test with your project data</span>
-        <p className="text-muted-foreground text-[12px]">
-          A Rocketlane two-file export. Parsed in your browser; nothing leaves it. The same agent,
-          governance and verification run against whatever you load.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <span className="text-foreground text-[13px] font-medium">
+            Test with your project data
+          </span>
+          <p className="text-muted-foreground text-[12px] leading-[1.5]">
+            A Rocketlane two-file export. Parsed in your browser; nothing leaves it. The same agent,
+            governance and verification run against whatever you load.
+          </p>
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="text-muted-foreground hover:text-foreground hover:bg-muted flex size-7 shrink-0 items-center justify-center rounded-full transition-colors duration-[var(--motion-fast)]"
+          >
+            <X aria-hidden className="size-3.5" strokeWidth={2} />
+          </button>
+        )}
       </div>
-      <div className="flex flex-wrap items-center gap-3 text-[13px]">
-        <label className="flex items-center gap-2">
-          <span className="text-muted-foreground">projects.csv</span>
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            onChange={(e) => setProjectsFile(e.target.files?.[0] ?? null)}
-            className="text-[12px]"
-          />
-        </label>
-        <label className="flex items-center gap-2">
-          <span className="text-muted-foreground">tasks.csv</span>
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            onChange={(e) => setTasksFile(e.target.files?.[0] ?? null)}
-            className="text-[12px]"
-          />
-        </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <FilePick label="projects.csv" file={projectsFile} onPick={setProjectsFile} />
+        <FilePick label="tasks.csv" file={tasksFile} onPick={setTasksFile} />
         <Button
           size="sm"
+          className="ml-auto rounded-full"
           disabled={!projectsFile || !tasksFile || busy}
           onClick={() => void upload()}
         >
@@ -77,7 +84,7 @@ export function AgentDataPanel({ onLoaded }: { onLoaded?: () => void }) {
       </div>
 
       {current && (
-        <div className="flex flex-col gap-1 text-[13px]">
+        <div className="border-border flex flex-col gap-1 border-t pt-3 text-[13px]">
           <p className="text-foreground">
             Project data loaded. I found {current.counts.projects}{" "}
             {current.counts.projects === 1 ? "project" : "projects"} and {current.counts.tasks}{" "}
@@ -87,10 +94,24 @@ export function AgentDataPanel({ onLoaded }: { onLoaded?: () => void }) {
               : ""}
             .
           </p>
-          <p className={attention > 0 ? "text-state-waiting" : "text-muted-foreground"}>
-            {attention > 0
-              ? `${attention} ${attention === 1 ? "record needs" : "records need"} attention and ${current.findings.length} data ${current.findings.length === 1 ? "finding" : "findings"} are listed below. Nothing was dropped silently.`
-              : "No data-quality issues."}
+          <p
+            className={cn(
+              "flex items-start gap-1.5",
+              attention > 0 ? "text-foreground" : "text-muted-foreground",
+            )}
+          >
+            {attention > 0 && (
+              <TriangleAlert
+                aria-hidden
+                className="text-state-waiting mt-[3px] size-3.5 shrink-0"
+                strokeWidth={1.75}
+              />
+            )}
+            <span>
+              {attention > 0
+                ? `${attention} ${attention === 1 ? "record needs" : "records need"} attention and ${current.findings.length} data ${current.findings.length === 1 ? "finding" : "findings"} are listed below. Nothing was dropped silently.`
+                : "No data-quality issues."}
+            </span>
           </p>
           <p className="text-muted-foreground">
             You can now test the agent against this dataset. State an outcome above.
@@ -106,7 +127,7 @@ export function AgentDataPanel({ onLoaded }: { onLoaded?: () => void }) {
             </button>
           )}
           {showDetail && (
-            <ul className="border-border divide-border mt-1 divide-y rounded-md border text-[12px]">
+            <ul className="border-border divide-border mt-1 divide-y rounded-lg border text-[12px]">
               {current.rejected.map((r, i) => (
                 <li key={`r-${i}`} className="text-muted-foreground px-3 py-1.5">
                   <span className="text-foreground">Rejected</span> · {r.file}:{r.line} · {r.reason}{" "}
@@ -129,5 +150,37 @@ export function AgentDataPanel({ onLoaded }: { onLoaded?: () => void }) {
         </div>
       )}
     </section>
+  )
+}
+
+/** A file input styled as a quiet pill; the native input stays for the browser and for scripts. */
+function FilePick({
+  label,
+  file,
+  onPick,
+}: {
+  label: string
+  file: File | null
+  onPick: (f: File | null) => void
+}) {
+  const id = useId()
+  return (
+    <label
+      htmlFor={id}
+      className={cn(
+        "border-border hover:bg-muted flex h-8 cursor-pointer items-center gap-2 rounded-full border px-3 text-[12.5px] transition-colors duration-[var(--motion-fast)]",
+        file ? "text-foreground" : "text-muted-foreground",
+      )}
+    >
+      <FileText aria-hidden className="size-3.5 shrink-0" strokeWidth={1.75} />
+      <span className="max-w-[180px] truncate">{file ? file.name : label}</span>
+      <input
+        id={id}
+        type="file"
+        accept=".csv,text/csv"
+        onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+        className="sr-only"
+      />
+    </label>
   )
 }

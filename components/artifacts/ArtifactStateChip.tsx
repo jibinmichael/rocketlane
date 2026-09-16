@@ -37,16 +37,7 @@ const SESSION_TONE: Record<AgentSessionState, Tone> = {
   CANCELLED: "paused",
 }
 
-const TONE_CLASS: Record<Tone, string> = {
-  ready: "text-state-ready bg-muted",
-  working: "text-state-working bg-status-info-soft",
-  waiting: "text-state-waiting bg-status-warning-soft",
-  blocked: "text-state-blocked bg-status-error-soft",
-  paused: "text-state-paused bg-status-warning-soft",
-  error: "text-state-error bg-status-error-soft",
-  completed: "text-state-completed bg-status-success-soft",
-}
-
+/** Neutral chip, coloured dot: state reads from the dot and the word, never from a tinted field. */
 const DOT_CLASS: Record<Tone, string> = {
   ready: "bg-state-ready",
   working: "bg-state-working",
@@ -73,12 +64,18 @@ export function ArtifactStateChip({
   return (
     <span
       className={cn(
-        "inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium tabular-nums transition-colors duration-[var(--motion-normal)]",
-        TONE_CLASS[tone],
+        "bg-muted text-foreground/80 inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium tabular-nums transition-colors duration-[var(--motion-normal)]",
         className,
       )}
     >
-      <span aria-hidden className={cn("size-1.5 rounded-full", DOT_CLASS[tone])} />
+      <span
+        aria-hidden
+        className={cn(
+          "size-1.5 rounded-full transition-colors duration-[var(--motion-normal)]",
+          DOT_CLASS[tone],
+          tone === "working" && "animate-pulse",
+        )}
+      />
       {MISSION_LABEL[state]}
     </span>
   )
