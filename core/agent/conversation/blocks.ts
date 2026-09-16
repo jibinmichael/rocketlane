@@ -22,7 +22,6 @@ export type BlockAction =
       readonly impact: "high" | "safe"
     }
   | { readonly kind: "decline"; readonly stepId: string | null; readonly label: string }
-  | { readonly kind: "log_time"; readonly stepId: string; readonly label: string }
   | { readonly kind: "continue"; readonly label: string }
   | { readonly kind: "cancel"; readonly label: string }
   | { readonly kind: "view_activity"; readonly label: string }
@@ -37,6 +36,7 @@ export type BlockType =
   | "action_request.input"
   | "action_request.confirm"
   | "action_request.batch_confirm"
+  | "notification.blocked"
   | "declined"
   | "consequence"
   | "result.verified"
@@ -53,6 +53,15 @@ export type BlockType =
   | "boundary"
   | "landing"
   | "status"
+
+/** Blocks that hold an open decision or input: they stay live across typed turns (UX contract, rule zero). */
+export function carriesDecision(block: Pick<Block, "type">): boolean {
+  return (
+    block.type.startsWith("action_request") ||
+    block.type === "notification.blocked" ||
+    block.type === "clarification"
+  )
+}
 
 export type PathNode = {
   readonly ref: EntityRef

@@ -1,4 +1,6 @@
 import type { ActorId, EntityRef } from "@/core/domain/ids"
+import type { PermissionAction } from "@/core/governance/permissions"
+import type { PolicyId, ReasonCode } from "@/core/governance/policy"
 import type { Blocker } from "@/core/resolver/blockers"
 
 /**
@@ -101,8 +103,25 @@ export type MissionOutcome = {
   readonly completedBeforeScopeChange: number
 }
 
+/**
+ * A legitimate human input a governance rule requires before a step can run. Generic: the field,
+ * the rule that demands it, the permission it needs and the value's schema. Conversation collects
+ * it; the engine validates against `schema`, never guesses, never fabricates.
+ */
+export type RequiredInput = {
+  readonly field: "hours"
+  readonly policyId: PolicyId
+  readonly reasonCode: ReasonCode
+  readonly permission: PermissionAction
+  readonly schema: {
+    readonly type: "number"
+    readonly exclusiveMinimum: number
+    readonly maximum: number
+  }
+}
+
 export type PendingDecision =
-  | { readonly kind: "input_hours"; readonly stepId: string }
+  | { readonly kind: "input"; readonly stepId: string; readonly input: RequiredInput }
   | { readonly kind: "confirm_step"; readonly stepId: string }
   | { readonly kind: "confirm_plan" }
   | null
@@ -139,6 +158,8 @@ export type Mission = {
   readonly stateChanges: readonly StateChangeNotice[]
   readonly outcome: MissionOutcome | null
   readonly interpretedBy: "deterministic" | "model" | null
+  /** Who started it: a person in the conversation, or a routine check (spec §13). Same engine, same rules. */
+  readonly origin: "user" | "routine"
   readonly createdAt: number
   readonly updatedAt: number
   readonly landedAt: number | null

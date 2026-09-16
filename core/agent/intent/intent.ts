@@ -52,7 +52,7 @@ export type InterpretationContext = {
   /** Names in scope, for disambiguation only. Never copied into output. */
   readonly entityNames: readonly string[]
   readonly hasActiveMission: boolean
-  readonly pendingDecision: "input_hours" | "confirm_step" | "confirm_plan" | null
+  readonly pendingDecision: "input" | "confirm_step" | "confirm_plan" | null
 }
 
 export interface IntentInterpreter {
@@ -107,6 +107,8 @@ export type Intent =
         | "unsupported_scope"
         /** "my projects" resolved to nothing the actor owns. */
         | "none_owned"
+        /** A value was expected for a pending input and this was not a valid one. */
+        | "invalid_input"
       readonly query: string | null
       readonly utterance: string
       readonly source: IntentProposal["source"]

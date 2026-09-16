@@ -15,7 +15,7 @@ import type { WorkspaceGraph } from "@/core/domain/graph"
 import type { ActorId, EntityRef } from "@/core/domain/ids"
 import { isTaskComplete } from "@/core/domain/status"
 import type { PolicyId, ReasonCode } from "@/core/governance/policy"
-import type { Mission, PlanStep, TargetOutcome } from "@/core/mission/mission"
+import type { Mission, PlanStep, TargetOutcome, RequiredInput } from "@/core/mission/mission"
 import { type Blocker, nextActionable } from "@/core/resolver/blockers"
 import { labelOf } from "@/core/resolver/target"
 import { fnv1a } from "@/core/ingestion/hash"
@@ -378,24 +378,47 @@ function renderPending(ctx: Ctx, target: EntityRef): Block[] {
   const { mission, graph } = ctx
   const pending = mission.pending
   if (!pending) return []
-  if (pending.kind === "input_hours") {
+  if (pending.kind === "input") {
     const step = mission.plan.find((s) => s.id === pending.stepId)
     if (!step) return []
-    // The consequence stays visible: whose task it is, and whose time this will be (north star).
+    const { input } = pending
+    // Why it stopped, from the policy evidence; what it needs; whose action this will be. The
+    // composer is the input: the conversation is the control surface (spec §27).
     const actor = actorName(graph, mission.actorId)
     const task = step.ref.kind === "task" ? graph.task(step.ref.id) : null
     const assignees = (task?.assigneeNames ?? []).filter((name) => name !== actor)
     const attribution =
       assignees.length > 0
-        ? `It's assigned to ${joinNames(assignees)}; hours you enter are recorded as yours.`
-        : "Hours you enter are recorded as yours."
+        ? `${step.label} is assigned to ${joinNames(assignees)}; I'll record the ${input.field} as yours, ${actor}.`
+        : `I'll record them as your ${input.field}, ${actor}.`
+    if (mission.origin === "routine") {
+      // A routine never invents the value; it leaves a waiting mission and says who must supply it.
+      return [
+        block("notification.blocked", "waiting", [
+          [
+            entity(target, mission.targetLabels[0] ?? labelOf(target, graph)),
+            text(" is blocked because "),
+            entity(step.ref, step.label),
+            text(
+              ` ${inputReason(input)} ${POLICY_LABEL[input.policyId]} requires ${input.field} before completion. I need the number of ${input.field} from the authorized actor.`,
+            ),
+          ],
+          inputQuestion(input, step),
+          [text(attribution)],
+        ]),
+      ]
+    }
     return [
-      block(
-        "action_request.input",
-        "waiting",
-        [[text("I need hours for "), entity(step.ref, step.label), text(".")], [text(attribution)]],
-        [{ kind: "log_time", stepId: step.id, label: "Log time" }],
-      ),
+      block("action_request.input", "waiting", [
+        [
+          entity(step.ref, step.label),
+          text(
+            ` ${inputReason(input)} ${POLICY_LABEL[input.policyId]} requires ${input.field} before completion.`,
+          ),
+        ],
+        inputQuestion(input, step),
+        [text(attribution)],
+      ]),
     ]
   }
   if (pending.kind === "confirm_step") {
@@ -521,19 +544,25 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
             : null
       const owner = project?.ownerName ?? "the project owner"
       const first: Inline[] =
-        denied && denied.ref.kind === "task" && target.kind !== "task"
+        denied?.transition === "TIME_LOGGED"
           ? [
-              text("Only the project owner can complete "),
+              text("Only the project owner or an assigned team member can log time on "),
               entity(denied.ref, denied.label),
-              text(" in "),
-              entity(target, targetLabel),
-              text(`. ${owner} owns it.`),
+              text(`. ${owner} owns the project.`),
             ]
-          : [
-              text("Only the project owner can complete "),
-              entity(target, targetLabel),
-              text(`. ${owner} owns it.`),
-            ]
+          : denied && denied.ref.kind === "task" && target.kind !== "task"
+            ? [
+                text("Only the project owner can complete "),
+                entity(denied.ref, denied.label),
+                text(" in "),
+                entity(target, targetLabel),
+                text(`. ${owner} owns it.`),
+              ]
+            : [
+                text("Only the project owner can complete "),
+                entity(target, targetLabel),
+                text(`. ${owner} owns it.`),
+              ]
       const lines: Inline[][] = [first]
       if (project?.ownerName) {
         lines.push([
@@ -687,6 +716,22 @@ export function renderIntentReply(
             ],
           ]),
         ]
+      }
+      if (intent.reason === "invalid_input") {
+        const pending = mission?.pending
+        const step =
+          pending?.kind === "input" ? mission?.plan.find((s) => s.id === pending.stepId) : null
+        if (pending?.kind === "input" && step) {
+          return [
+            block("boundary", "waiting", [
+              [
+                text(`I need a number of ${pending.input.field} for `),
+                entity(step.ref, step.label),
+                text(`, for example ${inputExample(pending.input)}. Nothing has been logged.`),
+              ],
+            ]),
+          ]
+        }
       }
       if (intent.reason === "none_owned") {
         return [
@@ -874,6 +919,34 @@ function statusWord(ref: EntityRef, graph: WorkspaceGraph): string {
   if (ref.kind === "task")
     return (graph.task(ref.id)?.status ?? "open").toLowerCase().replace("_", " ")
   return "open"
+}
+
+/** The reason a required input exists, from its policy evidence. One sentence per reason code. */
+function inputReason(input: RequiredInput): string {
+  switch (input.reasonCode) {
+    case "NO_TIME_LOGGED":
+      return "has no logged time."
+    case "MILESTONES_INCOMPLETE":
+    case "SUBTASKS_OPEN":
+    case "PREDECESSORS_INCOMPLETE":
+    case "DATA_FLAGGED":
+    case "OK":
+      return "needs input."
+  }
+}
+
+function inputQuestion(input: RequiredInput, step: PlanStep): Inline[] {
+  switch (input.field) {
+    case "hours":
+      return [text("How many hours should I log for "), entity(step.ref, step.label), text("?")]
+  }
+}
+
+function inputExample(input: RequiredInput): string {
+  switch (input.field) {
+    case "hours":
+      return "2 or 1.5"
+  }
 }
 
 function joinNames(names: readonly string[]): string {

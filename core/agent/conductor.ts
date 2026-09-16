@@ -16,9 +16,13 @@ import type { Mission } from "@/core/mission/mission"
 export type MissionCommands = {
   start(
     proposal: Proposal,
-    options: { readonly datasetId: string; readonly interpretedBy?: Mission["interpretedBy"] },
+    options: {
+      readonly datasetId: string
+      readonly interpretedBy?: Mission["interpretedBy"]
+      readonly origin?: Mission["origin"]
+    },
   ): Promise<Mission>
-  provideHours(missionId: string, stepId: string, hours: number): Promise<Mission>
+  provideInput(missionId: string, stepId: string, value: unknown): Promise<Mission>
   approve(missionId: string, stepId: string | null): Promise<Mission>
   decline(missionId: string, stepId: string | null): Promise<Mission>
   cancel(missionId: string): Mission
@@ -66,30 +70,37 @@ export async function conduct(
   if (!current) return { kind: "reply", intent }
   const pendingStepId = current.pending?.kind === "confirm_step" ? current.pending.stepId : null
 
+  const awaitingInput = current.pending?.kind === "input"
+  const invalid = (reason: "invalid_input" | "no_target"): ConductorOutcome => ({
+    kind: "reply",
+    intent: {
+      kind: "unsupported",
+      reason,
+      query: null,
+      utterance: intent.utterance,
+      source: intent.source,
+    },
+  })
+
   switch (intent.kind) {
     case "log_time": {
       const pending = current.pending
-      if (pending?.kind === "input_hours") {
+      if (pending?.kind === "input") {
         const step = current.plan.find((s) => s.id === pending.stepId)
         const matches =
           intent.target === null || (step !== undefined && step.ref.id === intent.target.id)
         if (matches) {
           before("EXECUTING")
-          await engine.provideHours(current.id, pending.stepId, intent.hours)
+          await engine.provideInput(current.id, pending.stepId, intent.hours)
           return { kind: "applied", session: "EXECUTING" }
         }
+        return invalid("invalid_input")
       }
-      return {
-        kind: "reply",
-        intent: {
-          kind: "unsupported",
-          reason: "no_target",
-          query: null,
-          utterance: intent.utterance,
-          source: intent.source,
-        },
-      }
+      return invalid("no_target")
     }
+    case "unsupported":
+      // While an input is awaited, anything that is not a valid value re-states the ask.
+      return awaitingInput ? invalid("invalid_input") : { kind: "reply", intent }
     case "approve":
       before("EXECUTING")
       await engine.approve(current.id, pendingStepId)

@@ -107,6 +107,18 @@ const RULES: readonly Rule[] = [
     }),
   },
   {
+    // "log 2 hours" while the mission is asking: the target is the pending step.
+    pattern:
+      /^\s*(?:log|add|record|book)\s+(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)?\s*[.!]?\s*$/i,
+    build: (m) => ({
+      kind: "log_time",
+      targetSpans: [],
+      hours: Number.parseFloat(m[1]!),
+      all: false,
+      mine: false,
+    }),
+  },
+  {
     pattern: /^\s*(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)?\s*[.!]?\s*$/i,
     build: (m) => ({
       kind: "log_time",
@@ -218,7 +230,7 @@ export class DeterministicInterpreter implements IntentInterpreter {
       if (
         built.kind === "log_time" &&
         built.targetSpans.length === 0 &&
-        ctx.pendingDecision !== "input_hours"
+        ctx.pendingDecision !== "input"
       )
         continue
       // Approve/decline only make sense while something is pending.

@@ -1,7 +1,6 @@
 import type { Actor } from "@/core/domain/entities"
-import { hoursTracked } from "@/core/domain/entities"
 import type { WorkspaceGraph } from "@/core/domain/graph"
-import type { ActorId, EntityRef } from "@/core/domain/ids"
+import type { ActorId, EntityRef, TaskId } from "@/core/domain/ids"
 import { isTaskComplete } from "@/core/domain/status"
 import { DEFAULT_GOVERNANCE_CONFIG, evaluateGovernance } from "@/core/governance/engine"
 import type { GovernanceConfig, Policy } from "@/core/governance/policy"
@@ -11,8 +10,15 @@ import {
   type ProposedPlan,
   validateFlightPlan,
 } from "@/core/execution/flight-plan"
-import type { Mission, MissionOutcome, PlanStep, TargetOutcome } from "@/core/mission/mission"
+import type {
+  Mission,
+  MissionOutcome,
+  PlanStep,
+  RequiredInput,
+  TargetOutcome,
+} from "@/core/mission/mission"
 import { isTerminal } from "@/core/mission/mission"
+import { inputSatisfied, requiredInputFor, validateInput } from "@/core/mission/required-input"
 import type { MissionStore } from "@/core/mission/store"
 import { humanBlockedBlocker, traceCurrentBlockers } from "@/core/resolver/blockers"
 import { labelOf } from "@/core/resolver/target"
@@ -77,7 +83,11 @@ export class MissionEngine {
   /** Create a mission from a proposed plan and start executing. */
   async start(
     proposed: ProposedPlan,
-    options: { interpretedBy?: Mission["interpretedBy"]; datasetId: string },
+    options: {
+      interpretedBy?: Mission["interpretedBy"]
+      datasetId: string
+      origin?: Mission["origin"]
+    },
   ): Promise<Mission> {
     const now = this.deps.clock.now()
     const graph = await this.deps.sor.snapshot()
@@ -102,6 +112,7 @@ export class MissionEngine {
       stateChanges: [],
       outcome: null,
       interpretedBy: options.interpretedBy ?? null,
+      origin: options.origin ?? "user",
       createdAt: now,
       updatedAt: now,
       landedAt: null,
@@ -112,40 +123,74 @@ export class MissionEngine {
     return this.run(mission.id)
   }
 
-  /** The user provides the missing input for a waiting step (hours for a time entry). */
-  async provideHours(missionId: string, stepId: string, hours: number): Promise<Mission> {
+  /**
+   * The user supplies the one input a waiting step declared (spec §8E). Validated against the
+   * step's schema, permission-checked at execution time, written, verified by re-read, then the
+   * mission continues on its own. An invalid value changes nothing: the mission keeps waiting.
+   */
+  async provideInput(missionId: string, stepId: string, raw: unknown): Promise<Mission> {
     let mission = this.require(missionId)
     const step = mission.plan.find((s) => s.id === stepId)
-    if (!step || step.status !== "waiting_input" || step.transition !== "TIME_LOGGED")
+    const pending = mission.pending
+    if (
+      !step ||
+      step.status !== "waiting_input" ||
+      pending?.kind !== "input" ||
+      pending.stepId !== stepId ||
+      step.ref.kind !== "task"
+    )
       return mission
-    if (!Number.isFinite(hours) || hours <= 0) return mission
-    mission = this.decide(mission, "input", stepId, `${hours}h`)
+    const validated = validateInput(pending.input, raw)
+    if (!validated.ok) return mission
+
+    // Authorized action: the check is repeated at execution time, not assumed from planning.
+    const before = await this.deps.sor.snapshot()
+    const actor = this.deps.resolveActor(mission.actorId)
+    if (!actor) return this.finish(mission, "FAILED")
+    const permission = this.deps.permissions.check(
+      actor,
+      pending.input.permission,
+      step.ref,
+      before,
+    )
+    this.emit(mission, "PERMISSION_CHECKED", [step.ref], {
+      allowed: permission.allowed,
+      reason: permission.reason,
+    })
+    if (!permission.allowed) {
+      this.emit(mission, "PERMISSION_DENIED", [step.ref], { reason: permission.reason })
+      const denied = this.finish(
+        {
+          ...this.setStep(mission, stepId, { status: "permission_denied" }, "ACTIVE"),
+          pending: null,
+        },
+        "PERMISSION_DENIED",
+      )
+      this.commit(denied)
+      return denied
+    }
+
+    mission = this.decide(mission, "input", stepId, `${validated.value} ${pending.input.field}`)
     mission = {
       ...this.setStep(mission, stepId, { status: "running" }, "EXECUTING"),
       pending: null,
     }
     this.commit(mission)
-
-    if (step.ref.kind !== "task") return mission
-    const cmd: WriteCommand = {
-      kind: "add_time_entry",
-      taskId: step.ref.id,
-      hours,
-      actorId: mission.actorId,
-    }
-    const before = await this.deps.sor.snapshot()
+    const cmd = commandForInput(step.ref.id, pending.input, validated.value, mission.actorId)
     mission = await this.write(
       mission,
       step,
       cmd,
-      (graph) => {
-        const task = step.ref.kind === "task" ? graph.task(step.ref.id) : null
-        return task !== null && hoursTracked(task) > this.governance.minimumHours
-      },
+      (graph) => inputSatisfied(step, graph, this.governance),
       versionOf(step.ref, before),
     )
     this.commit(mission)
     return this.run(missionId)
+  }
+
+  /** Hours are the only required input today; this is `provideInput` under its domain name. */
+  provideHours(missionId: string, stepId: string, hours: number): Promise<Mission> {
+    return this.provideInput(missionId, stepId, hours)
   }
 
   async approve(missionId: string, stepId: string | null): Promise<Mission> {
@@ -420,20 +465,39 @@ export class MissionEngine {
       ])
     }
 
-    if (step.transition === "TIME_LOGGED") {
+    const input = requiredInputFor(step, this.governance)
+    if (input) {
       if (mission.targets.length > 1) {
         // Batch mode never solicits input per task (§8C); the target is reported as blocked.
         const blockers = traceCurrentBlockers(step.forTarget, graph, this.governance)
         this.emit(mission, "MISSION_BLOCKED", [step.ref], {
-          reason: "NO_TIME_LOGGED",
+          reason: input.reasonCode,
           step: step.label,
         })
         return this.markTargetBlocked(mission, step, blockers)
       }
-      this.emit(mission, "ACTION_REQUESTED", [step.ref], { input: "hours", step: step.label })
+      // Authorization before the ask (§8D): never request what the actor could not act on.
+      const actor = this.deps.resolveActor(mission.actorId)
+      if (!actor) return this.finish(mission, "FAILED")
+      const permission = this.deps.permissions.check(actor, input.permission, step.ref, graph)
+      this.emit(mission, "PERMISSION_CHECKED", [step.ref], {
+        allowed: permission.allowed,
+        reason: permission.reason,
+      })
+      if (!permission.allowed) {
+        this.emit(mission, "PERMISSION_DENIED", [step.ref], { reason: permission.reason })
+        const updated = this.setStep(mission, step.id, { status: "permission_denied" }, "ACTIVE")
+        return mission.targets.length > 1 ? updated : this.finish(updated, "PERMISSION_DENIED")
+      }
+      this.emit(mission, "ACTION_REQUESTED", [step.ref], {
+        input: input.field,
+        policy: input.policyId,
+        reason: input.reasonCode,
+        step: step.label,
+      })
       return {
         ...this.setStep(mission, step.id, { status: "waiting_input" }, "WAITING"),
-        pending: { kind: "input_hours", stepId: step.id },
+        pending: { kind: "input", stepId: step.id, input },
       }
     }
 
@@ -868,11 +932,21 @@ function nextStep(mission: Mission): PlanStep | null {
 }
 
 function isSatisfied(step: PlanStep, graph: WorkspaceGraph, governance: GovernanceConfig): boolean {
-  if (step.transition === "TIME_LOGGED") {
-    const task = step.ref.kind === "task" ? graph.task(step.ref.id) : null
-    return task !== null && hoursTracked(task) > governance.minimumHours
-  }
+  if (requiredInputFor(step, governance)) return inputSatisfied(step, graph, governance)
   return isCompleted(step.ref, graph)
+}
+
+/** The write a validated input becomes. One case per input field. */
+function commandForInput(
+  taskId: TaskId,
+  input: RequiredInput,
+  value: number,
+  actorId: ActorId,
+): WriteCommand {
+  switch (input.field) {
+    case "hours":
+      return { kind: "add_time_entry", taskId, hours: value, actorId }
+  }
 }
 
 function isCompleted(ref: EntityRef, graph: WorkspaceGraph): boolean {

@@ -14,7 +14,7 @@ import { AGENT_EVENT_TYPES, type AgentEvent } from "@/core/telemetry/events"
  * ordinary external StateChange. Every accessor is guarded: storage can be unavailable.
  */
 
-const KEY_PREFIX = "rga:v1:"
+const KEY_PREFIX = "rga:v2:"
 
 export type ThreadEntry =
   | { readonly kind: "user"; readonly text: string; readonly at: number }

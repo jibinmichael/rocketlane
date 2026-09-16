@@ -126,7 +126,33 @@ export const MissionSchema = z.object({
   plan: z.array(PlanStepSchema),
   pending: z
     .discriminatedUnion("kind", [
-      z.object({ kind: z.literal("input_hours"), stepId: z.string() }),
+      z.object({
+        kind: z.literal("input"),
+        stepId: z.string(),
+        input: z.object({
+          field: z.literal("hours"),
+          policyId: z.enum([
+            "P1_PROJECT_MILESTONES",
+            "P2_MILESTONE_SUBTASKS",
+            "P3_TASK_PREDECESSORS",
+            "P4_TASK_TIME",
+          ]),
+          reasonCode: z.enum([
+            "MILESTONES_INCOMPLETE",
+            "SUBTASKS_OPEN",
+            "PREDECESSORS_INCOMPLETE",
+            "NO_TIME_LOGGED",
+            "DATA_FLAGGED",
+            "OK",
+          ]),
+          permission: z.enum(["complete_project", "complete_task", "log_time", "read"]),
+          schema: z.object({
+            type: z.literal("number"),
+            exclusiveMinimum: z.number(),
+            maximum: z.number(),
+          }),
+        }),
+      }),
       z.object({ kind: z.literal("confirm_step"), stepId: z.string() }),
       z.object({ kind: z.literal("confirm_plan") }),
     ])
@@ -168,6 +194,7 @@ export const MissionSchema = z.object({
     })
     .nullable(),
   interpretedBy: z.enum(["deterministic", "model"]).nullable(),
+  origin: z.enum(["user", "routine"]),
   createdAt: z.number(),
   updatedAt: z.number(),
   landedAt: z.number().nullable(),

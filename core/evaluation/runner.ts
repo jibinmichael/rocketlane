@@ -155,8 +155,8 @@ export async function runScenario(
         break
       }
       case "hours": {
-        if (current?.pending?.kind === "input_hours")
-          await engine.provideHours(current.id, current.pending.stepId, turn.hours)
+        if (current?.pending?.kind === "input")
+          await engine.provideInput(current.id, current.pending.stepId, turn.hours)
         break
       }
       case "approve": {
