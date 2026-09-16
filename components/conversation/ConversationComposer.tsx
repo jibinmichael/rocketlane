@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 const MAX_HEIGHT_PX = 180
 const ROTATE_INTERVAL_MS = 4200
 
-export type ComposerPlaceholder = { text: string; suggestion: boolean }
+type ComposerPlaceholder = { text: string; suggestion: boolean }
 
 /**
  * The one input surface, on the home and on a mission (final brief §9: the conversation is the
@@ -130,7 +130,7 @@ export function ConversationComposer({
   return (
     <div
       className={cn(
-        "bg-card rounded-[18px] shadow-[var(--shadow-composer)] transition-shadow duration-[var(--motion-normal)] focus-within:shadow-[var(--shadow-composer-focus)]",
+        "bg-card rounded-2xl shadow-[var(--shadow-composer)] transition-shadow duration-[var(--motion-normal)] focus-within:shadow-[var(--shadow-composer-focus)]",
         disabled && !executing && !paused && "opacity-70",
         className,
       )}

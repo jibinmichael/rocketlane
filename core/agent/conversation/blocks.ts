@@ -101,8 +101,7 @@ export function carriesDecision(block: Pick<Block, "type">): boolean {
     block.type.startsWith("action_request") ||
     block.type === "notification.blocked" ||
     block.type === "clarification" ||
-    block.type === "paused" ||
-    block.type === "status"
+    block.type === "paused"
   )
 }
 

@@ -58,13 +58,13 @@ const MARK: Partial<Record<AgentEventType, { icon: LinearIconName; tone: string 
   MISSION_FAILED: { icon: "close", tone: "text-state-error/80" },
   PERMISSION_DENIED: { icon: "close", tone: "text-state-error/80" },
   MISSION_BLOCKED: { icon: "status-1", tone: "text-state-error/80" },
-  ACTION_REQUESTED: { icon: "status-1", tone: "text-state-waiting/90" },
-  MISSION_WAITING: { icon: "status-1", tone: "text-state-waiting/90" },
+  ACTION_REQUESTED: { icon: "status-1", tone: "text-state-waiting/80" },
+  MISSION_WAITING: { icon: "status-1", tone: "text-state-waiting/80" },
   INPUT_RECEIVED: { icon: "check", tone: "text-foreground/70" },
-  STATE_CHANGED: { icon: "status-1", tone: "text-state-paused/90" },
-  MISSION_PAUSED: { icon: "status-1", tone: "text-state-paused/90" },
-  MISSION_CANCELLED: { icon: "close", tone: "text-state-paused/90" },
-  WRITE_TIMEOUT_RECONCILED: { icon: "status-1", tone: "text-state-paused/90" },
+  STATE_CHANGED: { icon: "status-1", tone: "text-state-paused/80" },
+  MISSION_PAUSED: { icon: "status-1", tone: "text-state-paused/80" },
+  MISSION_CANCELLED: { icon: "close", tone: "text-state-paused/80" },
+  WRITE_TIMEOUT_RECONCILED: { icon: "status-1", tone: "text-state-paused/80" },
 }
 
 /**
@@ -214,8 +214,10 @@ export function MissionActivityPanel({
 function DetailRow({ k, v }: { k: string; v: string | number | boolean | null }) {
   return (
     <>
-      <dt className="text-muted-foreground truncate">{k}</dt>
-      <dd className="text-foreground font-mono break-all lowercase">
+      <dt className="text-muted-foreground [overflow-wrap:anywhere]">
+        {k.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase()}
+      </dt>
+      <dd className="text-foreground font-mono [overflow-wrap:anywhere] lowercase">
         {v === null ? "null" : String(v)}
       </dd>
     </>

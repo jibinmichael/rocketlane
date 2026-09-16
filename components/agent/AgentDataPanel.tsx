@@ -82,7 +82,7 @@ export function AgentDataPanel({ onLoaded }: { onLoaded?: () => void }) {
         <LinearIcon name="upload" className="text-muted-foreground size-4" />
         <span className="text-foreground text-[13px]">
           Drop projects.csv and tasks.csv here, or{" "}
-          <span className="text-vibe-1 font-medium">browse</span>
+          <span className="text-foreground font-medium underline underline-offset-2">browse</span>
         </span>
         <input
           ref={inputRef}

@@ -22,11 +22,14 @@ export const expand: Transition = { duration: motionMs.normal / 1000, ease: ease
 export const springEnter: Transition = { type: "spring", stiffness: 420, damping: 38 }
 
 /** Reveal cadence is a legibility aid, never simulated latency: max 6 staggered items. */
+/** One emphatic beat (a vote landing): lift and settle. */
+export const pop: Transition = { duration: 0.55, ease: easeOut }
+
 /** Live step rows land on this beat while a phase is streaming (the human's pacing call). */
 export const STEP_CADENCE_MS = 450
 
-export const REVEAL_STAGGER_MS = 60
-export const REVEAL_STAGGER_MAX = 6
+const REVEAL_STAGGER_MS = 60
+const REVEAL_STAGGER_MAX = 6
 export function revealDelay(index: number): number {
   return Math.min(index, REVEAL_STAGGER_MAX) * (REVEAL_STAGGER_MS / 1000)
 }

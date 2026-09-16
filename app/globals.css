@@ -289,24 +289,44 @@
   }
 }
 
-/* Flight status hairline: indeterminate while working, determinate when a total is known. */
-@keyframes flight-hairline {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(300%);
-  }
+/* Streaming label: the shimmer lives in the text colour only, never in a background. */
+.text-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--muted-foreground) 0%,
+    var(--muted-foreground) 35%,
+    var(--foreground) 50%,
+    var(--muted-foreground) 65%,
+    var(--muted-foreground) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: text-shimmer 1.8s linear infinite;
 }
-
-/* Block entry: settle down 2px with fade (landing beat uses the same, spec §26). */
-@keyframes block-settle {
+@keyframes text-shimmer {
   from {
-    opacity: 0;
-    transform: translateY(-2px);
+    background-position: 120% 0;
   }
   to {
-    opacity: 1;
-    transform: translateY(0);
+    background-position: -120% 0;
+  }
+}
+/* Suggested rows: the four stops on the icon always, on the text while hovered. */
+.icon-vibe [fill="currentColor"] {
+  fill: url(#vibe-gradient);
+}
+.group:hover .text-vibe-hover {
+  background-image: var(--vibe-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  .text-shimmer {
+    animation: none;
+    color: var(--muted-foreground);
+    background: none;
   }
 }

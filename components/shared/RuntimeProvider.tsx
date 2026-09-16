@@ -10,7 +10,7 @@ import { Runtime } from "@/lib/runtime"
 export type FixtureLoader = (
   id: string,
 ) => Promise<{ id: string; projectsCsv: string; tasksCsv: string }>
-export type RemoteInterpret = (
+type RemoteInterpret = (
   utterance: string,
   ctx: InterpretationContext,
 ) => Promise<IntentProposal | null>

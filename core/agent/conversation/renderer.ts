@@ -86,6 +86,10 @@ export function renderMission(
   }
   const indexOf = (type: AgentEventType, from = 0) =>
     events.findIndex((e, i) => i >= from && e.type === type)
+  const lastIndexOf = (type: AgentEventType) => {
+    for (let i = events.length - 1; i >= 0; i--) if (events[i]?.type === type) return i
+    return -1
+  }
 
   if (mission.state === "FAILED" && mission.plan.length === 0) {
     return [block("boundary", "error", [[text("I couldn't act on that target.")]])]
@@ -115,7 +119,12 @@ export function renderMission(
 
   // Outcome and the shortest useful path, anchored where the agent stopped.
   const stops = [indexOf("MISSION_BLOCKED"), indexOf("ACTION_REQUESTED")].filter((i) => i >= 0)
+  const lastStops = [lastIndexOf("MISSION_BLOCKED"), lastIndexOf("ACTION_REQUESTED")].filter(
+    (i) => i >= 0,
+  )
   const stopAt = stops.length > 0 ? Math.min(...stops) : Math.max(indexOf("PLAN_CREATED"), 0)
+  // The chain describes the current blocker, so it follows the latest ask, after any answer.
+  const chainAt = lastStops.length > 0 ? Math.max(...lastStops) : stopAt
   const initialBlocked =
     mission.state === "BLOCKED" ||
     mission.plan.some((s) => s.transition === "TIME_LOGGED") ||
@@ -140,7 +149,7 @@ export function renderMission(
   }
   const current = nextActionable(mission.blockers)
   if (current && !mission.landedAt && mission.state !== "CANCELLED") {
-    add(stopAt, 3, ...renderBlockerChain(ctx, current))
+    add(chainAt, 3, ...renderBlockerChain(ctx, current))
   }
 
   // Every accepted answer is acknowledged before the work it unlocks.
@@ -459,6 +468,7 @@ function renderBlockerChain(ctx: Ctx, current: Blocker): Block[] {
       s.transition === "COMPLETED" && (s.status === "pending" || s.status === "waiting_confirm"),
   ).length
   const first = firstActionLabel(current, graph)
+  if (remaining === 0) return blocks
   blocks.push(
     block("resolution_path", "neutral", [
       [
@@ -839,6 +849,24 @@ function renderPending(ctx: Ctx, target: EntityRef): Block[] {
   return []
 }
 
+/** Second landing line: how many supporting updates it took, or that none were needed. */
+function landingSummary(mission: Ctx["mission"], updates: number): Inline[] {
+  const failed = mission.plan.filter((s) => s.status === "failed").length
+  const checked = [
+    text(" Final state checked at "),
+    time(mission.landedAt ?? mission.updatedAt),
+    text("."),
+  ]
+  if (updates === 0 && failed === 0) return [text("No other updates were needed."), ...checked]
+  return [
+    count(updates),
+    text(` ${plural(updates, "update")} completed, `),
+    count(failed),
+    text(" failed."),
+    ...checked,
+  ]
+}
+
 function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block[] {
   const { mission, graph } = ctx
   switch (mission.state) {
@@ -860,14 +888,7 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
                 entity(target, targetLabel),
                 text(" is complete and verified."),
               ],
-              [
-                count(evidence.length),
-                text(` ${plural(evidence.length, "update")} landed clean, `),
-                count(mission.plan.filter((s) => s.status === "failed").length),
-                text(" failed. Final state checked at "),
-                time(mission.landedAt ?? mission.updatedAt),
-                text("."),
-              ],
+              landingSummary(mission, evidence.length),
             ],
             [{ kind: "view_activity", label: "View activity" }],
           ),

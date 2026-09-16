@@ -3,7 +3,7 @@
 import { LinearIcon, type LinearIconName } from "@/components/shared/LinearIcon"
 import { cn } from "@/lib/utils"
 
-export type QuickAction = {
+type QuickAction = {
   id: string
   icon: LinearIconName
   title: string
@@ -31,7 +31,7 @@ export function quickActionsFor(projectName: string | null): QuickAction[] {
       title: "Complete all my projects",
       fill: "Complete all my projects",
     },
-    { id: "data", icon: "upload", title: "Test with your own project files", fill: null },
+    { id: "data", icon: "upload", title: "Test any project files", fill: null },
   ]
 }
 

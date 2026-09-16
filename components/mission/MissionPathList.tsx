@@ -38,7 +38,7 @@ export function MissionPathList({ path }: { path: readonly PathNode[] }) {
                 className={cn(
                   "size-[13px]",
                   node.state === "complete" && "text-state-completed/80",
-                  node.state === "actionable" && "text-state-waiting/90",
+                  node.state === "actionable" && "text-state-waiting/80",
                   node.state === "open" && "text-muted-foreground/50",
                   node.state === "target" && "text-foreground/80",
                 )}

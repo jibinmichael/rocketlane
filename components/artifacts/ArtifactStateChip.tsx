@@ -1,6 +1,7 @@
 import { MISSION_LABEL } from "@/core/mission/labels"
 import type { MissionState } from "@/core/mission/mission"
 import type { AgentSessionState } from "@/lib/runtime"
+import { StateChip } from "@/components/shared/StateChip"
 import { cn } from "@/lib/utils"
 
 type Tone = "ready" | "working" | "waiting" | "blocked" | "paused" | "error" | "completed"
@@ -37,25 +38,17 @@ const SESSION_TONE: Record<AgentSessionState, Tone> = {
   CANCELLED: "paused",
 }
 
-/** A round filled dot plus a softly tinted field, both from the state; text stays ink. */
-const FIELD_CLASS: Record<Tone, string> = {
-  ready: "bg-muted",
-  working: "bg-muted",
-  waiting: "bg-status-warning-soft",
-  blocked: "bg-status-error-soft",
-  paused: "bg-status-warning-soft",
-  error: "bg-status-error-soft",
-  completed: "bg-status-success-soft",
-}
-
-const DOT_CLASS: Record<Tone, string> = {
-  ready: "bg-state-ready",
-  working: "bg-state-working",
-  waiting: "bg-state-waiting",
-  blocked: "bg-state-blocked",
-  paused: "bg-state-paused",
-  error: "bg-state-error",
-  completed: "bg-state-completed",
+const CHIP_TONE: Record<
+  Tone,
+  "completed" | "waiting" | "blocked" | "paused" | "error" | "neutral"
+> = {
+  ready: "neutral",
+  working: "neutral",
+  waiting: "waiting",
+  blocked: "blocked",
+  paused: "paused",
+  error: "error",
+  completed: "completed",
 }
 
 export function ArtifactStateChip({
@@ -72,23 +65,11 @@ export function ArtifactStateChip({
       ? SESSION_TONE[session]
       : MISSION_TONE[state]
   return (
-    <span
-      className={cn(
-        "text-foreground/80 inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium tabular-nums transition-colors duration-[var(--motion-normal)]",
-        FIELD_CLASS[tone],
-        className,
-      )}
+    <StateChip
+      tone={CHIP_TONE[tone]}
+      className={cn("h-6 px-2.5 text-[12px] tabular-nums", className)}
     >
-      <span
-        aria-hidden
-        className={cn(
-          "size-1.5 rounded-full transition-colors duration-[var(--motion-normal)]",
-          DOT_CLASS[tone],
-        )}
-      />
       {MISSION_LABEL[state]}
-    </span>
+    </StateChip>
   )
 }
-
-export { MISSION_TONE }

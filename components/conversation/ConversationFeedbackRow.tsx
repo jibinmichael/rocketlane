@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 
 import { LinearIcon } from "@/components/shared/LinearIcon"
-import { crossfade, easeOut, settle } from "@/lib/motion"
+import { crossfade, pop, settle } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
 /**
@@ -108,7 +108,7 @@ function Thumb({
           ? { scale: [1, 1.35, 0.94, 1], rotate: kind === "up" ? [0, -14, 4, 0] : [0, 14, -4, 0] }
           : { scale: 1, rotate: 0 }
       }
-      transition={{ duration: 0.55, ease: [0.32, 0.72, 0, 1], times: [0, 0.35, 0.7, 1] }}
+      transition={{ ...pop, times: [0, 0.35, 0.7, 1] }}
       className={cn(
         "relative flex size-7 items-center justify-center rounded-full transition-colors duration-[var(--motion-fast)]",
         pressed
@@ -121,7 +121,7 @@ function Thumb({
           aria-hidden
           initial={{ scale: 0.4, opacity: 0.6 }}
           animate={{ scale: 1.9, opacity: 0 }}
-          transition={{ duration: 0.55, ease: easeOut }}
+          transition={pop}
           className="border-foreground/40 absolute inset-1 rounded-full border"
         />
       )}

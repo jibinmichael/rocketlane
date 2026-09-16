@@ -60,7 +60,7 @@ export function AgentDataDialog({ open, onClose }: { open: boolean; onClose: () 
                 id={titleId}
                 className="text-foreground text-[15px] font-semibold tracking-[-0.01em]"
               >
-                Test with your project files
+                Test any project files
               </h2>
               <button
                 type="button"

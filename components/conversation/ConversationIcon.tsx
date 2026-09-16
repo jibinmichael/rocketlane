@@ -24,7 +24,7 @@ const ICON: Record<SemanticIcon, { name: LinearIconName; rotate?: number }> = {
   pause: { name: "three-dots" },
   error: { name: "close" },
   cancel: { name: "close" },
-  landing: { name: "rocket" },
+  landing: { name: "check" },
 }
 
 /** Context-aware, never loud: state colour at reduced strength; everything else muted grey. */

@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation"
 
 import { ConversationIcon } from "@/components/conversation/ConversationIcon"
 import { LinearIcon } from "@/components/shared/LinearIcon"
+import { StateChip } from "@/components/shared/StateChip"
 import { settle } from "@/lib/motion"
 import type { Block, SemanticIcon } from "@/core/agent/conversation/blocks"
 import type { Mission } from "@/core/mission/mission"
@@ -107,7 +108,8 @@ export function MissionHistoryMenu() {
                 role="menuitem"
                 onClick={() => {
                   setOpen(false)
-                  void runtime.resetDataset().then(() => router.push("/"))
+                  runtime.clearConversations()
+                  router.push("/")
                 }}
                 className="text-muted-foreground hover:bg-muted hover:text-foreground flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors duration-[var(--motion-fast)]"
               >
@@ -145,9 +147,9 @@ export function MissionHistoryMenu() {
                             {m.goalText}
                           </span>
                           {m.pending && (
-                            <span className="text-state-waiting shrink-0 text-[11px] font-medium">
+                            <StateChip tone="waiting" className="shrink-0">
                               Needs you
-                            </span>
+                            </StateChip>
                           )}
                         </Link>
                       )

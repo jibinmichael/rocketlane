@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 /**
  * Meters how many of a growing list are shown. The engine has already produced the blocks; this
@@ -19,14 +19,23 @@ export function usePacedReveal<T>(
   const target = items.length
   // A shorter list means a new turn: reset during render, not in an effect.
   if (count > target) setCount(target)
+  // `instant` can only be known once the mission is loaded; history then renders whole at once.
+  if (instant && count < target) setCount(target)
+  // The parent re-renders often while streaming; the pending timer must not restart with it.
+  const itemsRef = useRef(items)
+  const delayRef = useRef(delayFor)
+  useEffect(() => {
+    itemsRef.current = items
+    delayRef.current = delayFor
+  })
 
   useEffect(() => {
     if (count >= target) return
-    const next = items[count]
-    const delay = next === undefined ? 480 : delayFor(next, count)
+    const next = itemsRef.current[count]
+    const delay = next === undefined ? 480 : delayRef.current(next, count)
     const t = window.setTimeout(() => setCount((n) => Math.min(n + 1, target)), delay)
     return () => window.clearTimeout(t)
-  }, [count, target, items, delayFor])
+  }, [count, target])
 
   const skip = useCallback(() => setCount(target), [target])
   return { shown: items.slice(0, Math.min(count, target)), revealing: count < target, skip }

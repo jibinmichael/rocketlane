@@ -1,13 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
-
+import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 
 import { LinearIcon, type LinearIconName } from "@/components/shared/LinearIcon"
+import type { Inline } from "@/core/agent/conversation/blocks"
 import { useRuntimeSnapshot } from "@/hooks/use-runtime"
 import { avatarFor } from "@/lib/avatar"
-import type { Inline } from "@/core/agent/conversation/blocks"
 import { cn } from "@/lib/utils"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
@@ -120,7 +119,7 @@ export function ConversationInlineText({
             )
         }
       })}
-      {typing && shown < total && (
+      {typing && shown > 0 && shown < total && (
         <span
           aria-hidden
           className="bg-foreground/70 ml-px inline-block h-[14px] w-px align-[-2px]"
@@ -146,11 +145,13 @@ function PeopleText({
   text: string
   actors: readonly { readonly id: string; readonly name: string }[]
 }) {
-  const names = actors.map((a) => a.name).filter((n) => n.length > 2)
-  if (names.length === 0) return <>{text}</>
-  const pattern = new RegExp(
-    `(${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
-  )
+  const pattern = useMemo(() => {
+    const names = actors.map((a) => a.name).filter((n) => n.length > 2)
+    if (names.length === 0) return null
+    const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    return new RegExp(`(${escaped.join("|")})`)
+  }, [actors])
+  if (!pattern) return <>{text}</>
   const parts = text.split(pattern)
   if (parts.length === 1) return <>{text}</>
   return (

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useId, useState } from "react"
 import Image from "next/image"
 import { AnimatePresence, motion } from "motion/react"
 
@@ -36,6 +36,7 @@ export function ConversationBlockItem({
   onAction,
   personAvatar = null,
   animate = true,
+  working = true,
 }: {
   block: Block
   index: number
@@ -48,6 +49,8 @@ export function ConversationBlockItem({
   personAvatar?: string | null
   /** False when the turn is already history: no typing, no stagger. */
   animate?: boolean
+  /** False while the agent waits on the user: the last step is done, not in progress. */
+  working?: boolean
 }) {
   const [open, setOpen] = useState<boolean | null>(null)
   const isActivity = block.type === "activity"
@@ -56,7 +59,20 @@ export function ConversationBlockItem({
   const isBlocker = block.type === "blocker"
   // Everything stays open while the mission is live; it compacts only once the turn is frozen.
   const defaultOpen = isActivity ? !block.collapsed && !frozen : !frozen
-  const expanded = open ?? defaultOpen
+  // A fold's detail waits for its sentence to finish typing before it opens.
+  const typedLines = isEvaluation
+    ? block.lines.slice(1, 2)
+    : isBlocker
+      ? block.lines.slice(0, 1)
+      : block.lines
+  const typingMs = typedLines.reduce((ms, line) => ms + lineTypingMs(line) + 320, 0)
+  const [typed, setTyped] = useState(!(animate && !frozen) || isActivity)
+  useEffect(() => {
+    if (typed) return
+    const t = window.setTimeout(() => setTyped(true), typingMs)
+    return () => window.clearTimeout(t)
+  }, [typed, typingMs])
+  const expanded = open ?? (defaultOpen && typed)
   const hasPath = Boolean(block.path && block.path.length > 0)
   const hasDetail = Boolean(block.detail && block.detail.length > 0)
   // Suggestions ("did you mean", "yes, complete it") stay clickable after the turn freezes as
@@ -68,7 +84,7 @@ export function ConversationBlockItem({
 
   if (isActivity) {
     const items = block.activity ?? []
-    const live = !frozen && !block.collapsed
+    const live = !frozen && !block.collapsed && working
     const last = items[items.length - 1]
     const label =
       live && last
@@ -101,7 +117,7 @@ export function ConversationBlockItem({
     <motion.li
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ ...settle, delay: frozen ? 0 : revealDelay(index) }}
+      transition={{ ...settle, delay: frozen || !animate ? 0 : revealDelay(index) }}
       className={cn("relative flex", speech ? "py-1.5" : "py-1")}
       data-block-type={block.type}
     >
@@ -379,16 +395,19 @@ function EvidenceHover({
   evidence: readonly string[] | undefined
   children: React.ReactNode
 }) {
+  const tipId = useId()
   if (!evidence || evidence.length === 0) return <>{children}</>
   return (
     <span className="group/evidence relative inline-flex">
       <span
         tabIndex={0}
-        className="decoration-muted-foreground/50 focus-visible:ring-ring/50 cursor-help rounded-sm underline decoration-dotted underline-offset-[3px] outline-none focus-visible:ring-2"
+        aria-describedby={tipId}
+        className="decoration-muted-foreground/50 focus-visible:ring-ring/50 cursor-help rounded-full underline decoration-dotted underline-offset-[3px] outline-none focus-visible:ring-2"
       >
         {children}
       </span>
       <span
+        id={tipId}
         role="tooltip"
         className="bg-card text-card-foreground border-border pointer-events-none absolute top-full left-0 z-30 mt-1.5 hidden w-max max-w-[360px] flex-col gap-1 rounded-lg border px-3 py-2 text-[12px] shadow-[var(--shadow-lg)] group-focus-within/evidence:flex group-hover/evidence:flex"
       >

@@ -21,7 +21,7 @@ import { usePacedReveal } from "@/hooks/use-paced-reveal"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
 import { avatarFor } from "@/lib/avatar"
 import type { AgentSessionState } from "@/lib/runtime"
-import { crossfade, expand, settle, springEnter } from "@/lib/motion"
+import { crossfade, expand, settle, STEP_CADENCE_MS } from "@/lib/motion"
 import { SESSION_LABEL, WORKING_STATES } from "@/lib/session-label"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
@@ -29,7 +29,7 @@ const AGENT_NAME = "Governance Agent"
 
 /** How long a block takes to finish on screen: its lines typing, or its steps landing. */
 function durationOf(block: Block): number {
-  if (block.type === "activity") return 450 * (block.activity?.length ?? 0) + 300
+  if (block.type === "activity") return STEP_CADENCE_MS * (block.activity?.length ?? 0) + 300
   return block.lines.reduce((ms, line) => ms + lineTypingMs(line) + 320, 0)
 }
 
@@ -75,7 +75,11 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   const thread = snapshot.status === "ready" ? runtime.thread(missionId) : []
   const live = snapshot.status === "ready" ? runtime.liveBlocks(missionId) : []
   // A mission opened from history is history: no pacing, no typing. A fresh one is paced.
-  const [fresh] = useState(() => Date.now() - (mission?.updatedAt ?? 0) < 8000)
+  const [openedAt] = useState(() => Date.now())
+  const [freshness, setFreshness] = useState<boolean | null>(null)
+  if (freshness === null && mission) setFreshness(openedAt - mission.createdAt < 8000)
+  const [skipped, setSkipped] = useState(false)
+  const fresh = freshness ?? true
   const {
     shown: pacedLive,
     revealing,
@@ -125,6 +129,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   const onAction = (action: BlockAction) => {
     if (action.kind === "pause" && revealing && !executing) {
       skip()
+      setSkipped(true)
       return
     }
     if (action.kind === "view_activity") {
@@ -304,7 +309,8 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                           actionTaken={null}
                           onAction={onAction}
                           personAvatar={avatar}
-                          animate={fresh}
+                          animate={fresh && !skipped}
+                          working={working}
                         />
                       ))}
                     </ul>
@@ -322,7 +328,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                           <span className="absolute top-1/2 -left-[29px] flex w-5 -translate-y-1/2 justify-center">
                             <AgentMark size={16} />
                           </span>
-                          <AnimatePresence mode="popLayout" initial={false}>
+                          <AnimatePresence mode="wait" initial={false}>
                             <motion.span
                               key={workingLabel}
                               initial={{ opacity: 0, y: 4 }}
@@ -398,7 +404,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
             animate={{ width: 440, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{
-              width: springEnter,
+              width: settle,
               opacity: expand,
             }}
             className="h-full shrink-0 overflow-hidden"

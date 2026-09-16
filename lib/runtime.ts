@@ -209,6 +209,16 @@ export class Runtime {
     return report
   }
 
+  /** Forget every mission, event and thread; keep the project data exactly as it is. */
+  clearConversations(): void {
+    this.store?.clear()
+    this.events.restore([])
+    eventPersistence.save([])
+    this.threads = {}
+    threadPersistence.save({})
+    this.publish({ missions: [], events: [], busy: {} })
+  }
+
   async resetDataset(): Promise<void> {
     workspacePersistence.clear()
     await this.loadFixtureById(this.snapshot.datasetId || "cascading-conflicts")
@@ -379,7 +389,8 @@ export class Runtime {
     // A typed turn freezes the narrative but never the open decision: its buttons stay live so a
     // question asked while waiting ("why?") cannot strand the mission.
     const live = this.liveBlocks(missionId).filter(
-      (b) => actionTaken !== null || !carriesDecision(b),
+      (b) =>
+        actionTaken !== null || !(carriesDecision(b) || b.actions.some((a) => a.kind === "resend")),
     )
     if (live.length === 0 && !actionTaken) return
     const entries = this.threads[missionId] ?? []
