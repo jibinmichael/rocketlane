@@ -76,6 +76,18 @@ export class InMemorySystemOfRecord implements SystemOfRecord {
     return this.graph
   }
 
+  /**
+   * Adopt state persisted by another tab and surface the change that caused it as an ordinary
+   * external StateChange (D-23). The other tab already applied and persisted the write.
+   */
+  adopt(state: SerializedSystemState, change: StateChange | null): void {
+    this.graph = new WorkspaceGraph(state.dataset)
+    this.ledger.clear()
+    for (const [key, result] of state.ledger) this.ledger.set(key, result)
+    this.changeCount = state.changeCount
+    if (change) for (const listener of this.listeners) listener({ ...change, cause: "external" })
+  }
+
   injectFault(fault: Fault): void {
     this.faults.push(fault)
   }

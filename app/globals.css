@@ -92,6 +92,29 @@
 
   --radius-xs: 2px;
   --radius-none: 0;
+
+  /* Status + agent/governance state tokens (spec §0B). State maps onto status; never onto a component. */
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-error: var(--status-error);
+  --color-status-info: var(--status-info);
+  --color-status-success-soft: var(--status-success-soft);
+  --color-status-warning-soft: var(--status-warning-soft);
+  --color-status-error-soft: var(--status-error-soft);
+  --color-status-info-soft: var(--status-info-soft);
+  --color-state-ready: var(--state-ready);
+  --color-state-working: var(--state-working);
+  --color-state-waiting: var(--state-waiting);
+  --color-state-blocked: var(--state-blocked);
+  --color-state-paused: var(--state-paused);
+  --color-state-error: var(--state-error);
+  --color-state-completed: var(--state-completed);
+  --color-accent-brand: var(--accent-brand);
+  --color-accent-brand-soft: var(--accent-brand-soft);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
 }
 
 :root {
@@ -127,6 +150,37 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Restrained status palette (~60% of typical chroma) */
+  --status-success: oklch(0.6 0.11 152);
+  --status-warning: oklch(0.7 0.11 75);
+  --status-error: oklch(0.58 0.15 25);
+  --status-info: oklch(0.58 0.1 262);
+  --status-success-soft: oklch(0.96 0.03 152);
+  --status-warning-soft: oklch(0.97 0.035 80);
+  --status-error-soft: oklch(0.96 0.03 25);
+  --status-info-soft: oklch(0.96 0.025 262);
+  --accent-brand: oklch(0.52 0.13 275);
+  --accent-brand-soft: oklch(0.95 0.03 275);
+
+  --state-ready: var(--muted-foreground);
+  --state-working: var(--status-info);
+  --state-waiting: var(--status-warning);
+  --state-blocked: var(--status-error);
+  --state-paused: var(--status-warning);
+  --state-error: var(--status-error);
+  --state-completed: var(--status-success);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+
+  /* Motion tokens (spec §0B). Mirrored in lib/motion.ts */
+  --motion-fast: 120ms;
+  --motion-normal: 180ms;
+  --motion-slow: 260ms;
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 .dark {
@@ -161,6 +215,20 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  --status-success: oklch(0.72 0.11 152);
+  --status-warning: oklch(0.78 0.11 75);
+  --status-error: oklch(0.7 0.14 25);
+  --status-info: oklch(0.72 0.1 262);
+  --status-success-soft: oklch(0.26 0.03 152);
+  --status-warning-soft: oklch(0.28 0.035 80);
+  --status-error-soft: oklch(0.27 0.03 25);
+  --status-info-soft: oklch(0.27 0.025 262);
+  --accent-brand: oklch(0.72 0.12 275);
+  --accent-brand-soft: oklch(0.27 0.04 275);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 @layer base {
@@ -168,20 +236,39 @@
     @apply border-border outline-ring/50;
   }
   body {
-    background-color: #fefefe;
-    @apply text-foreground font-sans;
+    @apply bg-background text-foreground font-sans;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
   html {
     @apply font-sans;
   }
 }
 
-@keyframes vibeStopDot {
-  0%,
-  100% {
-    opacity: 0.4;
+/* Flight status hairline: indeterminate while working, determinate when a total is known. */
+@keyframes flight-hairline {
+  0% {
+    transform: translateX(-100%);
   }
-  50% {
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+/* Block entry: settle down 2px with fade (landing beat uses the same, spec §26). */
+@keyframes block-settle {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
     opacity: 1;
+    transform: translateY(0);
   }
 }

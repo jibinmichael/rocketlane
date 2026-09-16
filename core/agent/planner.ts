@@ -16,7 +16,7 @@ export type Proposal = {
 }
 
 export function proposeFromIntent(
-  intent: Intent & { readonly kind: "complete_target" | "complete_task" },
+  intent: Pick<Extract<Intent, { targets: readonly EntityRef[] }>, "utterance" | "targets">,
   actor: Actor,
   missionId: string,
 ): Proposal {

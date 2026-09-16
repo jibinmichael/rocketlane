@@ -1,14 +1,29 @@
 import type { Transition } from "motion/react"
 
-/** Width spring when opening the canvas sidebar */
-export const springEnter: Transition = {
-  type: "spring",
-  stiffness: 420,
-  damping: 38,
-}
+/**
+ * Motion tokens (spec §0B). Values mirror the CSS variables in app/globals.css so JS-driven
+ * transitions and CSS transitions agree. Motion communicates state; it never manufactures activity.
+ */
+export const motionMs = { fast: 120, normal: 180, slow: 260 } as const
 
-/** Width tween when closing the canvas sidebar */
-export const easeExit: Transition = {
-  duration: 0.22,
-  ease: [0.4, 0, 1, 1],
+export const easeOut: [number, number, number, number] = [0.32, 0.72, 0, 1]
+export const easeInOut: [number, number, number, number] = [0.65, 0, 0.35, 1]
+
+/** Block entry and result confirmation. */
+export const settle: Transition = { duration: motionMs.slow / 1000, ease: easeOut }
+
+/** State chip / colour crossfades (working → paused → rechecking). */
+export const crossfade: Transition = { duration: motionMs.normal / 1000, ease: easeInOut }
+
+/** Expandable detail. */
+export const expand: Transition = { duration: motionMs.normal / 1000, ease: easeOut }
+
+/** Composer trailing controls only. */
+export const springEnter: Transition = { type: "spring", stiffness: 420, damping: 38 }
+
+/** Reveal cadence is a legibility aid, never simulated latency: max 6 staggered items. */
+export const REVEAL_STAGGER_MS = 60
+export const REVEAL_STAGGER_MAX = 6
+export function revealDelay(index: number): number {
+  return Math.min(index, REVEAL_STAGGER_MAX) * (REVEAL_STAGGER_MS / 1000)
 }
