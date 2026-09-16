@@ -25,7 +25,6 @@ import {
   workspacePersistence,
 } from "@/core/system/persistence"
 import type { WriteCommand } from "@/core/system/system-of-record"
-import type { Scenario } from "@/core/evaluation/scenario"
 import { type AgentEvent, EventLog } from "@/core/telemetry/events"
 
 /**
@@ -642,74 +641,6 @@ export class Runtime {
    * Play a scenario's turns through the LIVE conversation (not the isolated evaluator), so the
    * demo can be driven from the Lab or a deep link. Returns the mission id to navigate to.
    */
-  async playScenario(scenario: Scenario): Promise<string | null> {
-    const graph = this.sor?.current()
-    if (!graph) return null
-    const actor = graph.actors.find((a) => a.name === scenario.actorName)
-    if (actor) this.setActor(actor.id)
-    const project = scenario.projectName
-      ? graph.projects.find((p) => p.name === scenario.projectName)
-      : null
-    let missionId: string | null = null
-    for (const turn of scenario.turns) {
-      const mission = missionId ? this.mission(missionId) : null
-      switch (turn.kind) {
-        case "user":
-          missionId = await this.send(turn.text, missionId)
-          break
-        case "hours":
-          // The value arrives the way a person would give it: in the conversation.
-          if (mission?.pending?.kind === "input") await this.send(`${turn.hours} hours`, missionId)
-          break
-        case "approve":
-          if (mission?.pending?.kind === "confirm_step")
-            await this.act(missionId!, {
-              kind: "approve",
-              stepId: mission.pending.stepId,
-              label: "Complete project",
-              impact: "high",
-            })
-          else if (mission?.pending?.kind === "confirm_plan")
-            await this.act(missionId!, {
-              kind: "approve",
-              stepId: null,
-              label: "Run",
-              impact: "high",
-            })
-          break
-        case "decline":
-          if (mission?.pending)
-            await this.act(missionId!, {
-              kind: "decline",
-              stepId: mission.pending.kind === "confirm_step" ? mission.pending.stepId : null,
-              label: "Not now",
-            })
-          break
-        case "world": {
-          const pool = project ? graph.tasksOf(project.id) : graph.tasks
-          const task = this.sor
-            ?.current()
-            .tasks.find((t) => pool.some((p) => p.id === t.id) && t.name === turn.task)
-          const who = graph.actors.find((a) => a.name === turn.actorName) ?? actor
-          if (task && who)
-            await this.worldWrite(
-              { kind: "set_task_status", taskId: task.id, status: turn.status },
-              who.id,
-              `set to ${turn.status.toLowerCase().replace("_", " ")}`,
-            )
-          break
-        }
-        case "fault": {
-          const pool = project ? graph.tasksOf(project.id) : graph.tasks
-          const task = pool.find((t) => t.name === turn.task)
-          if (task)
-            this.injectFault({ kind: turn.fault, match: { ref: { kind: "task", id: task.id } } })
-          break
-        }
-      }
-    }
-    return missionId
-  }
 
   /** The world acts (Lab mutator / demo). Bypasses governance: this is not the agent. */
   async worldWrite(cmd: WriteCommand, actorId: ActorId, summary?: string): Promise<void> {
