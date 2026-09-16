@@ -395,7 +395,7 @@ export class Runtime {
       try {
         const proposal = await Promise.race([
           this.options.remoteInterpreter(utterance, ctx),
-          new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 6500)),
         ])
         if (proposal) {
           this.publish({ lastInterpretedBy: "model" })

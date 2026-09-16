@@ -102,6 +102,23 @@ describe("DeterministicInterpreter + ground", () => {
     expect(intent.kind).toBe("complete_target")
   })
 
+  it("snaps an off-by-one model span outward to word boundaries before grounding", () => {
+    const u = "Mark Acme Implementation as completed"
+    const proposal = {
+      kind: "complete_target",
+      targetSpans: [{ start: 5, end: 23 }],
+      hours: null,
+      all: false,
+      confidence: 0.9,
+      source: "model",
+    }
+    const intent = ground(proposal, u, graph)
+    expect(intent).toMatchObject({
+      kind: "complete_target",
+      targets: [{ kind: "project", id: acme.id }],
+    })
+  })
+
   it("rejects malformed proposals from any interpreter", () => {
     expect(ground({ kind: "complete_target", targetSpans: "oops" }, "x", graph).kind).toBe(
       "unsupported",

@@ -103,6 +103,22 @@ export type Intent =
       readonly source: IntentProposal["source"]
     }
 
+const WORD = /[\p{L}\p{N}]/u
+
+/**
+ * Text of a span, snapped outward to word boundaries. A model that returns an off-by-one span
+ * ("Acme Implementatio") still grounds to the intended name; grounding stays deterministic.
+ */
 export function spanText(utterance: string, span: Span): string {
-  return utterance.slice(span.start, span.end).trim()
+  let start = Math.max(0, Math.min(span.start, utterance.length))
+  let end = Math.max(start, Math.min(span.end, utterance.length))
+  while (start > 0 && WORD.test(utterance[start - 1]!) && WORD.test(utterance[start] ?? ""))
+    start -= 1
+  while (
+    end < utterance.length &&
+    WORD.test(utterance[end]!) &&
+    WORD.test(utterance[end - 1] ?? "")
+  )
+    end += 1
+  return utterance.slice(start, end).trim()
 }

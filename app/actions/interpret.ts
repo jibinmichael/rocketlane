@@ -47,7 +47,14 @@ export async function interpretUtterance(
   if (!apiKey || process.env["AGENT_INTERPRETER"] === "deterministic") return null
   if (utterance.length > 500) return null
 
-  const client = new Anthropic({ apiKey, timeout: 1400, maxRetries: 0 })
+  const workspaceId = process.env["ANTHROPIC_WORKSPACE_ID"]
+  const client = new Anthropic({
+    apiKey,
+    timeout: 6000,
+    maxRetries: 0,
+    // Organization-level keys must name a workspace; workspace-scoped keys ignore this header.
+    ...(workspaceId ? { defaultHeaders: { "anthropic-workspace-id": workspaceId } } : {}),
+  })
   const names = ctx.entityNames
     .slice(0, 60)
     .map((n) => JSON.stringify(n))
