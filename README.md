@@ -75,7 +75,7 @@ Results and the failures found along the way: [docs/test-results](docs/test-resu
 - **Model interpreter** verified live with Claude Haiku 4.5: eleven natural phrasings classified correctly (including adversarial and out-of-scope), 0.7–3 s per call. Its character spans are approximate; grounding snaps them to word boundaries and tolerates leading noise words, and everything downstream is deterministic. Organization-level keys need `ANTHROPIC_WORKSPACE_ID` in `.env.local`.
 - **Test Lab is deliberately small:** upload project data, pick the acting user, simulate the outside world, read each mission's evaluation. Scenarios run in the test suite, not in the product.
 - **Not built:** replay cassettes for model answers, scenario authoring UI, dark-mode review. (The scale generator exists at `fixtures/stress/scale/generate.mjs`; committed regression records live in `tests/regression/` and replay under `pnpm test`.)
-- **QA'd adversarially:** 377 tests across 25 files, including ten synthetic exports that stress every shape the real export can take (`fixtures/stress`) and 216 adversarial engine tests (`tests/qa`). Behaviour decisions taken during QA are listed in `docs/agent-context/03-decisions-locked.md` (Q-01..Q-08).
+- **QA'd adversarially:** 395 tests across 26 files, including ten synthetic exports that stress every shape the real export can take (`fixtures/stress`) and 216 adversarial engine tests (`tests/qa`). Behaviour decisions taken during QA are listed in `docs/agent-context/03-decisions-locked.md` (Q-01..Q-08).
 
 ## Contributing
 

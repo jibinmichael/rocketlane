@@ -38,10 +38,13 @@ Templates carry `EntityRef` slots rendered as chips (shown here as **bold**). Po
 | `result.mismatch` | "The update did not verify. **{node}** is still {actual}. I have not marked it complete." |
 | `timeout_reconciled` | "The write to **{node}** timed out. I re-read it: {actual}. Retrying once with the same request." → then `result.verified` with "1 retry, no duplicate write." |
 | `state_change` | "**{project}** changed while I was working. I paused before the next update." · What changed: "**{node}** {change} by {actor} at {time}." · What it affects: "{affected}." · Next: "{next}." |
+| `pause_requested` | Only when an update was in flight: "Pause requested." · "I'm finishing the update already in progress, then I'll pause. I won't start the next update." |
+| `paused` | "Got it. I've paused the mission." · in flight: "The update to **{node}** was already in progress; it completed before the pause took effect and was verified." (or "did not verify, so it is not marked complete and the state was reconciled.") / otherwise "I stopped before starting the next update." · "The last verified update was **{node}**." or "No updates had been made yet." · "No further updates were started. Nothing else will change until you resume; I'll recheck the current state first." `[Resume] [Stop]` while paused. |
+| `resumed` | "Got it. I'll recheck the current state before continuing." · "Resuming from the current verified state." or "Resuming requires a course correction. The project changed while this mission was paused; I rechecked the current state and updated the plan before continuing." Withdrawn before it took effect: "Got it. The pause was withdrawn before it took effect; I'm continuing." No "Would you like me to continue?" |
 | `course_correction` | "Course correction. The previous plan is no longer valid; I've updated the remaining steps." Detail: "{kept} of {planned} updates still apply. Next: {action.label} on **{node}**." |
 | `stale_on_resume` | "**{project}** changed since this mission was planned." + diff, then `replanned` |
 | `scope_change` | "Stopped. **{node}** stays open. Continuing with {newScope}." + if any: "{n} updates completed before the change: {list}." |
-| `cancelled` | "Stopped. Nothing was written." or "Stopped. {n} updates completed before you cancelled; nothing further was written." |
+| `cancelled` | "Got it. I've stopped the mission. Completed and verified work remains unchanged." · if an update was in flight: "The update to **{node}** was already in progress; it completed and was verified." · "Nothing was written." or "{n} updates completed and verified before you stopped; nothing further was started." Never a rollback claim. |
 | `partial_summary` | Non-zero buckets only, each expandable: "{completed} completed." · "{blocked} blocked by governance." · "{already} already complete." · "{failed} failed — {failureClass}, state reconciled, not completed." · "{denied} not permitted." · "{cancelled} cancelled." |
 | `permission_denied` | "Only the project owner can complete **{target}**. {owner} owns it." · "Ask {owner} to complete it, or switch the acting user in the Test Lab." No button until the notification primitive exists (R3/R4): a receipt for a no-op is worse than a sentence. |
 | `clarification` | "Which project do you mean?" + candidate artifacts (row density) |
@@ -66,7 +69,9 @@ Calm, direct, precise, accountable, concise. First person for the agent's own ac
 | PLANNING | `state.working` | hairline | "Planning" |
 | CHECKING | `state.working` | checks reveal (see cadence rule) | "Checking governance" / "Tracing dependencies" |
 | WAITING_FOR_USER | `state.waiting` | still | "Waiting for you" |
-| EXECUTING | `state.working` | **determinate** hairline when total known: "{done} of {total}" | "Updating **{node}**" + `[Stop]` (Esc) |
+| EXECUTING | `state.working` | indeterminate hairline | "In flight · Updating **{node}**" + `[Pause]` (Esc). **Esc pauses; it never cancels.** |
+| PAUSING | `state.working` | hairline continues | "Pausing · finishing the current update" |
+| PAUSED | `state.paused` | still | "Paused" |
 | VERIFYING | `state.working` | hairline | "Verifying" |
 | RECHECKING | `state.paused` colour retained, hairline resumes | 180ms | "Rechecking" |
 | REPLANNED | crossfade to `state.working` 180ms, holds 1.2s | | "Replanned — continuing" |
@@ -76,7 +81,7 @@ Calm, direct, precise, accountable, concise. First person for the agent's own ac
 
 ## Mission header (mission state) → chip
 
-`ACTIVE · WAITING · EXECUTING · VERIFYING · COMPLETED · BLOCKED · FAILED · STALE · PERMISSION_DENIED · CANCELLED · PARTIALLY_COMPLETED` map to `state.*` tokens. `STALE` = `state.paused` with label "Paused — project changed".
+`ACTIVE · WAITING · EXECUTING · VERIFYING · PAUSED · COMPLETED · BLOCKED · FAILED · STALE · PERMISSION_DENIED · CANCELLED · PARTIALLY_COMPLETED` map to `state.*` tokens. `STALE` = `state.paused` with label "Paused — project changed" (the world paused it); `PAUSED` = `state.paused` with label "Paused" (the user did). Both resume through the same revalidating replan.
 
 ## Motion tokens and rules
 

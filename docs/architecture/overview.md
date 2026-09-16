@@ -63,6 +63,10 @@ step
 → revalidate next step against a fresh snapshot
 ```
 
+## Pause, resume, cancel
+
+`pause()` never touches a write in progress. With nothing in flight the mission is `PAUSED` at once; with a write in flight a persisted `pauseRequested` flag is set and the run loop, after that step's real result (verified, failed or reconciled after a timeout), stops scheduling and pauses. `resume()` re-reads the system, replans (permissions, governance, dependencies, already-satisfied steps) and records whether the world moved. `cancel()` is terminal; an in-flight update is still reconciled and reported. Nothing is rolled back, ever.
+
 ## Course correction
 
 Any external change inside the mission's closure (project scope), not carrying the mission's own correlation id, pauses the mission (`STALE`), records what changed, replans from the current graph, and waits for the user to continue. Writes completed before the pause are kept; the run loop merges in-flight step results instead of overwriting the pause. A second browser tab's write arrives through `BroadcastChannel` as an ordinary external change.

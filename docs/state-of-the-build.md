@@ -2,7 +2,7 @@
 
 One page to check the prototype against the brief, the spec, or your own brainstorm. Every row says what exists, where it lives, and how to see it work. Status words: **built** (in code, tested, visible), **partial** (works, with a named gap), **designed** (documented decision, no code), **not built**.
 
-Commit: run `git log --oneline | head -1`. Tests: 377 in 25 files, all green. Build: 7 routes.
+Commit: run `git log --oneline | head -1`. Tests: 395 in 26 files, all green. Build: 7 routes.
 
 ## 1. The product in one paragraph
 
@@ -27,7 +27,7 @@ You state an outcome ("Mark Acme Implementation as completed"). The system resol
 | 8E | Failure → recovery: timeout reconciled by re-read, one same-key retry, api failure ends the target, mismatch never claims success; **missing data → required input** declared per step, collected in the conversation, validated, permission-checked, verified | built | `engine.ts write()`, `core/mission/required-input.ts`, `tests/integration/missing-input.test.ts` | hero: reply "two hours", then "2 hours" |
 | 9 | Action classes READ / SAFE_WRITE / DECISION_REQUIRED / HIGH_IMPACT drive the button hierarchy | built | `flight-plan.ts classify()`, `components/conversation/` | confirmation block |
 | 10 | Revalidation: external change inside the mission's closure → pause, what changed / what it affects, replan on continue; changes outside the closure ignored; own writes ignored | built | `engine.ts onStateChange()`, BroadcastChannel in `lib/runtime.ts` | two tabs, demo script §2 |
-| 11 | Interruption: stop (Esc), leave X open (scope change), continue; nothing starts after a stop, even mid-write | built | `engine.ts cancel()/changeScope()` | demo script §3 |
+| 11 | Interruption: pause (Esc, "pause", the Pause control) stops scheduling and reconciles an in-flight update; resume revalidates and records drift; stop is a distinct terminal decision; leave X open changes scope; nothing starts after a pause or stop, even mid-write; nothing is rolled back | built | `engine.ts pause()/resume()/cancel()/changeScope()`, `tests/integration/pause-resume.test.ts` | type "pause" at any point, then Resume |
 | 12 | Partial success: never a boolean; completed / blocked / already complete / failed / not permitted / cancelled | built | `engine.ts aggregate()` | batch summary |
 | 13, 37 | Routine checks and conversational notifications | partial | mission `origin: "routine"` renders `notification.blocked` and waits for the authorized actor (Q-16); the scheduler is designed, not built (D-24) | `tests/integration/missing-input.test.ts` case 13 |
 | 14, 15, 42 | Conversational UX contract and tone: canonical block list, banned words, first person, no theatre | built | `docs/agent-context/04-ux-and-copy-contract.md`, `core/agent/conversation/renderer.ts` | renderer tests + `tests/qa/renderer-robustness.test.ts` |
