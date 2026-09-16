@@ -1,7 +1,7 @@
 import { DeterministicInterpreter } from "@/core/agent/intent/deterministic"
 import { ground } from "@/core/agent/intent/ground"
 import type { InterpretationContext } from "@/core/agent/intent/intent"
-import { proposeFromIntent } from "@/core/agent/planner"
+import { conduct } from "@/core/agent/conductor"
 import type { WorkspaceGraph } from "@/core/domain/graph"
 import type { EntityRef, ProjectId } from "@/core/domain/ids"
 import {
@@ -177,37 +177,26 @@ export async function runScenario(
           hasActiveMission: current !== null,
           pendingDecision: current?.pending?.kind ?? null,
         }
-        const intent = ground(
-          interpreter.interpret(turn.text, ctx),
-          turn.text,
-          inner.current(),
-          scope,
-        )
+        const intent = ground(interpreter.interpret(turn.text, ctx), turn.text, inner.current(), {
+          ...scope,
+          actorId: actor.id,
+        })
         lastIntentKind = intent.kind
         if (intent.kind === "complete_target" || intent.kind === "complete_task") {
-          const missionId = `${scenario.id}-${index}`
-          currentMissionId = missionId
-          missionCreated = true
           scopeRefs = closureRefs(intent.targets, inner.current())
-          await engine.start(proposeFromIntent(intent, actor, missionId), {
-            datasetId: scenario.datasetId,
-          })
-        } else if (current) {
-          if (intent.kind === "cancel") engine.cancel(current.id)
-          else if (intent.kind === "continue") await engine.resume(current.id)
-          else if (intent.kind === "change_scope")
-            await engine.changeScope(current.id, intent.exclude)
-          else if (intent.kind === "log_time" && current.pending?.kind === "input_hours")
-            await engine.provideHours(current.id, current.pending.stepId, intent.hours)
-          else if (intent.kind === "approve" && current.pending?.kind === "confirm_step")
-            await engine.approve(current.id, current.pending.stepId)
-          else if (intent.kind === "approve" && current.pending?.kind === "confirm_plan")
-            await engine.approve(current.id, null)
-          else if (intent.kind === "decline" && current.pending)
-            await engine.decline(
-              current.id,
-              current.pending.kind === "confirm_step" ? current.pending.stepId : null,
-            )
+        }
+        // The same conductor the live runtime uses: one mapping from intent to engine command.
+        const outcome = await conduct(engine, {
+          intent,
+          current,
+          actor,
+          datasetId: scenario.datasetId,
+          interpretedBy: "deterministic",
+          nextMissionId: () => `${scenario.id}-${index}`,
+        })
+        if (outcome.kind === "started") {
+          currentMissionId = outcome.missionId
+          missionCreated = true
         }
         break
       }

@@ -146,6 +146,20 @@ export const BUILT_IN_SCENARIOS: readonly Scenario[] = [
     },
   },
   {
+    id: "real-export-cascade",
+    title: "Real export: Stone-Gonzalez is blocked four levels deep; nothing is written",
+    datasetId: "rocketlane-export",
+    actorName: "Robert Oconnell",
+    projectName: "Stone-Gonzalez - CLM Implementation",
+    turns: [{ kind: "user", text: "complete Stone-Gonzalez" }],
+    expect: {
+      outcome: "WAITING",
+      invariants: ["no_policy_violation", "no_unverified_completion", "no_scope_expansion"],
+      finalStates: { "Stone-Gonzalez - CLM Implementation": "IN_PROGRESS" },
+      minEvents: 6,
+    },
+  },
+  {
     id: "already-complete",
     title: "Already complete: nothing is written",
     datasetId: "cascading-conflicts",

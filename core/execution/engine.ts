@@ -340,7 +340,7 @@ export class MissionEngine {
     const steps = [
       ...merged,
       ...dropped.map((s) =>
-        cause === "scope" ? { ...s, note: "completed before scope change" } : s,
+        cause === "scope" ? { ...s, note: "completed before scope change" as const } : s,
       ),
     ]
     const withPlan = this.applyFlightPlan(
@@ -446,14 +446,13 @@ export class MissionEngine {
       step.ref,
       graph,
     )
+    this.emit(mission, "PERMISSION_CHECKED", [step.ref], {
+      allowed: permission.allowed,
+      reason: permission.reason,
+    })
     if (!permission.allowed) {
       this.emit(mission, "PERMISSION_DENIED", [step.ref], { reason: permission.reason })
-      const updated = this.setStep(
-        mission,
-        step.id,
-        { status: "permission_denied", note: permission.reason },
-        "ACTIVE",
-      )
+      const updated = this.setStep(mission, step.id, { status: "permission_denied" }, "ACTIVE")
       return mission.targets.length > 1 ? updated : this.finish(updated, "PERMISSION_DENIED")
     }
 
@@ -711,7 +710,7 @@ export class MissionEngine {
   private failTarget(mission: Mission, step: PlanStep): Mission {
     const plan = mission.plan.map((s) =>
       s.status === "pending" && sameRef(s.forTarget, step.forTarget) && s.id !== step.id
-        ? { ...s, status: "skipped" as const, note: "failed upstream" }
+        ? { ...s, status: "skipped" as const, note: "failed upstream" as const }
         : s,
     )
     const updated = { ...mission, plan }
@@ -727,7 +726,7 @@ export class MissionEngine {
     // Remaining steps for the same target cannot proceed; skip them so the batch moves on.
     const plan = updated.plan.map((s) =>
       s.status === "pending" && sameRef(s.forTarget, step.forTarget) && s.id !== step.id
-        ? { ...s, status: "skipped" as const, note: "blocked upstream" }
+        ? { ...s, status: "skipped" as const, note: "blocked upstream" as const }
         : s,
     )
     const withBlockers = {

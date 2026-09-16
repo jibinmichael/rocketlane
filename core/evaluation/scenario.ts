@@ -88,6 +88,30 @@ export type ScenarioResult = {
   readonly weakenedPolicies: readonly string[]
 }
 
+/**
+ * A regression that lives in the repository (`tests/regression/*.json`): a failure that happened,
+ * its diagnosis, and the scenario that now must stay green. Also accepts a Lab-emitted record.
+ */
+export const CommittedRegressionSchema = z.union([
+  z.object({
+    id: z.string().min(1),
+    discoveredAt: z.string().min(1),
+    source: z.string().min(1),
+    diagnosis: z.string().min(1),
+    /** What the system did before the fix; must differ from `scenario.expect.outcome`. */
+    originalOutcome: z.string().min(1),
+    scenario: ScenarioSchema,
+  }),
+  z.object({
+    id: z.string().min(1),
+    createdAt: z.number(),
+    scenario: ScenarioSchema,
+    result: z.object({ outcome: z.string() }).loose(),
+    diagnosis: z.string(),
+  }),
+])
+export type CommittedRegression = z.infer<typeof CommittedRegressionSchema>
+
 export type RegressionRecord = {
   readonly id: string
   readonly createdAt: number

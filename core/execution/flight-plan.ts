@@ -135,7 +135,7 @@ export function validateFlightPlan(
         retries: 0,
         observedVersion: versionOf(required.ref, ctx.graph),
         blockers: [],
-        note: permission.allowed ? null : permission.reason,
+        note: null,
       })
     }
   }

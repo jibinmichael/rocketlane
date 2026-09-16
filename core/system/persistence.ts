@@ -1,9 +1,12 @@
+import { z } from "zod"
+
 import type { Mission } from "@/core/mission/mission"
 import type { MissionStore } from "@/core/mission/store"
 import { summarize, type MissionSummary } from "@/core/mission/mission"
+import { MissionsSchema } from "@/core/mission/schema"
 import type { SerializedSystemState } from "@/core/system/in-memory"
 import type { StateChange } from "@/core/system/system-of-record"
-import type { AgentEvent } from "@/core/telemetry/events"
+import { AGENT_EVENT_TYPES, type AgentEvent } from "@/core/telemetry/events"
 
 /**
  * Browser persistence (D-05, D-23). localStorage is the shared truth between tabs; a
@@ -28,6 +31,57 @@ export type PersistedWorkspace = {
   readonly savedAt: number
 }
 
+/**
+ * Nothing read from storage is trusted (spec §4: the mission is recoverable, not assumed).
+ * A shape that fails validation is treated as absent, so a stale or corrupted browser state
+ * yields a clean boot instead of an engine fed with garbage.
+ */
+const ThreadEntrySchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("user"), text: z.string(), at: z.number() }),
+  z.object({
+    kind: z.literal("agent"),
+    blocksJson: z.string(),
+    at: z.number(),
+    actionTaken: z.string().nullable(),
+  }),
+])
+const ThreadsSchema = z.record(z.string(), z.array(ThreadEntrySchema))
+
+const EventsSchema = z.array(
+  z.object({
+    id: z.string(),
+    type: z.enum(AGENT_EVENT_TYPES),
+    missionId: z.string(),
+    at: z.number(),
+    actorId: z.custom<AgentEvent["actorId"]>((v) => v === null || typeof v === "string"),
+    refs: z.array(
+      z.custom<AgentEvent["refs"][number]>(
+        (v) =>
+          typeof v === "object" &&
+          v !== null &&
+          "kind" in v &&
+          "id" in v &&
+          typeof (v as { id: unknown }).id === "string",
+      ),
+    ),
+    detail: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
+  }),
+)
+
+/** Envelope only: the dataset graph is rebuilt and checked by `InMemorySystemOfRecord.restore`. */
+const WorkspaceEnvelopeSchema = z.object({
+  datasetId: z.string(),
+  savedAt: z.number(),
+  system: z.custom<SerializedSystemState>(
+    (v) =>
+      typeof v === "object" &&
+      v !== null &&
+      "dataset" in v &&
+      Array.isArray((v as { ledger?: unknown }).ledger) &&
+      typeof (v as { changeCount?: unknown }).changeCount === "number",
+  ),
+})
+
 export type BroadcastMessage =
   | { readonly type: "system_changed"; readonly change: StateChange; readonly tabId: string }
   | { readonly type: "dataset_replaced"; readonly datasetId: string; readonly tabId: string }
@@ -42,12 +96,14 @@ function storage(): Storage | null {
   }
 }
 
-function read<T>(key: string): T | null {
+function read<T>(key: string, schema: z.ZodType<T>): T | null {
   const s = storage()
   if (!s) return null
   try {
     const raw = s.getItem(KEY_PREFIX + key)
-    return raw ? (JSON.parse(raw) as T) : null
+    if (!raw) return null
+    const parsed = schema.safeParse(JSON.parse(raw))
+    return parsed.success ? parsed.data : null
   } catch {
     return null
   }
@@ -75,7 +131,7 @@ function remove(key: string): void {
 
 export const workspacePersistence = {
   load(): PersistedWorkspace | null {
-    return read<PersistedWorkspace>("workspace")
+    return read("workspace", WorkspaceEnvelopeSchema)
   },
   save(workspace: PersistedWorkspace): void {
     write("workspace", workspace)
@@ -92,8 +148,7 @@ export class LocalStorageMissionStore implements MissionStore {
   private missions: Map<string, Mission>
 
   constructor() {
-    const persisted = read<Mission[]>("missions") ?? []
-    this.missions = new Map(persisted.map((m) => [m.id, m]))
+    this.missions = new Map(readMissions().map((m) => [m.id, m]))
   }
 
   load(id: string): Mission | null {
@@ -114,8 +169,7 @@ export class LocalStorageMissionStore implements MissionStore {
   }
 
   reload(): void {
-    const persisted = read<Mission[]>("missions") ?? []
-    this.missions = new Map(persisted.map((m) => [m.id, m]))
+    this.missions = new Map(readMissions().map((m) => [m.id, m]))
   }
 
   clear(): void {
@@ -124,9 +178,13 @@ export class LocalStorageMissionStore implements MissionStore {
   }
 }
 
+function readMissions(): readonly Mission[] {
+  return read("missions", MissionsSchema) ?? []
+}
+
 export const eventPersistence = {
   load(): readonly AgentEvent[] {
-    return read<AgentEvent[]>("events") ?? []
+    return read("events", EventsSchema) ?? []
   },
   save(events: readonly AgentEvent[]): void {
     write("events", events.slice(-2000))
@@ -135,7 +193,7 @@ export const eventPersistence = {
 
 export const threadPersistence = {
   load(): Record<string, ThreadEntry[]> {
-    return read<Record<string, ThreadEntry[]>>("threads") ?? {}
+    return read("threads", ThreadsSchema) ?? {}
   },
   save(threads: Record<string, ThreadEntry[]>): void {
     write("threads", threads)
