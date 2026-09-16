@@ -24,6 +24,7 @@ import { resolveClosure } from "@/core/resolver/blockers"
 import { VirtualClock } from "@/core/system/clock"
 import { InMemorySystemOfRecord } from "@/core/system/in-memory"
 import type { SystemOfRecord, WriteCommand, WriteMeta } from "@/core/system/system-of-record"
+import { refOf } from "@/core/system/system-of-record"
 import { EventLog } from "@/core/telemetry/events"
 
 /**
@@ -354,12 +355,6 @@ function closureRefs(targets: readonly EntityRef[], graph: WorkspaceGraph): Set<
 function findTask(graph: WorkspaceGraph, projectId: ProjectId | null, name: string) {
   const pool = projectId ? graph.tasksOf(projectId) : graph.tasks
   return pool.find((t) => t.name === name) ?? null
-}
-
-function refOf(cmd: WriteCommand): EntityRef {
-  return cmd.kind === "complete_project"
-    ? { kind: "project", id: cmd.projectId }
-    : { kind: "task", id: cmd.taskId }
 }
 
 function failEarly(

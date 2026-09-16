@@ -7,7 +7,14 @@ import type { EntityRef, ProjectId } from "@/core/domain/ids"
  * Evaluated by the system before any policy check and before any write.
  */
 
-export type PermissionAction = "complete_project" | "complete_task" | "log_time" | "read"
+export type PermissionAction =
+  | "complete_project"
+  | "complete_task"
+  | "log_time"
+  | "read"
+  /** Undo: whoever could have made the write can unmake it. */
+  | "revert_completion"
+  | "remove_time"
 
 export type PermissionCheck = {
   readonly actorId: Actor["id"]
@@ -47,13 +54,21 @@ export class RoleBasedPermissions implements PermissionEvaluator {
         : null
 
     const base = { actorId: actor.id, action, target, permissionSource: "role-model@1" as const }
+    const effective =
+      action === "revert_completion"
+        ? target.kind === "project"
+          ? "complete_project"
+          : "complete_task"
+        : action === "remove_time"
+          ? "log_time"
+          : action
 
-    if (action === "read")
+    if (effective === "read")
       return { ...base, allowed: true, reason: "read access is open", escalation: null }
     if (!project)
       return { ...base, allowed: false, reason: "target project not found", escalation: null }
 
-    switch (action) {
+    switch (effective) {
       case "complete_project":
         return isOwner
           ? { ...base, allowed: true, reason: "project owner", escalation: null }

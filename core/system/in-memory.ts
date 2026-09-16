@@ -1,5 +1,6 @@
 import type { Dataset, Project, Task, TimeEntry } from "@/core/domain/entities"
 import { WorkspaceGraph } from "@/core/domain/graph"
+import { parseProjectStatus } from "@/core/domain/status"
 import { timeEntryId, type ActorId, type EntityRef } from "@/core/domain/ids"
 import { type Clock, VirtualClock } from "@/core/system/clock"
 import {
@@ -194,6 +195,38 @@ export class InMemorySystemOfRecord implements SystemOfRecord {
         this.graph = this.graph.with({ tasks: [next] })
         break
       }
+      case "revert_task_status": {
+        const task = this.graph.task(cmd.taskId)!
+        const next: Task = {
+          ...task,
+          status: cmd.status,
+          completedAt: cmd.status === "COMPLETED" ? task.completedAt : null,
+          version: task.version + 1,
+        }
+        this.graph = this.graph.with({ tasks: [next] })
+        break
+      }
+      case "revert_project_status": {
+        const project = this.graph.project(cmd.projectId)!
+        const next: Project = {
+          ...project,
+          status: parseProjectStatus(cmd.rawStatus),
+          rawStatus: cmd.rawStatus,
+          version: project.version + 1,
+        }
+        this.graph = this.graph.with({ projects: [next] })
+        break
+      }
+      case "remove_time_entry": {
+        const task = this.graph.task(cmd.taskId)!
+        const next: Task = {
+          ...task,
+          timeEntries: task.timeEntries.filter((e) => e.id !== cmd.entryId),
+          version: task.version + 1,
+        }
+        this.graph = this.graph.with({ tasks: [next] })
+        break
+      }
       case "add_time_entry": {
         const task = this.graph.task(cmd.taskId)!
         const entry: TimeEntry = {
@@ -279,5 +312,11 @@ function summaryOf(cmd: WriteCommand): string {
       return `${cmd.hours}h logged`
     case "set_task_status":
       return `status set to ${cmd.status}`
+    case "revert_task_status":
+      return `status reverted to ${cmd.status}`
+    case "revert_project_status":
+      return `status reverted to ${cmd.rawStatus}`
+    case "remove_time_entry":
+      return "logged time removed"
   }
 }

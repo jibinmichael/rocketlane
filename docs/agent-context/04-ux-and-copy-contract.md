@@ -54,7 +54,7 @@ Templates carry `EntityRef` slots rendered as chips (shown here as **bold**). Po
 | `routine.created` | "Every morning I'll check **{target}**. If all milestones are complete I'll notify you and complete it." + routine artifact (`Run now · Pause · Stop`) |
 | `routine.check.not_ready` | collapsed by default: "Checked {time}. Not ready — {blocker}." |
 | `notification.ready` | "**{target}** is ready. {what changed}. The remaining governance checks pass. I can complete it now." `[Complete project] [Review checks]` |
-| `landing` | "**{project}** completed." · "All required updates were completed and verified. Final state verified at {time}." · "{n} updates completed · {f} failed" + compact evidence (one check row per verified update) `[View activity]`. Per-step "Verified:" lines are not blocks; they are activity items while the mission runs. |
+| `landing` | "**{project}** completed." · "All required updates were completed and verified. Final state verified at {time}." · "{n} updates completed · {f} failed" + compact evidence (one check row per verified update) `[View activity]` `[Undo this mission]` (only when every verified write recorded what it replaced). An undo mission lands as "Undone, {actor}. **{project}** is back to {previous status}, verified." · "{n} updates reverted, {f} failed." Per-step "Verified:" lines are not blocks; they are activity items while the mission runs. |
 
 ## Tone (spec §15, §42)
 

@@ -55,7 +55,7 @@ const PlanStepSchema = z.object({
   id: z.string(),
   ref: EntityRefSchema,
   label: z.string(),
-  transition: z.enum(["COMPLETED", "TIME_LOGGED"]),
+  transition: z.enum(["COMPLETED", "TIME_LOGGED", "REVERTED", "TIME_REMOVED"]),
   forTarget: EntityRefSchema,
   actionClass: z.enum(["READ", "SAFE_WRITE", "DECISION_REQUIRED", "BLOCKED", "HIGH_IMPACT"]),
   status: z.enum([
@@ -87,6 +87,8 @@ const PlanStepSchema = z.object({
       "failed upstream",
     ])
     .nullable(),
+  before: z.string().nullable().default(null),
+  reverts: z.string().nullable().default(null),
 })
 
 const TargetOutcomeSchema = z.enum([
@@ -196,7 +198,8 @@ export const MissionSchema = z.object({
     })
     .nullable(),
   interpretedBy: z.enum(["deterministic", "model"]).nullable(),
-  origin: z.enum(["user", "routine"]),
+  origin: z.enum(["user", "routine", "undo"]),
+  reverts: z.string().nullable().default(null),
   createdAt: z.number(),
   updatedAt: z.number(),
   landedAt: z.number().nullable(),

@@ -76,7 +76,7 @@ export function evaluateGovernance(
   })
 
   const dataFlags: Array<{ taskId: TaskId; flag: string }> = []
-  if (transition.target.kind === "task") {
+  if (transition.target.kind === "task" && transition.to === "COMPLETED") {
     const task = graph.task(transition.target.id)
     for (const flag of task?.flags ?? []) dataFlags.push({ taskId: transition.target.id, flag })
   }

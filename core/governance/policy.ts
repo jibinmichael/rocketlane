@@ -13,10 +13,13 @@ export type PolicyId =
   | "P3_TASK_PREDECESSORS"
   | "P4_TASK_TIME"
 
-/** The only transition the supplied policies govern. */
+/**
+ * The supplied policies govern COMPLETED only. Reverse transitions (an undo mission) pass through
+ * the same evaluation so the evidence trail shows every policy as "not triggered by this action".
+ */
 export type Transition = {
   readonly target: EntityRef
-  readonly to: "COMPLETED"
+  readonly to: "COMPLETED" | "REVERTED" | "TIME_REMOVED"
 }
 
 export type PolicyTrigger = {

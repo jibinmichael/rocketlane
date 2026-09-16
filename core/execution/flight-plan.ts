@@ -9,7 +9,7 @@ import type {
   PermissionEvaluator,
 } from "@/core/governance/permissions"
 import { fnv1a } from "@/core/ingestion/hash"
-import type { ActionClass, PlanStep } from "@/core/mission/mission"
+import type { ActionClass, Mission, PlanStep } from "@/core/mission/mission"
 import { ALL_CLOSURE_RULES, type ClosureRules, resolveClosure } from "@/core/resolver/blockers"
 import { labelOf } from "@/core/resolver/target"
 
@@ -40,7 +40,12 @@ export type FlightPlan = {
 }
 
 export type PlanRejection = {
-  readonly reason: "NO_TARGETS" | "TARGET_NOT_FOUND" | "UNSUPPORTED_TARGET_KIND"
+  readonly reason:
+    | "NO_TARGETS"
+    | "TARGET_NOT_FOUND"
+    | "UNSUPPORTED_TARGET_KIND"
+    | "NOTHING_TO_UNDO"
+    | "NO_PRIOR_STATE"
   readonly detail: string
 }
 
@@ -136,6 +141,8 @@ export function validateFlightPlan(
         observedVersion: versionOf(required.ref, ctx.graph),
         blockers: [],
         note: null,
+        before: null,
+        reverts: null,
       })
     }
   }
@@ -164,8 +171,76 @@ export function closureRulesFor(policies: readonly Policy[] | undefined): Closur
   }
 }
 
+/**
+ * Undo (D-30): the reverse of a landed mission is itself a mission. Every step reverses one
+ * verified write of the source, in reverse order, restoring exactly the status that step recorded
+ * before it wrote. Same permission, governance, write and verify loop; nothing is guessed.
+ */
+export function validateUndoPlan(
+  source: Mission,
+  undoMissionId: string,
+  actor: Actor,
+  ctx: FlightPlanContext,
+): { ok: true; plan: FlightPlan } | { ok: false; rejection: PlanRejection } {
+  const done = source.plan.filter(
+    (s) =>
+      s.status === "succeeded" && (s.transition === "COMPLETED" || s.transition === "TIME_LOGGED"),
+  )
+  if (done.length === 0) {
+    return { ok: false, rejection: { reason: "NOTHING_TO_UNDO", detail: source.id } }
+  }
+  const unknown = done.find((s) => s.transition === "COMPLETED" && s.before === null)
+  if (unknown) {
+    return { ok: false, rejection: { reason: "NO_PRIOR_STATE", detail: `${key(unknown.ref)}` } }
+  }
+  const steps: PlanStep[] = []
+  const entityIds = new Set<string>()
+  const permissionDenials: PermissionCheck[] = []
+  for (const s of [...done].reverse()) {
+    const transition = s.transition === "COMPLETED" ? "REVERTED" : "TIME_REMOVED"
+    const permission = ctx.permissions.check(
+      actor,
+      permissionActionFor(s.ref, transition),
+      s.ref,
+      ctx.graph,
+    )
+    if (!permission.allowed) permissionDenials.push(permission)
+    entityIds.add(key(s.ref))
+    steps.push({
+      id: stepId(undoMissionId, s.ref, transition),
+      ref: s.ref,
+      label: labelOf(s.ref, ctx.graph),
+      transition,
+      forTarget: s.forTarget,
+      actionClass: classify(s.ref, transition),
+      status: permission.allowed ? "pending" : "permission_denied",
+      verification: "UNVERIFIED",
+      failureClass: null,
+      retries: 0,
+      observedVersion: versionOf(s.ref, ctx.graph),
+      blockers: [],
+      note: null,
+      before: s.before,
+      reverts: s.id,
+    })
+  }
+  return {
+    ok: true,
+    plan: {
+      [flightPlanBrand]: true,
+      missionId: undoMissionId,
+      steps,
+      entityIds,
+      openButNotRequired: [],
+      permissionDenials,
+      requiresPlanConfirmation: false,
+    },
+  }
+}
+
 function classify(ref: EntityRef, transition: PlanStep["transition"]): ActionClass {
   if (transition === "TIME_LOGGED") return "DECISION_REQUIRED"
+  if (transition === "TIME_REMOVED") return "SAFE_WRITE"
   if (ref.kind === "project") {
     // A-05: completing a project is high impact; completing one with no tasks on record even more so.
     return "HIGH_IMPACT"
@@ -175,6 +250,8 @@ function classify(ref: EntityRef, transition: PlanStep["transition"]): ActionCla
 
 function permissionActionFor(ref: EntityRef, transition: PlanStep["transition"]): PermissionAction {
   if (transition === "TIME_LOGGED") return "log_time"
+  if (transition === "TIME_REMOVED") return "remove_time"
+  if (transition === "REVERTED") return "revert_completion"
   return ref.kind === "project" ? "complete_project" : "complete_task"
 }
 
@@ -193,6 +270,8 @@ function satisfiedStep(missionId: string, target: EntityRef, graph: WorkspaceGra
     observedVersion: versionOf(target, graph),
     blockers: [],
     note: null,
+    before: null,
+    reverts: null,
   }
 }
 

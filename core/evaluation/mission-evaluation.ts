@@ -81,6 +81,7 @@ export function evaluateMission(
     (s) => s.status === "succeeded" && s.verification !== "VERIFIED",
   )
   const claimedLanding =
+    mission.origin !== "undo" &&
     mission.state === "COMPLETED" &&
     mission.targets.some((t) => !isCompleted(t, graph)) &&
     !mission.plan.some((s) => s.status === "already_complete")
@@ -99,6 +100,11 @@ export function evaluateMission(
       const task = s.ref.kind === "task" ? graph.task(s.ref.id) : null
       return !(task && hoursTracked(task) > 0)
     }
+    if (s.transition === "TIME_REMOVED") {
+      const task = s.ref.kind === "task" ? graph.task(s.ref.id) : null
+      return task?.timeEntries.some((e) => e.id.endsWith(`:mission:${mission.reverts}`)) ?? false
+    }
+    if (s.transition === "REVERTED") return isCompleted(s.ref, graph)
     return !isCompleted(s.ref, graph)
   })
 

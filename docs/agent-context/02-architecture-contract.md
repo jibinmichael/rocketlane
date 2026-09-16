@@ -54,7 +54,7 @@ export interface SystemOfRecord {
   subscribe(listener: (change: StateChange) => void): Unsubscribe   // change carries correlationId of the writer
 }
 // Errors: TimeoutError (write may or may not have applied) · ConflictError (version mismatch) · ApiError (transient)
-// WriteCommand union: CompleteTask · CompleteProject · AddTimeEntry · ReopenTask (world-only, not user-invocable) · …
+// WriteCommand union: CompleteTask · CompleteProject · AddTimeEntry · ReopenTask (world-only, not user-invocable) · RevertTaskStatus · RevertProjectStatus · RemoveTimeEntry (undo-only: derived from a landed mission's verified writes, D-30) · …
 
 // core/agent/intent/interpreter.ts
 export interface IntentInterpreter {
@@ -96,7 +96,7 @@ Adapters in the prototype: `InMemorySystemOfRecord` (+ `LocalStoragePersistence`
 
 `scope_expansion := ∃ write w : (w.target, w.transition) ∉ requiredTransitions(goal)`.
 
-The flight plan is rendered as an artifact list **before the first write** so the user sees every derived action. A scope reduction (`change_scope`) removes items; it never reverts already-verified state (no reopen authority exists in the supplied policies) and reports that state.
+The flight plan is rendered as an artifact list **before the first write** so the user sees every derived action. A scope reduction (`change_scope`) removes items; it never reverts already-verified state (no reopen authority exists in the supplied policies) and reports that state. The one sanctioned reverse is an undo mission (D-30): a separate mission derived from a landed mission's verified writes, restoring the recorded prior status through the same permission → governance → write → verify loop.
 
 ## The safe execution loop (spec §8, §35)
 

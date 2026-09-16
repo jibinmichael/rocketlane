@@ -31,6 +31,8 @@ export function requiredInputFor(
         },
       }
     case "COMPLETED":
+    case "REVERTED":
+    case "TIME_REMOVED":
       return null
   }
 }

@@ -60,7 +60,7 @@ export type PlanStep = {
   readonly id: string
   readonly ref: EntityRef
   readonly label: string
-  readonly transition: "COMPLETED" | "TIME_LOGGED"
+  readonly transition: "COMPLETED" | "TIME_LOGGED" | "REVERTED" | "TIME_REMOVED"
   /** The mission target this step serves (batch aggregation). */
   readonly forTarget: EntityRef
   readonly actionClass: ActionClass
@@ -71,6 +71,10 @@ export type PlanStep = {
   readonly observedVersion: number | null
   readonly blockers: readonly Blocker[]
   readonly note: StepNote | null
+  /** The status the entity held before this step wrote it (task status, or the project's raw status); an undo restores exactly this. */
+  readonly before: string | null
+  /** For a reverse step: the id of the step it undoes. */
+  readonly reverts: string | null
 }
 
 export type Decision = {
@@ -163,7 +167,9 @@ export type Mission = {
   readonly outcome: MissionOutcome | null
   readonly interpretedBy: "deterministic" | "model" | null
   /** Who started it: a person in the conversation, or a routine check (spec §13). Same engine, same rules. */
-  readonly origin: "user" | "routine"
+  readonly origin: "user" | "routine" | "undo"
+  /** For an undo mission: the mission whose verified writes it reverses. */
+  readonly reverts: string | null
   readonly createdAt: number
   readonly updatedAt: number
   readonly landedAt: number | null

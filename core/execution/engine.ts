@@ -1,14 +1,20 @@
 import type { Actor } from "@/core/domain/entities"
 import type { WorkspaceGraph } from "@/core/domain/graph"
 import type { ActorId, EntityRef, TaskId } from "@/core/domain/ids"
-import { isTaskComplete } from "@/core/domain/status"
+import {
+  isTaskComplete,
+  parseTaskStatus,
+  TASK_STATUSES,
+  type TaskStatus,
+} from "@/core/domain/status"
 import { DEFAULT_GOVERNANCE_CONFIG, evaluateGovernance } from "@/core/governance/engine"
-import type { GovernanceConfig, Policy } from "@/core/governance/policy"
-import type { PermissionEvaluator } from "@/core/governance/permissions"
+import type { GovernanceConfig, Policy, Transition } from "@/core/governance/policy"
+import type { PermissionAction, PermissionEvaluator } from "@/core/governance/permissions"
 import {
   type FlightPlan,
   type ProposedPlan,
   validateFlightPlan,
+  validateUndoPlan,
 } from "@/core/execution/flight-plan"
 import type {
   Mission,
@@ -114,12 +120,70 @@ export class MissionEngine {
       outcome: null,
       interpretedBy: options.interpretedBy ?? null,
       origin: options.origin ?? "user",
+      reverts: null,
       createdAt: now,
       updatedAt: now,
       landedAt: null,
     }
     this.emit(mission, "MISSION_STARTED", targets, { goal: proposed.goalText })
     mission = this.plan(mission, { ...proposed, targets }, graph)
+    this.commit(mission)
+    return this.run(mission.id)
+  }
+
+  /**
+   * Undo a landed mission (D-30): a new mission whose plan reverses the source's verified writes in
+   * reverse order. It runs through the same permission → governance → write → verify loop, so the
+   * evidence streams exactly as it did going forward.
+   */
+  async undo(
+    sourceMissionId: string,
+    undoMissionId: string,
+    actor: Actor,
+    options: { datasetId: string },
+  ): Promise<Mission> {
+    const source = this.require(sourceMissionId)
+    const now = this.deps.clock.now()
+    const graph = await this.deps.sor.snapshot()
+    let mission: Mission = {
+      id: undoMissionId,
+      correlationId: `mission:${undoMissionId}`,
+      datasetId: options.datasetId,
+      actorId: actor.id,
+      goalText: `Undo: ${source.goalText}`,
+      targets: source.targets,
+      targetLabels: source.targetLabels,
+      excluded: [],
+      state: "ACTIVE",
+      plan: [],
+      pending: null,
+      pauseRequested: false,
+      planConfirmed: false,
+      currentStepId: null,
+      blockers: [],
+      openButNotRequired: [],
+      decisions: [],
+      stateChanges: [],
+      outcome: null,
+      interpretedBy: null,
+      origin: "undo",
+      reverts: source.id,
+      createdAt: now,
+      updatedAt: now,
+      landedAt: null,
+    }
+    this.emit(mission, "MISSION_STARTED", mission.targets, {
+      goal: mission.goalText,
+      reverts: source.id,
+    })
+    const validated = validateUndoPlan(source, undoMissionId, actor, this.planContext(graph))
+    if (!validated.ok) {
+      this.emit(mission, "MISSION_FAILED", mission.targets, { reason: validated.rejection.detail })
+      const failed = this.finish({ ...mission, plan: [] }, "FAILED")
+      this.commit(failed)
+      return failed
+    }
+    mission = this.applyFlightPlan(mission, validated.plan, graph)
     this.commit(mission)
     return this.run(mission.id)
   }
@@ -361,13 +425,17 @@ export class MissionEngine {
   // ---------------------------------------------------------------------------------------------
   // Planning
 
-  private plan(mission: Mission, proposed: ProposedPlan, graph: WorkspaceGraph): Mission {
-    const validated = validateFlightPlan(proposed, {
+  private planContext(graph: WorkspaceGraph) {
+    return {
       graph,
       permissions: this.deps.permissions,
       governance: this.governance,
       ...(this.deps.policies ? { policies: this.deps.policies } : {}),
-    })
+    }
+  }
+
+  private plan(mission: Mission, proposed: ProposedPlan, graph: WorkspaceGraph): Mission {
+    const validated = validateFlightPlan(proposed, this.planContext(graph))
     if (!validated.ok) {
       this.emit(mission, "MISSION_FAILED", proposed.targets, { reason: validated.rejection.detail })
       return this.finish({ ...mission, plan: [] }, "FAILED")
@@ -390,7 +458,7 @@ export class MissionEngine {
     for (const target of mission.targets) {
       const decision = evaluateGovernance(
         graph,
-        { target, to: "COMPLETED" },
+        { target, to: mission.origin === "undo" ? "REVERTED" : "COMPLETED" },
         {
           config: this.governance,
           ...(this.deps.policies ? { policies: this.deps.policies } : {}),
@@ -447,12 +515,13 @@ export class MissionEngine {
       excluded: mission.excluded,
       actor,
     }
-    const validated = validateFlightPlan(proposed, {
-      graph,
-      permissions: this.deps.permissions,
-      governance: this.governance,
-      ...(this.deps.policies ? { policies: this.deps.policies } : {}),
-    })
+    const source = mission.reverts ? this.deps.store.load(mission.reverts) : null
+    const validated =
+      mission.origin === "undo"
+        ? source
+          ? validateUndoPlan(source, mission.id, actor, this.planContext(graph))
+          : { ok: false as const }
+        : validateFlightPlan(proposed, this.planContext(graph))
     if (!validated.ok) return this.finish(mission, "FAILED")
 
     // Keep the status of steps that already ran (stable ids), drop steps no longer required.
@@ -561,10 +630,13 @@ export class MissionEngine {
     if (isTerminal(stored) || stored.state === "PAUSED") return stored
     mission = { ...mission, currentStepId: step.id }
 
+    const reverse = step.transition === "REVERTED" || step.transition === "TIME_REMOVED"
     // Already satisfied? (world may have done it, or an earlier replan)
-    if (isSatisfied(step, graph, this.governance)) {
+    if (
+      reverse ? reverseSatisfied(step, mission, graph) : isSatisfied(step, graph, this.governance)
+    ) {
       this.emit(mission, "ACTION_SKIPPED", [step.ref], {
-        reason: "already complete",
+        reason: reverse ? "already reverted" : "already complete",
         step: step.label,
       })
       return this.setStep(
@@ -626,12 +698,7 @@ export class MissionEngine {
     // Permission (before policy, before write).
     const actor = this.deps.resolveActor(mission.actorId)
     if (!actor) return this.finish(mission, "FAILED")
-    const permission = this.deps.permissions.check(
-      actor,
-      step.ref.kind === "project" ? "complete_project" : "complete_task",
-      step.ref,
-      graph,
-    )
+    const permission = this.deps.permissions.check(actor, writeActionFor(step), step.ref, graph)
     this.emit(mission, "PERMISSION_CHECKED", [step.ref], {
       allowed: permission.allowed,
       reason: permission.reason,
@@ -645,7 +712,7 @@ export class MissionEngine {
     // Governance.
     const decision = evaluateGovernance(
       graph,
-      { target: step.ref, to: "COMPLETED" },
+      { target: step.ref, to: reverse ? step.transition : "COMPLETED" } as Transition,
       { config: this.governance, ...(this.deps.policies ? { policies: this.deps.policies } : {}) },
     )
     this.emit(mission, "POLICY_CHECKED", [step.ref], {
@@ -676,21 +743,27 @@ export class MissionEngine {
 
     // Execute + verify.
     if (step.ref.kind === "phase") return this.finish(mission, "FAILED")
-    const cmd: WriteCommand =
-      step.ref.kind === "project"
-        ? { kind: "complete_project", projectId: step.ref.id }
-        : { kind: "complete_task", taskId: step.ref.id }
+    const planned = reverse
+      ? reverseWrite(step, mission, graph)
+      : {
+          cmd:
+            step.ref.kind === "project"
+              ? ({ kind: "complete_project", projectId: step.ref.id } as const)
+              : ({ kind: "complete_task", taskId: step.ref.id } as const),
+          verify: (g: WorkspaceGraph) => isCompleted(step.ref, g),
+        }
+    if (!planned) return this.finish(mission, "FAILED")
     const before = this.require(mission.id)
     if (isTerminal(before) || before.state === "PAUSED") return before
-    mission = this.setStep(mission, step.id, { status: "running" }, "EXECUTING")
-    this.commit(mission)
-    return this.write(
+    // The status as it stands before the write is recorded on the step, so an undo can restore it.
+    mission = this.setStep(
       mission,
-      step,
-      cmd,
-      (g) => isCompleted(step.ref, g),
-      versionOf(step.ref, graph),
+      step.id,
+      { status: "running", before: reverse ? step.before : statusBefore(step.ref, graph) },
+      "EXECUTING",
     )
+    this.commit(mission)
+    return this.write(mission, step, planned.cmd, planned.verify, versionOf(step.ref, graph))
   }
 
   /**
@@ -1092,6 +1165,79 @@ function commandForInput(
   }
 }
 
+/** The permission an executing step needs; a reverse step needs the authority its forward write needed. */
+function writeActionFor(step: PlanStep): PermissionAction {
+  switch (step.transition) {
+    case "REVERTED":
+      return "revert_completion"
+    case "TIME_REMOVED":
+      return "remove_time"
+    case "TIME_LOGGED":
+      return "log_time"
+    case "COMPLETED":
+      return step.ref.kind === "project" ? "complete_project" : "complete_task"
+  }
+}
+
+/** What an entity's status is right now, as a step will record it before writing. */
+function statusBefore(ref: EntityRef, graph: WorkspaceGraph): string | null {
+  if (ref.kind === "project") return graph.project(ref.id)?.rawStatus ?? null
+  if (ref.kind === "task") return graph.task(ref.id)?.status ?? null
+  return null
+}
+
+/** The time entry the source mission created on this task, found by its correlation id. */
+function entryToRemove(step: PlanStep, mission: Mission, graph: WorkspaceGraph) {
+  if (step.ref.kind !== "task" || !mission.reverts) return null
+  const task = graph.task(step.ref.id)
+  const suffix = `:mission:${mission.reverts}`
+  return task?.timeEntries.find((e) => e.id.endsWith(suffix)) ?? null
+}
+
+/** A reverse step is already satisfied when the world no longer holds what the forward write left. */
+function reverseSatisfied(step: PlanStep, mission: Mission, graph: WorkspaceGraph): boolean {
+  if (step.transition === "TIME_REMOVED") return entryToRemove(step, mission, graph) === null
+  return !isCompleted(step.ref, graph)
+}
+
+/** The write and the re-read predicate that reverses one verified step, or null when it cannot be derived. */
+function reverseWrite(
+  step: PlanStep,
+  mission: Mission,
+  graph: WorkspaceGraph,
+): { cmd: WriteCommand; verify: (g: WorkspaceGraph) => boolean } | null {
+  if (step.transition === "TIME_REMOVED") {
+    if (step.ref.kind !== "task") return null
+    const entry = entryToRemove(step, mission, graph)
+    if (!entry) return null
+    const taskId = step.ref.id
+    return {
+      cmd: { kind: "remove_time_entry", taskId, entryId: entry.id },
+      verify: (g) => !(g.task(taskId)?.timeEntries.some((e) => e.id === entry.id) ?? false),
+    }
+  }
+  if (step.before === null) return null
+  if (step.ref.kind === "project") {
+    const projectId = step.ref.id
+    return {
+      cmd: { kind: "revert_project_status", projectId, rawStatus: step.before },
+      verify: (g) => g.project(projectId)?.status !== "COMPLETED",
+    }
+  }
+  if (step.ref.kind === "task") {
+    const taskId = step.ref.id
+    const status = (TASK_STATUSES as readonly string[]).includes(step.before)
+      ? (step.before as TaskStatus)
+      : parseTaskStatus(step.before)
+    if (!status || status === "COMPLETED") return null
+    return {
+      cmd: { kind: "revert_task_status", taskId, status },
+      verify: (g) => g.task(taskId)?.status === status,
+    }
+  }
+  return null
+}
+
 function isCompleted(ref: EntityRef, graph: WorkspaceGraph): boolean {
   if (ref.kind === "project") return graph.project(ref.id)?.status === "COMPLETED"
   if (ref.kind === "task") {
@@ -1129,7 +1275,8 @@ function dedupeBlockers(blockers: readonly Blocker[]): readonly Blocker[] {
 export function aggregate(mission: Mission): MissionOutcome {
   const perTarget = mission.targets.map((ref, index) => {
     const steps = mission.plan.filter((s) => sameRef(s.forTarget, ref))
-    const targetStep = steps.find((s) => sameRef(s.ref, ref) && s.transition === "COMPLETED")
+    const targetTransition = mission.origin === "undo" ? "REVERTED" : "COMPLETED"
+    const targetStep = steps.find((s) => sameRef(s.ref, ref) && s.transition === targetTransition)
     let outcome: TargetOutcome = "pending"
     const excluded = mission.excluded.some((e) => sameRef(e, ref))
     if (excluded) outcome = "cancelled"

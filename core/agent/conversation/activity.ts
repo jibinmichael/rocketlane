@@ -213,6 +213,23 @@ function itemFor(
           detail: [entity(ref, labelOf(ref, graph))],
         }
       }
+      if (event.detail["command"] === "revert_project_status" && ref) {
+        return {
+          icon: "change",
+          label: "Reopening project",
+          detail: [entity(ref, labelOf(ref, graph))],
+        }
+      }
+      if (event.detail["command"] === "revert_task_status" && ref) {
+        return { icon: "change", label: "Reverting", detail: [entity(ref, labelOf(ref, graph))] }
+      }
+      if (event.detail["command"] === "remove_time_entry" && ref) {
+        return {
+          icon: "time",
+          label: "Removing logged time",
+          detail: [entity(ref, labelOf(ref, graph))],
+        }
+      }
       return null
     }
     case "ACTION_COMPLETED": {
@@ -223,6 +240,15 @@ function itemFor(
       }
       if (event.detail["result"] === "complete_task") {
         return { icon: "check", label: labelOf(ref, graph), detail: [text("Verified")] }
+      }
+      if (
+        event.detail["result"] === "revert_task_status" ||
+        event.detail["result"] === "revert_project_status"
+      ) {
+        return { icon: "check", label: labelOf(ref, graph), detail: [text("Reverted")] }
+      }
+      if (event.detail["result"] === "remove_time_entry") {
+        return { icon: "check", label: "Time removed", detail: [entity(ref, labelOf(ref, graph))] }
       }
       return null
     }
@@ -248,7 +274,12 @@ function summarize(items: readonly ActivityItem[]): Inline[] {
   if (has("milestone")) parts.push("checked milestones")
   if (has("policy")) parts.push("checked governance")
   if (has("dependency")) parts.push("traced dependencies")
-  if (has("time")) parts.push("logged time")
+  if (has("time", "Logging time")) parts.push("logged time")
+  if (has("time", "Removing logged time")) parts.push("removed the logged time")
+  const reverted = items.filter(
+    (i) => i.icon === "change" && (i.label === "Reverting" || i.label === "Reopening project"),
+  ).length
+  if (reverted > 0) parts.push(`reverted ${reverted} ${plural(reverted, "update")}`)
   if (has("refresh")) parts.push("rechecked dependencies")
   const verified = items.filter((i) => i.icon === "check" && i.label !== "Time verified").length
   if (verified > 0) parts.push(`verified ${verified} ${plural(verified, "update")}`)

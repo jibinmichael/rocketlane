@@ -26,6 +26,8 @@ export type BlockAction =
   | { readonly kind: "pause"; readonly label: string }
   | { readonly kind: "cancel"; readonly label: string }
   | { readonly kind: "view_activity"; readonly label: string }
+  /** Starts an undo mission that reverses this landed mission's verified writes (D-30). */
+  | { readonly kind: "undo_mission"; readonly missionId: string; readonly label: string }
   | { readonly kind: "pick_candidate"; readonly ref: EntityRef; readonly label: string }
   /** Sends `text` as the user's next turn (a "did you mean" or a suggested next step). */
   | { readonly kind: "resend"; readonly text: string; readonly label: string }

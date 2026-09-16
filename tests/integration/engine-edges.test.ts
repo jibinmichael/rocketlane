@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import type { Mission } from "@/core/mission/mission"
+import type { Mission, PlanStep } from "@/core/mission/mission"
 import { harness } from "../helpers/engine"
 
-const step = (m: Mission, label: string, transition: "COMPLETED" | "TIME_LOGGED" = "COMPLETED") =>
+const step = (m: Mission, label: string, transition: PlanStep["transition"] = "COMPLETED") =>
   m.plan.find((s) => s.label === label && s.transition === transition)!
 
 describe("MissionEngine — execution safety", () => {

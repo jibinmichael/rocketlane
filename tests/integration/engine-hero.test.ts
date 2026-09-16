@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest"
 
 import { hoursTracked } from "@/core/domain/entities"
-import type { Mission } from "@/core/mission/mission"
+import type { Mission, PlanStep } from "@/core/mission/mission"
 import { harness } from "../helpers/engine"
 
-const stepByLabel = (
-  m: Mission,
-  label: string,
-  transition: "COMPLETED" | "TIME_LOGGED" = "COMPLETED",
-) => m.plan.find((s) => s.label === label && s.transition === transition)!
+const stepByLabel = (m: Mission, label: string, transition: PlanStep["transition"] = "COMPLETED") =>
+  m.plan.find((s) => s.label === label && s.transition === transition)!
 
 describe("MissionEngine — hero journey: Mark Acme Implementation as completed", () => {
   it("resolves, plans, blocks on the deepest dependency, and waits for the one input it cannot invent", async () => {

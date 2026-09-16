@@ -1,5 +1,5 @@
 import type { WorkspaceGraph } from "@/core/domain/graph"
-import type { ActorId, EntityRef, ProjectId, TaskId } from "@/core/domain/ids"
+import type { ActorId, EntityRef, ProjectId, TaskId, TimeEntryId } from "@/core/domain/ids"
 import type { TaskStatus } from "@/core/domain/status"
 
 /**
@@ -19,6 +19,17 @@ export type WriteCommand =
     }
   /** World-only. Not reachable from any user intent. */
   | { readonly kind: "set_task_status"; readonly taskId: TaskId; readonly status: TaskStatus }
+  /**
+   * Undo only. Reachable solely through an undo mission whose plan is derived from a prior
+   * mission's verified writes; never from an intent that names an arbitrary status.
+   */
+  | { readonly kind: "revert_task_status"; readonly taskId: TaskId; readonly status: TaskStatus }
+  | {
+      readonly kind: "revert_project_status"
+      readonly projectId: ProjectId
+      readonly rawStatus: string
+    }
+  | { readonly kind: "remove_time_entry"; readonly taskId: TaskId; readonly entryId: TimeEntryId }
 
 export type WriteMeta = {
   readonly idempotencyKey: string
@@ -90,10 +101,13 @@ export interface SystemOfRecord {
 export function refOf(cmd: WriteCommand): EntityRef {
   switch (cmd.kind) {
     case "complete_project":
+    case "revert_project_status":
       return { kind: "project", id: cmd.projectId }
     case "complete_task":
     case "add_time_entry":
     case "set_task_status":
+    case "revert_task_status":
+    case "remove_time_entry":
       return { kind: "task", id: cmd.taskId }
   }
 }

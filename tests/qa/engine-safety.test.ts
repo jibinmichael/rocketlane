@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest"
 
 import { renderMission } from "@/core/agent/conversation/renderer"
-import type { Mission } from "@/core/mission/mission"
+import type { Mission, PlanStep } from "@/core/mission/mission"
 import { harness } from "../helpers/engine"
 import { engineOn, mkGraph, mkTask, owner, pref, tref } from "./_helpers"
 
-const step = (m: Mission, label: string, transition: "COMPLETED" | "TIME_LOGGED" = "COMPLETED") =>
+const step = (m: Mission, label: string, transition: PlanStep["transition"] = "COMPLETED") =>
   m.plan.find((s) => s.label === label && s.transition === transition)!
 
 const ledgerSize = (h: ReturnType<typeof harness>) => h.sor.serialize().ledger.length

@@ -613,6 +613,23 @@ export class Runtime {
       }
       return newId
     }
+    if (action.kind === "undo_mission") {
+      const actor = this.actor()
+      const source = this.mission(action.missionId)
+      if (!actor || !source) return missionId
+      const newId = this.newMissionId("u")
+      this.freeze(missionId, action.label)
+      this.pushUser(newId, `Undo "${source.goalText}"`)
+      this.setBusy(newId, "PLANNING")
+      try {
+        await this.engine.undo(action.missionId, newId, actor, {
+          datasetId: this.snapshot.datasetId,
+        })
+      } finally {
+        this.setBusy(newId, null)
+      }
+      return newId
+    }
     const mission = this.mission(missionId)
     if (!mission) return missionId
     const who = this.actor()?.name ?? "you"

@@ -76,7 +76,8 @@ export function renderMission(
   const target = mission.targets[0]
   if (!target) return []
   const targetLabel = mission.targetLabels[0] ?? labelOf(target, graph)
-  const writes = mission.plan.filter((s) => s.transition === "COMPLETED")
+  const forward = mission.origin !== "undo"
+  const writes = mission.plan.filter((s) => s.transition === (forward ? "COMPLETED" : "REVERTED"))
   // Over for now: terminal, or blocked until the world changes. Either way the evidence is in.
   const terminal = isTerminal(mission) || mission.state === "BLOCKED"
   const last = events.length
@@ -97,6 +98,8 @@ export function renderMission(
 
   // A person asked; the agent says what it understood and what it will do. A routine asked nobody.
   if (mission.origin === "user") add(0, 0, acknowledgeGoal(target, targetLabel))
+  if (mission.origin === "undo")
+    add(0, 0, acknowledgeUndo(target, targetLabel, mission.plan.length))
 
   // Observable work, one block per phase; only the current phase stays open.
   const phases = activityPhases(mission, graph, events)
@@ -138,12 +141,19 @@ export function renderMission(
             [text("I can't complete "), entity(target, targetLabel), text(" yet.")],
           ])
         : block("outcome.ready", "neutral", [
-            [
-              entity(target, targetLabel),
-              text(` can be completed. `),
-              count(writes.length),
-              text(` ${plural(writes.length, "update")} required.`),
-            ],
+            forward
+              ? [
+                  entity(target, targetLabel),
+                  text(` can be completed. `),
+                  count(writes.length),
+                  text(` ${plural(writes.length, "update")} required.`),
+                ]
+              : [
+                  entity(target, targetLabel),
+                  text(` can be reverted. `),
+                  count(mission.plan.length),
+                  text(` ${plural(mission.plan.length, "update")} to undo, newest first.`),
+                ],
           ]),
     )
   }
@@ -226,6 +236,18 @@ export function renderMission(
 
 function finish(timeline: readonly Anchored[]): Block[] {
   return [...timeline].sort((a, b) => a.at - b.at || a.order - b.order).map((t) => t.block)
+}
+
+function acknowledgeUndo(target: EntityRef, label: string, updates: number): Block {
+  return block("acknowledgement", "neutral", [
+    [text("Got it. I'll undo the changes to "), entity(target, label), text(".")],
+    [
+      count(updates),
+      text(
+        ` ${plural(updates, "update")} to reverse, newest first, each verified before I report it.`,
+      ),
+    ],
+  ])
 }
 
 function acknowledgeGoal(target: EntityRef, label: string): Block {
@@ -819,6 +841,25 @@ function renderPending(ctx: Ctx, target: EntityRef): Block[] {
   if (pending.kind === "confirm_step") {
     const step = mission.plan.find((s) => s.id === pending.stepId)
     if (!step) return []
+    if (step.transition === "REVERTED") {
+      return [
+        block(
+          "action_request.confirm",
+          "waiting",
+          [
+            [
+              text("Reopen "),
+              entity(step.ref, step.label),
+              text(`? Status → ${humanStatus(step.before)}.`),
+            ],
+          ],
+          [
+            { kind: "approve", stepId: step.id, label: "Reopen project", impact: "high" },
+            { kind: "decline", stepId: step.id, label: "Not now" },
+          ],
+        ),
+      ]
+    }
     const milestones = target.kind === "project" ? graph.milestonesOf(target.id) : []
     const done = milestones.filter((m) => isTaskComplete(m.status)).length
     const open = mission.openButNotRequired.length
@@ -869,8 +910,31 @@ function renderPending(ctx: Ctx, target: EntityRef): Block[] {
   return []
 }
 
+/** A landed mission can be undone when every verified write recorded what it replaced (D-30). */
+function undoable(mission: Ctx["mission"]): boolean {
+  if (mission.origin === "undo" || mission.landedAt === null) return false
+  const done = mission.plan.filter((s) => s.status === "succeeded")
+  return (
+    done.length > 0 &&
+    done.every(
+      (s) => s.transition === "TIME_LOGGED" || (s.transition === "COMPLETED" && s.before !== null),
+    )
+  )
+}
+
+/** A recorded status, as a person would say it. */
+function humanStatus(raw: string | null): string {
+  if (raw === null) return "its previous status"
+  const words = raw.replace(/_/g, " ").toLowerCase()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 /** Second landing line: how many supporting updates it took, or that none were needed. */
-function landingSummary(mission: Ctx["mission"], updates: number): Inline[] {
+function landingSummary(
+  mission: Ctx["mission"],
+  updates: number,
+  verb: "completed" | "reverted" = "completed",
+): Inline[] {
   const failed = mission.plan.filter((s) => s.status === "failed").length
   const checked = [
     text(" Final state checked at "),
@@ -880,7 +944,7 @@ function landingSummary(mission: Ctx["mission"], updates: number): Inline[] {
   if (updates === 0 && failed === 0) return [text("No other updates were needed."), ...checked]
   return [
     count(updates),
-    text(` ${plural(updates, "update")} completed, `),
+    text(` ${plural(updates, "update")} ${verb}, `),
     count(failed),
     text(" failed."),
     ...checked,
@@ -891,26 +955,40 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
   const { mission, graph } = ctx
   switch (mission.state) {
     case "COMPLETED": {
+      const undo = mission.origin === "undo"
       const evidence = mission.plan.filter(
         (s) =>
-          s.transition === "COMPLETED" &&
+          s.transition === (undo ? "REVERTED" : "COMPLETED") &&
           s.status === "succeeded" &&
           !(s.ref.kind === target.kind && s.ref.id === target.id),
       )
+      const targetStep = mission.plan.find(
+        (s) => s.ref.kind === target.kind && s.ref.id === target.id && s.status === "succeeded",
+      )
+      const actions: BlockAction[] = [{ kind: "view_activity", label: "View activity" }]
+      if (undoable(mission)) {
+        actions.push({ kind: "undo_mission", missionId: mission.id, label: "Undo this mission" })
+      }
       return [
         {
           ...block(
             "landing",
             "success",
             [
-              [
-                text(`All set, ${actorName(graph, mission.actorId)}. `),
-                entity(target, targetLabel),
-                text(" is complete and verified."),
-              ],
-              landingSummary(mission, evidence.length),
+              undo
+                ? [
+                    text(`Undone, ${actorName(graph, mission.actorId)}. `),
+                    entity(target, targetLabel),
+                    text(` is back to ${humanStatus(targetStep?.before ?? null)}, verified.`),
+                  ]
+                : [
+                    text(`All set, ${actorName(graph, mission.actorId)}. `),
+                    entity(target, targetLabel),
+                    text(" is complete and verified."),
+                  ],
+              landingSummary(mission, evidence.length, undo ? "reverted" : "completed"),
             ],
-            [{ kind: "view_activity", label: "View activity" }],
+            actions,
           ),
           activity: evidence.map((s) => ({
             icon: "check" as const,
