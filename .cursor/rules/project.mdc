@@ -1,0 +1,5 @@
+---
+description: Project rules — loaded on every Cursor session
+alwaysApply: true
+---
+@CLAUDE.md
