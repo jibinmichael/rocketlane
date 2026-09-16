@@ -38,7 +38,7 @@ Without a key the agent runs on the deterministic interpreter and the mission ba
 ## Test it
 
 ```bash
-pnpm test              # 89 tests: unit, type-level, integration, scenarios
+pnpm test              # 91 tests: unit, type-level, integration, scenarios
 pnpm typecheck && pnpm lint && pnpm build
 ```
 
@@ -72,7 +72,7 @@ Results and the failures found along the way: [docs/test-results](docs/test-resu
 - **Single-browser truth.** The system of record is in memory, persisted per browser. A second tab is a real external actor via `BroadcastChannel`; there is no shared server.
 - **Permissions** are an abstract role boundary (owner / member / viewer), ours, not Rocketlane's.
 - **Ingestion** accepts the two-file Rocketlane export. The brief's five-file shape is designed, not built.
-- **Model interpreter** is implemented but was not exercised live during the build (no key present). Fallback is exercised by construction.
+- **Model interpreter** verified live with Claude Haiku 4.5: eleven natural phrasings classified correctly (including adversarial and out-of-scope), 0.7–3 s per call. Its character spans are approximate; grounding snaps them to word boundaries and tolerates leading noise words, and everything downstream is deterministic. Organization-level keys need `ANTHROPIC_WORKSPACE_ID` in `.env.local`.
 - **Not built:** scale dataset generator, replay cassettes for model answers, scenario authoring UI, dark-mode review.
 
 ## Contributing

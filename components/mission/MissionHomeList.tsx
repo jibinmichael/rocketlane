@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 
 import { ArtifactMissionRow } from "@/components/artifacts/ArtifactMissionRow"
@@ -12,10 +13,16 @@ export function MissionHomeList() {
   const runtime = useRuntime()
   const snapshot = useRuntimeSnapshot()
   const router = useRouter()
+  const [sending, setSending] = useState(false)
 
   const onSend = async (text: string) => {
-    const id = await runtime.send(text, null)
-    if (id) router.push(`/m/${id}`)
+    setSending(true)
+    try {
+      const id = await runtime.send(text, null)
+      if (id) router.push(`/m/${id}`)
+    } finally {
+      setSending(false)
+    }
   }
 
   const missions = [...snapshot.missions].sort((a, b) => {
@@ -32,14 +39,29 @@ export function MissionHomeList() {
         </H1>
         <ConversationComposer
           onSend={(t) => void onSend(t)}
-          disabled={snapshot.status !== "ready"}
+          disabled={snapshot.status !== "ready" || sending}
           autoFocus
           placeholder='e.g. "Mark Acme Implementation as completed"'
         />
-        <Body muted className="text-[13px]">
-          Name an outcome. I resolve the target, check the four governance policies, trace
-          dependencies, and ask you only for what I cannot decide or invent.
-        </Body>
+        {sending ? (
+          <div className="flex flex-col gap-1.5" aria-live="polite">
+            <div className="relative h-px w-full overflow-hidden">
+              <span
+                aria-hidden
+                className="bg-state-working absolute top-0 left-0 h-px w-1/3 animate-[flight-hairline_1.2s_var(--ease-in-out)_infinite]"
+              />
+            </div>
+            <Body muted className="text-[13px]">
+              Finding the target
+              {snapshot.interpreterMode === "model" ? " · interpreting with the model" : ""}
+            </Body>
+          </div>
+        ) : (
+          <Body muted className="text-[13px]">
+            Name an outcome. I resolve the target, check the four governance policies, trace
+            dependencies, and ask you only for what I cannot decide or invent.
+          </Body>
+        )}
       </div>
 
       <section className="flex flex-col gap-2">

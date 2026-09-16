@@ -119,6 +119,40 @@ describe("DeterministicInterpreter + ground", () => {
     })
   })
 
+  it("grounds sloppy model spans with leading noise words (observed live from Haiku 4.5)", () => {
+    const cases: Array<[string, [number, number], string]> = [
+      ["log 2 hrs on QA Complete", [8, 22], "QA Complete"],
+      ["can you wrap up the Beacon Rollout project", [21, 35], "Beacon Rollout"],
+    ]
+    for (const [u, [start, end], expected] of cases) {
+      const intent = ground(
+        {
+          kind: u.startsWith("log") ? "log_time" : "complete_target",
+          targetSpans: [{ start, end }],
+          hours: u.startsWith("log") ? 2 : null,
+          all: false,
+          confidence: 0.9,
+          source: "model",
+        },
+        u,
+        graph,
+        u.startsWith("log") ? { projectId: acme.id } : {},
+      )
+      const ref =
+        intent.kind === "log_time"
+          ? intent.target
+          : intent.kind === "complete_target"
+            ? intent.targets[0]
+            : null
+      expect(ref, u).not.toBeNull()
+      const label =
+        ref!.kind === "project"
+          ? graph.project(ref!.id as never)!.name
+          : graph.task(ref!.id as never)!.name
+      expect(label, u).toBe(expected)
+    }
+  })
+
   it("rejects malformed proposals from any interpreter", () => {
     expect(ground({ kind: "complete_target", targetSpans: "oops" }, "x", graph).kind).toBe(
       "unsupported",

@@ -107,7 +107,10 @@ export function scoreName(query: string, name: string): number {
   const union = qt.size + nt.size - intersection
   const jaccard = union === 0 ? 0 : intersection / union
   const containment = intersection / qt.size
-  return Math.max(jaccard, containment * 0.8)
+  // Every token of the name appears in the query ("hrs on QA Complete" → "QA Complete"):
+  // a model span with leading noise still grounds, deterministically.
+  const nameCoverage = intersection / nt.size
+  return Math.max(jaccard, containment * 0.8, nameCoverage === 1 ? 0.85 : 0)
 }
 
 function normalize(s: string): string {
