@@ -4,7 +4,7 @@ import type { WorkspaceGraph } from "@/core/domain/graph"
 import type { ActorId, EntityRef } from "@/core/domain/ids"
 import { isTaskComplete } from "@/core/domain/status"
 import { DEFAULT_GOVERNANCE_CONFIG, evaluateGovernance } from "@/core/governance/engine"
-import type { GovernanceConfig } from "@/core/governance/policy"
+import type { GovernanceConfig, Policy } from "@/core/governance/policy"
 import type { PermissionEvaluator } from "@/core/governance/permissions"
 import {
   type FlightPlan,
@@ -39,6 +39,8 @@ export type EngineDeps = {
   readonly events: EventLog
   readonly clock: Clock
   readonly governance?: GovernanceConfig
+  /** Policy set the executor enforces. Defaults to the four supplied policies. The Lab can weaken it to prove the evaluator catches it. */
+  readonly policies?: readonly Policy[]
   readonly resolveActor: (id: ActorId) => Actor | null
 }
 
@@ -230,6 +232,7 @@ export class MissionEngine {
       graph,
       permissions: this.deps.permissions,
       governance: this.governance,
+      ...(this.deps.policies ? { policies: this.deps.policies } : {}),
     })
     if (!validated.ok) {
       this.emit(mission, "MISSION_FAILED", proposed.targets, { reason: validated.rejection.detail })
@@ -290,6 +293,7 @@ export class MissionEngine {
       graph,
       permissions: this.deps.permissions,
       governance: this.governance,
+      ...(this.deps.policies ? { policies: this.deps.policies } : {}),
     })
     if (!validated.ok) return this.finish(mission, "FAILED")
 
@@ -424,7 +428,7 @@ export class MissionEngine {
     const decision = evaluateGovernance(
       graph,
       { target: step.ref, to: "COMPLETED" },
-      { config: this.governance },
+      { config: this.governance, ...(this.deps.policies ? { policies: this.deps.policies } : {}) },
     )
     this.emit(mission, "POLICY_CHECKED", [step.ref], {
       allowed: decision.allowed,

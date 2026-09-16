@@ -1,7 +1,7 @@
 import type { Actor } from "@/core/domain/entities"
 import type { WorkspaceGraph } from "@/core/domain/graph"
 import type { EntityRef } from "@/core/domain/ids"
-import type { GovernanceConfig } from "@/core/governance/policy"
+import type { GovernanceConfig, Policy } from "@/core/governance/policy"
 import type {
   PermissionAction,
   PermissionCheck,
@@ -9,7 +9,7 @@ import type {
 } from "@/core/governance/permissions"
 import { fnv1a } from "@/core/ingestion/hash"
 import type { ActionClass, PlanStep } from "@/core/mission/mission"
-import { resolveClosure } from "@/core/resolver/blockers"
+import { ALL_CLOSURE_RULES, type ClosureRules, resolveClosure } from "@/core/resolver/blockers"
 import { labelOf } from "@/core/resolver/target"
 
 /**
@@ -47,6 +47,8 @@ export type FlightPlanContext = {
   readonly graph: WorkspaceGraph
   readonly permissions: PermissionEvaluator
   readonly governance: GovernanceConfig
+  /** The engine's policy set. Omit for the four supplied policies. Drives which requirements the plan derives. */
+  readonly policies?: readonly Policy[]
   /** A-05: batch (more than one target) gets one upfront confirmation. */
   readonly batchThreshold?: number
 }
@@ -84,7 +86,13 @@ export function validateFlightPlan(
   const seen = new Set<string>()
 
   for (const target of proposed.targets) {
-    const closure = resolveClosure(target, ctx.graph, ctx.governance, excludedKeys)
+    const closure = resolveClosure(
+      target,
+      ctx.graph,
+      ctx.governance,
+      excludedKeys,
+      closureRulesFor(ctx.policies),
+    )
     for (const id of closure.entityIds) entityIds.add(id)
     for (const task of closure.openButNotRequired) {
       openButNotRequired.push({ ref: { kind: "task", id: task.id }, label: task.name })
@@ -127,6 +135,17 @@ export function validateFlightPlan(
     requiresPlanConfirmation: isBatch && steps.some((s) => s.actionClass === "HIGH_IMPACT"),
   }
   return { ok: true, plan }
+}
+
+export function closureRulesFor(policies: readonly Policy[] | undefined): ClosureRules {
+  if (!policies) return ALL_CLOSURE_RULES
+  const ids = new Set(policies.map((p) => p.id))
+  return {
+    milestones: ids.has("P1_PROJECT_MILESTONES"),
+    subtasks: ids.has("P2_MILESTONE_SUBTASKS"),
+    predecessors: ids.has("P3_TASK_PREDECESSORS"),
+    timeLogged: ids.has("P4_TASK_TIME"),
+  }
 }
 
 function classify(

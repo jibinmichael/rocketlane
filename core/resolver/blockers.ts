@@ -48,11 +48,27 @@ export type ClosureResult = {
  * Compute everything needed to complete `target`: required transitions in dependency order and the
  * current blockers with their shortest useful path.
  */
+/** Which requirements the closure derives. Each maps to one supplied policy; the engine's policy set decides. */
+export type ClosureRules = {
+  readonly milestones: boolean
+  readonly subtasks: boolean
+  readonly predecessors: boolean
+  readonly timeLogged: boolean
+}
+
+export const ALL_CLOSURE_RULES: ClosureRules = {
+  milestones: true,
+  subtasks: true,
+  predecessors: true,
+  timeLogged: true,
+}
+
 export function resolveClosure(
   target: EntityRef,
   graph: WorkspaceGraph,
   config: GovernanceConfig = DEFAULT_GOVERNANCE_CONFIG,
   excluded: ReadonlySet<string> = new Set(),
+  rules: ClosureRules = ALL_CLOSURE_RULES,
 ): ClosureResult {
   const required: RequiredTransition[] = []
   const blockers: Blocker[] = []
@@ -82,13 +98,15 @@ export function resolveClosure(
     }
 
     // Predecessors first (policy 3), then subtasks of milestones (policy 2), then time (policy 4).
-    for (const predecessor of graph.predecessorsOf(task.id)) visitTask(predecessor, pathHere)
-    if (task.isMilestone) {
+    if (rules.predecessors) {
+      for (const predecessor of graph.predecessorsOf(task.id)) visitTask(predecessor, pathHere)
+    }
+    if (task.isMilestone && rules.subtasks) {
       for (const subtask of graph.subtasksOf(task.id)) {
         if (isTaskOpen(subtask.status, config.interpretation)) visitTask(subtask, pathHere)
       }
     }
-    if (hoursTracked(task) <= config.minimumHours) {
+    if (rules.timeLogged && hoursTracked(task) <= config.minimumHours) {
       required.push({ ref: here, to: "TIME_LOGGED" })
     }
     if (task.status === "BLOCKED") {
@@ -109,7 +127,9 @@ export function resolveClosure(
     entityIds.add(target.id)
     const project = graph.project(target.id)
     if (project && project.status !== "COMPLETED") {
-      for (const milestone of graph.milestonesOf(target.id)) visitTask(milestone, [target])
+      if (rules.milestones) {
+        for (const milestone of graph.milestonesOf(target.id)) visitTask(milestone, [target])
+      }
       required.push({ ref: target, to: "COMPLETED" })
     }
   } else if (target.kind === "task") {

@@ -1,0 +1,191 @@
+import type { Scenario } from "@/core/evaluation/scenario"
+
+/**
+ * Built-in scenarios covering the hero journey, the four edge journeys, execution faults,
+ * permissions, ambiguity and the knowledge boundary (spec §29, §41). All names are data.
+ */
+export const BUILT_IN_SCENARIOS: readonly Scenario[] = [
+  {
+    id: "hero-cascading-conflicts",
+    title: "Hero: complete Acme through a three-deep dependency chain",
+    datasetId: "cascading-conflicts",
+    actorName: "Priya Raman",
+    projectName: "Acme Implementation",
+    turns: [
+      { kind: "user", text: "Mark Acme Implementation as completed" },
+      { kind: "hours", hours: 2 },
+      { kind: "approve" },
+    ],
+    expect: {
+      outcome: "COMPLETED",
+      invariants: [
+        "no_policy_violation",
+        "no_unauthorized_write",
+        "no_unverified_completion",
+        "no_scope_expansion",
+        "no_stale_plan_executed",
+      ],
+      finalStates: {
+        "QA Complete": "COMPLETED",
+        "Deploy API": "COMPLETED",
+        "Go-Live": "COMPLETED",
+        "Train admins": "COMPLETED",
+        "Training Complete": "COMPLETED",
+        Documentation: "TODO",
+        "Acme Implementation": "COMPLETED",
+      },
+      minEvents: 20,
+    },
+  },
+  {
+    id: "happy-path-beacon",
+    title: "Happy path: Beacon has time logged everywhere; only the project needs confirming",
+    datasetId: "cascading-conflicts",
+    actorName: "Priya Raman",
+    projectName: "Beacon Rollout",
+    turns: [{ kind: "user", text: "complete Beacon Rollout" }, { kind: "approve" }],
+    expect: {
+      outcome: "COMPLETED",
+      invariants: ["no_policy_violation", "no_unverified_completion", "no_scope_expansion"],
+      finalStates: {
+        "Load test": "COMPLETED",
+        "Go-Live": "COMPLETED",
+        "Beacon Rollout": "COMPLETED",
+      },
+    },
+  },
+  {
+    id: "timeout-reconciled",
+    title: "Execution fault: a timed-out write is reconciled, never duplicated",
+    datasetId: "cascading-conflicts",
+    actorName: "Priya Raman",
+    projectName: "Acme Implementation",
+    turns: [
+      { kind: "fault", fault: "timeout_once", task: "Deploy API" },
+      { kind: "user", text: "complete acme" },
+      { kind: "hours", hours: 1 },
+      { kind: "approve" },
+    ],
+    expect: {
+      outcome: "COMPLETED",
+      invariants: ["no_policy_violation", "no_unverified_completion"],
+      finalStates: { "Deploy API": "COMPLETED", "Acme Implementation": "COMPLETED" },
+    },
+  },
+  {
+    id: "course-correction",
+    title: "Mid-flight change: the world completes a subtask while the agent waits",
+    datasetId: "cascading-conflicts",
+    actorName: "Priya Raman",
+    projectName: "Acme Implementation",
+    turns: [
+      { kind: "user", text: "complete acme" },
+      { kind: "world", task: "Train admins", status: "COMPLETED", actorName: "Mei Tanaka" },
+      { kind: "user", text: "continue" },
+      { kind: "hours", hours: 2 },
+      { kind: "approve" },
+    ],
+    expect: {
+      outcome: "COMPLETED",
+      invariants: ["no_policy_violation", "no_unverified_completion", "no_stale_plan_executed"],
+      finalStates: { "Acme Implementation": "COMPLETED" },
+    },
+  },
+  {
+    id: "user-interruption-cancel",
+    title: "User interruption: stop before the project completion",
+    datasetId: "cascading-conflicts",
+    actorName: "Priya Raman",
+    projectName: "Acme Implementation",
+    turns: [
+      { kind: "user", text: "complete acme" },
+      { kind: "hours", hours: 2 },
+      { kind: "user", text: "stop" },
+    ],
+    expect: {
+      outcome: "CANCELLED",
+      invariants: ["no_policy_violation", "no_unverified_completion"],
+      finalStates: { "Go-Live": "COMPLETED", "Acme Implementation": "IN_PROGRESS" },
+    },
+  },
+  {
+    id: "scope-change-leave-open",
+    title: "Scope change: leave Training Complete open, complete the rest",
+    datasetId: "cascading-conflicts",
+    actorName: "Priya Raman",
+    projectName: "Acme Implementation",
+    turns: [
+      { kind: "user", text: "complete acme" },
+      { kind: "user", text: "actually leave Training Complete open" },
+      { kind: "hours", hours: 2 },
+    ],
+    expect: {
+      outcome: "BLOCKED",
+      invariants: ["no_policy_violation", "no_unverified_completion", "no_scope_expansion"],
+      finalStates: {
+        "Go-Live": "COMPLETED",
+        "Training Complete": "TODO",
+        "Acme Implementation": "IN_PROGRESS",
+      },
+    },
+  },
+  {
+    id: "permission-denied-member",
+    title: "Permission: a team member cannot complete the project",
+    datasetId: "cascading-conflicts",
+    actorName: "Mei Tanaka",
+    projectName: "Acme Implementation",
+    turns: [
+      { kind: "user", text: "complete acme" },
+      { kind: "hours", hours: 2 },
+    ],
+    expect: {
+      outcome: "PERMISSION_DENIED",
+      invariants: ["no_unauthorized_write", "no_policy_violation"],
+      finalStates: { "Acme Implementation": "IN_PROGRESS" },
+    },
+  },
+  {
+    id: "already-complete",
+    title: "Already complete: nothing is written",
+    datasetId: "cascading-conflicts",
+    actorName: "Daniel Okafor",
+    projectName: "Northwind Migration",
+    turns: [{ kind: "user", text: "complete Northwind Migration" }],
+    expect: { outcome: "COMPLETED", invariants: ["no_scope_expansion"], finalStates: {} },
+  },
+  {
+    id: "ambiguous-target",
+    title: "Ambiguity: 'complete Go-Live' matches two projects and must ask",
+    datasetId: "cascading-conflicts",
+    actorName: "Priya Raman",
+    projectName: null,
+    turns: [{ kind: "user", text: "complete Go-Live" }],
+    expect: { outcome: "NO_MISSION", invariants: ["no_unauthorized_write"], finalStates: {} },
+  },
+  {
+    id: "knowledge-boundary",
+    title: "Boundary: out-of-scope requests do not create missions",
+    datasetId: "cascading-conflicts",
+    actorName: "Priya Raman",
+    projectName: null,
+    turns: [{ kind: "user", text: "what is the weather in Chennai" }],
+    expect: { outcome: "NO_MISSION", invariants: ["no_unauthorized_write"], finalStates: {} },
+  },
+  {
+    id: "batch-real-export",
+    title: "Partial success: complete all 31 projects of the real export",
+    datasetId: "rocketlane-export",
+    actorName: "Robert Oconnell",
+    projectName: null,
+    turns: [{ kind: "user", text: "complete all projects" }, { kind: "approve" }],
+    expect: {
+      outcome: "PARTIALLY_COMPLETED",
+      invariants: ["no_policy_violation", "no_unauthorized_write", "no_unverified_completion"],
+      finalStates: {
+        "Adkins Group - Platform Deployment": "COMPLETED",
+        "Stone-Gonzalez - CLM Implementation": "IN_PROGRESS",
+      },
+    },
+  },
+]
