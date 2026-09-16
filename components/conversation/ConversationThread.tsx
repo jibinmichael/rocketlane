@@ -153,20 +153,19 @@ export function ConversationThread({ missionId }: { missionId: string }) {
               </ul>
             ),
           )}
-          {live.length > 0 && (
-            <ul className="flex flex-col">
-              {live.map((block, j) => (
-                <ConversationBlockItem
-                  key={block.id}
-                  block={block}
-                  index={j}
-                  frozen={false}
-                  actionTaken={null}
-                  onAction={onAction}
-                />
-              ))}
-            </ul>
-          )}
+          {/* Live region: new agent blocks are announced; frozen history is not re-read. */}
+          <ul className="flex flex-col" aria-live="polite" aria-relevant="additions">
+            {live.map((block, j) => (
+              <ConversationBlockItem
+                key={block.id}
+                block={block}
+                index={j}
+                frozen={false}
+                actionTaken={null}
+                onAction={onAction}
+              />
+            ))}
+          </ul>
         </div>
       </div>
       <div className="shrink-0 px-6 pt-2 pb-5">

@@ -59,13 +59,15 @@ export function ConversationBlockItem({
         className={cn("mt-2 w-0.5 shrink-0 self-stretch rounded-full", TONE_RAIL[block.tone])}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        {block.lines.map((line, i) => (
-          <ConversationInlineText
-            key={i}
-            line={line}
-            className={cn(block.type === "landing" && "font-medium")}
-          />
-        ))}
+        <div id={`${block.id}-text`} className="flex flex-col gap-1">
+          {block.lines.map((line, i) => (
+            <ConversationInlineText
+              key={i}
+              line={line}
+              className={cn(block.type === "landing" && "font-medium")}
+            />
+          ))}
+        </div>
 
         {hasDetail && (
           <button
@@ -110,6 +112,7 @@ export function ConversationBlockItem({
                     value={hours}
                     onChange={(e) => setHours(e.target.value)}
                     aria-label="Hours to log"
+                    aria-describedby={`${block.id}-text`}
                     className="h-8 w-24 text-[13px] tabular-nums"
                   />
                   <Button type="submit" size="sm" disabled={!(Number.parseFloat(hours) > 0)}>

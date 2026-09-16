@@ -18,6 +18,7 @@ const EVENT_LABEL: Record<AgentEventType, string> = {
   MISSION_STARTED: "Mission started",
   TARGET_RESOLVED: "Target found",
   PLAN_CREATED: "Flight plan created",
+  PERMISSION_CHECKED: "Permission checked",
   POLICY_CHECKED: "Policy checked",
   DEPENDENCY_FOUND: "Dependency traced",
   ACTION_REQUESTED: "Decision requested",

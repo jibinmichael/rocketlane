@@ -2,8 +2,9 @@ import type { Block, BlockAction } from "@/core/agent/conversation/blocks"
 import { renderIntentReply, renderMission } from "@/core/agent/conversation/renderer"
 import { DeterministicInterpreter } from "@/core/agent/intent/deterministic"
 import { ground } from "@/core/agent/intent/ground"
-import type { Intent, IntentProposal, InterpretationContext } from "@/core/agent/intent/intent"
-import { proposeFromIntent } from "@/core/agent/planner"
+import { reconcile } from "@/core/agent/intent/reconcile"
+import type { IntentProposal, InterpretationContext } from "@/core/agent/intent/intent"
+import { conduct } from "@/core/agent/conductor"
 import type { Actor } from "@/core/domain/entities"
 import { WorkspaceGraph } from "@/core/domain/graph"
 import type { ActorId, ProjectId } from "@/core/domain/ids"
@@ -318,16 +319,11 @@ export class Runtime {
   }
 
   thread(missionId: string): readonly FrozenEntry[] {
-    return (this.threads[missionId] ?? []).map((e) =>
-      e.kind === "user"
-        ? e
-        : {
-            kind: "agent",
-            blocks: JSON.parse(e.blocksJson) as Block[],
-            at: e.at,
-            actionTaken: e.actionTaken,
-          },
-    )
+    return (this.threads[missionId] ?? []).flatMap((e): FrozenEntry[] => {
+      if (e.kind === "user") return [e]
+      const blocks = parseBlocks(e.blocksJson)
+      return blocks ? [{ kind: "agent", blocks, at: e.at, actionTaken: e.actionTaken }] : []
+    })
   }
 
   /** Blocks not yet frozen into the thread: the live picture of the mission. */
@@ -376,7 +372,11 @@ export class Runtime {
   }
 
   private freeze(missionId: string, actionTaken: string | null): void {
-    const live = this.liveBlocks(missionId)
+    // A typed turn freezes the narrative but never the open decision: its buttons stay live so a
+    // question asked while waiting ("why?") cannot strand the mission.
+    const live = this.liveBlocks(missionId).filter(
+      (b) => actionTaken !== null || b.actions.length === 0,
+    )
     if (live.length === 0 && !actionTaken) return
     const entries = this.threads[missionId] ?? []
     entries.push({
@@ -464,121 +464,67 @@ export class Runtime {
       this.freeze(missionId, null)
       this.pushUser(missionId, utterance)
     }
-    const proposal = await this.interpret(utterance, ctx)
-    const intent = ground(
-      proposal,
+    const groundingScope = {
+      ...(scopeProject ? { projectId: scopeProject } : {}),
+      actorId: actor.id,
+    }
+    // The grammar always runs; the model's grounded result can be vetoed by it (reconcile).
+    const local = ground(
+      this.deterministic.interpret(utterance, ctx),
       utterance,
       graph,
-      scopeProject ? { projectId: scopeProject } : {},
+      groundingScope,
     )
+    const proposal = await this.interpret(utterance, ctx)
+    const remote =
+      proposal.source === "model" ? ground(proposal, utterance, graph, groundingScope) : null
+    const intent = reconcile(remote, local)
+    if (remote && intent !== remote) this.publish({ lastInterpretedBy: "local-fallback" })
     const interpretedBy = intent.source === "model" ? "model" : "deterministic"
 
-    // Write intents that start a mission.
-    if (intent.kind === "complete_target" || intent.kind === "complete_task") {
-      if (
-        current &&
-        !isTerminalState(current.state) &&
-        intent.kind === "complete_task" &&
-        intent.targets.length === 1
-      ) {
-        // Completing a task inside an active mission is out of the closed set of actions; treat as a new goal.
-      }
-      const newId = this.newMissionId()
-      if (missionId) this.setBusy(missionId, null)
-      this.pushUser(newId, utterance)
-      this.setBusy(newId, "PLANNING")
-      try {
-        await this.engine.start(proposeFromIntent(intent, actor, newId), {
-          datasetId: this.snapshot.datasetId,
-          interpretedBy,
-        })
-      } finally {
-        this.setBusy(newId, null)
-      }
-      return newId
-    }
-
-    if (!missionId || !current) {
-      // No mission context: reply in a scratch thread attached to a synthetic id so the UI can show it.
-      const scratchId = missionId ?? this.newMissionId("reply")
-      if (!missionId) this.pushUser(scratchId, utterance)
-      else this.setBusy(missionId, null)
-      this.pushAgent(scratchId, renderIntentReply(intent, graph, null))
-      this.publish()
-      return scratchId
-    }
-
+    // One conductor maps the grounded intent to exactly one engine command (shared with the Lab).
+    let startedId: string | null = null
+    let outcome: Awaited<ReturnType<typeof conduct>>
     try {
-      await this.applyIntent(missionId, current, intent, graph)
+      outcome = await conduct(this.engine, {
+        intent,
+        current,
+        actor,
+        datasetId: this.snapshot.datasetId,
+        interpretedBy,
+        nextMissionId: () => {
+          const id = this.newMissionId()
+          startedId = id
+          if (missionId) this.setBusy(missionId, null)
+          this.pushUser(id, utterance)
+          return id
+        },
+        onBeforeApply: (session, grounded) => {
+          const id = startedId ?? missionId
+          if (!id) return
+          if (grounded.kind === "change_scope")
+            this.pushAgent(id, renderIntentReply(grounded, graph, current))
+          if (session) this.setBusy(id, session)
+        },
+      })
     } finally {
-      this.setBusy(missionId, null)
+      if (startedId) this.setBusy(startedId, null)
+      else if (missionId) this.setBusy(missionId, null)
     }
-    return missionId
-  }
 
-  private async applyIntent(
-    missionId: string,
-    mission: Mission,
-    intent: Intent,
-    graph: WorkspaceGraph,
-  ): Promise<void> {
-    if (!this.engine) return
-    switch (intent.kind) {
-      case "log_time": {
-        const pending = mission.pending
-        if (pending?.kind === "input_hours") {
-          const step = mission.plan.find((s) => s.id === pending.stepId)
-          const matches = intent.target === null || (step && step.ref.id === intent.target.id)
-          if (matches) {
-            this.setBusy(missionId, "EXECUTING")
-            await this.engine.provideHours(missionId, pending.stepId, intent.hours)
-            return
-          }
-        }
-        this.pushAgent(
-          missionId,
-          renderIntentReply(
-            {
-              kind: "unsupported",
-              reason: "no_target",
-              query: null,
-              utterance: intent.utterance,
-              source: intent.source,
-            },
-            graph,
-            mission,
-          ),
-        )
-        return
-      }
-      case "approve":
-        this.setBusy(missionId, "EXECUTING")
-        await this.engine.approve(
-          missionId,
-          mission.pending?.kind === "confirm_step" ? mission.pending.stepId : null,
-        )
-        return
-      case "decline":
-        await this.engine.decline(
-          missionId,
-          mission.pending?.kind === "confirm_step" ? mission.pending.stepId : null,
-        )
-        return
-      case "cancel":
-        this.engine.cancel(missionId)
-        return
-      case "continue":
-        this.setBusy(missionId, "RECHECKING")
-        await this.engine.resume(missionId)
-        return
-      case "change_scope":
-        this.pushAgent(missionId, renderIntentReply(intent, graph, mission))
-        this.setBusy(missionId, "RECHECKING")
-        await this.engine.changeScope(missionId, intent.exclude)
-        return
-      default:
-        this.pushAgent(missionId, renderIntentReply(intent, graph, mission))
+    switch (outcome.kind) {
+      case "started":
+        return outcome.missionId
+      case "applied":
+        return missionId
+      case "reply": {
+        // No command to run: reply in the mission's thread, or in a scratch thread with a synthetic id.
+        const scratchId = missionId ?? this.newMissionId("reply")
+        if (!missionId) this.pushUser(scratchId, utterance)
+        this.pushAgent(scratchId, renderIntentReply(outcome.intent, graph, current))
         this.publish()
+        return scratchId
+      }
     }
   }
 
@@ -765,4 +711,15 @@ function isTerminalState(state: Mission["state"]): boolean {
     state === "PARTIALLY_COMPLETED" ||
     state === "PERMISSION_DENIED"
   )
+}
+
+/** Frozen thread entries are our own renderer output; an unparseable one is dropped, never rendered. */
+function parseBlocks(json: string): Block[] | null {
+  try {
+    const value: unknown = JSON.parse(json)
+    // Structural check only: blocks are produced by `renderMission` and persisted verbatim.
+    return Array.isArray(value) ? (value as Block[]) : null
+  } catch {
+    return null
+  }
 }
