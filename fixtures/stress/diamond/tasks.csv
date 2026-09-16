@@ -1,0 +1,7 @@
+ProjectId,TaskId,TaskName,Status,ProjectName,PhaseId,Phase,Assignee,Priority,StartDate,DueDate,HoursTracked,Is this a Billing Milestone?,Invoice Raised?,% of amount to be billed,Dependency,ParentTaskId,ParentTask,AtRisk,Progress,ActualStartDate,CompletedAt,RemainingHours,Effort(hrs),Billable,Category
+PRJ-300,TSK-3001,Root,To do,Diamond Logistics - Phase 1 Implementation,PHS-G1,Discover,,,2026-07-01,2026-07-15,0.00,,,,,,,,,,,0.00,,true,
+PRJ-300,TSK-3002,Shared Base,To do,Diamond Logistics - Phase 1 Implementation,PHS-G2,Build,,,2026-07-01,2026-07-15,3.00,,,,Root,,,,,,,0.00,,true,
+PRJ-300,TSK-3003,Left Branch,To do,Diamond Logistics - Phase 1 Implementation,PHS-G2,Build,,,2026-07-01,2026-07-15,2.00,,,,Shared Base,,,,,,,0.00,,true,
+PRJ-300,TSK-3004,Right Branch,To do,Diamond Logistics - Phase 1 Implementation,PHS-G2,Build,,,2026-07-01,2026-07-15,2.00,,,,Shared Base,,,,,,,0.00,,true,
+PRJ-300,TSK-3005,Launch,To do,Diamond Logistics - Phase 1 Implementation,PHS-G3,Launch,,,2026-07-01,2026-07-15,1.00,true,,,"Left Branch, Right Branch",,,,,,,0.00,,true,
+PRJ-300,TSK-3006,Report,To do,Diamond Logistics - Phase 1 Implementation,PHS-G3,Launch,,,2026-07-01,2026-07-15,1.00,true,,,Shared Base,,,,,,,0.00,,true,

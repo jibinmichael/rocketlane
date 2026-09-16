@@ -1,0 +1,7 @@
+ProjectId,ProjectName,ProjectStatus,StartDate,DueDate,ProjectOwner,ProjectOwnerId,ProjectOwnerEmail,CustomerName,CustomerId,Progress,Project Type,CompletedTasks,OverdueTasks,BlockedTasks,AtRiskTasks,ApprovalPending,BRD Sign-off,UAT Sign-off,% BM Billed,% BM Created,Billing Status,ProjectTrackedHours,PercentageBudgetConsumed,ActualStartDate,ActualCompletedDate,Kick-off Date,Final Go Live Date,First Go-Live Date,PlannedDuration,ProjectBudget,EstimateAtCompletion,EstimateToComplete,ProjectRevenue,ProjectCost,ProjectProfit,Invoiced Amount,TeamMembers,Region
+PRJ-800,Malformed Metals - Migration,In progress,2026-06-01,2026-09-30,Priya Raman,ACT-PRIYA,priya.raman@example.com,Malformed Metals,90000,,,,,,,,,,,,,,,,,,,,,,,,,,,,,AMER
+PRJ-801,Malformed Metals - Phase 2 Rollout,In progress,2026-06-01,someday,Priya Raman,ACT-PRIYA,priya.raman@example.com,Malformed Metals,90000,,,,,,,,,,,,,,,,,,,,,,,,,,,,,AMER
+,No Id Corp - Rollout,In progress,2026-06-01,2026-09-30,Priya Raman,ACT-PRIYA,priya.raman@example.com,No Id Corp,90000,,,,,,,,,,,,,,,,,,,,,,,,,,,,,AMER
+PRJ-800,Duplicate of PRJ-MAL,In progress,2026-06-01,2026-09-30,Priya Raman,ACT-PRIYA,priya.raman@example.com,Duplicate of PRJ-MAL,90000,,,,,,,,,,,,,,,,,,,,,,,,,,,,,AMER
+PRJ-802,Short Row Inc - Rollout,In progress,2026-06-01,2026-09-30,Priya Raman,ACT-PRIYA,priya.raman@example.com,Short Row Inc,90000,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+prj_lower,Lowercase Id Co - Rollout,In progress,2026-06-01,2026-09-30,Daniel Okafor,ACT-DANIEL,daniel.okafor@example.com,Lowercase Id Co,90000,,,,,,,,,,,,,,,,,,,,,,,,,,,,,AMER

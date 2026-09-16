@@ -1,0 +1,7 @@
+ProjectId,TaskId,TaskName,Status,ProjectName,PhaseId,Phase,Assignee,Priority,StartDate,DueDate,HoursTracked,Is this a Billing Milestone?,Invoice Raised?,% of amount to be billed,Dependency,ParentTaskId,ParentTask,AtRisk,Progress,ActualStartDate,CompletedAt,RemainingHours,Effort(hrs),Billable,Category
+PRJ-400,TSK-4000,Kickoff,Completed,Cyclone Energy - Migration,PHS-C1,Initiate,,,2026-07-01,2026-07-15,4.00,,,,,,,,,2026-07-01,2026-07-10,0.00,,true,
+PRJ-400,TSK-4001,Alpha,To do,Cyclone Energy - Migration,PHS-C2,Build,,,2026-07-01,2026-07-15,1.00,,,,Beta,,,,,,,0.00,,true,
+PRJ-400,TSK-4002,Beta,To do,Cyclone Energy - Migration,PHS-C2,Build,,,2026-07-01,2026-07-15,1.00,,,,Gamma,,,,,,,0.00,,true,
+PRJ-400,TSK-4003,Gamma,To do,Cyclone Energy - Migration,PHS-C2,Build,,,2026-07-01,2026-07-15,1.00,,,,Alpha,,,,,,,0.00,,true,
+PRJ-400,TSK-4004,Ship,To do,Cyclone Energy - Migration,PHS-C3,Launch,,,2026-07-01,2026-07-15,2.00,true,,,Alpha,,,,,,,0.00,,true,
+PRJ-400,TSK-4005,Independent,To do,Cyclone Energy - Migration,PHS-C2,Build,,,2026-07-01,2026-07-15,1.00,,,,,,,,,,,0.00,,true,

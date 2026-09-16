@@ -1,0 +1,8 @@
+ProjectId,TaskId,TaskName,Status,ProjectName,PhaseId,Phase,Assignee,Priority,StartDate,DueDate,HoursTracked,Is this a Billing Milestone?,Invoice Raised?,% of amount to be billed,Dependency,ParentTaskId,ParentTask,AtRisk,Progress,ActualStartDate,CompletedAt,RemainingHours,Effort(hrs),Billable,Category
+PRJ-600,TSK-6001,Go-Live,To do,Substrate Bio - Enterprise Rollout,PHS-S1,Launch,,,2026-07-01,2026-07-15,2.00,true,,,,,,,,,,0.00,,true,
+PRJ-600,TSK-6002,Prep A,To do,Substrate Bio - Enterprise Rollout,PHS-S1,Launch,,,2026-07-01,2026-07-15,1.00,,,,,TSK-6001,Go-Live,,,,,0.00,,true,
+PRJ-600,TSK-6003,Prep NA,NA,Substrate Bio - Enterprise Rollout,PHS-S1,Launch,,,2026-07-01,2026-07-15,0.00,,,,,TSK-6001,Go-Live,,,,,0.00,,true,
+PRJ-600,TSK-6004,Prep Blocked,Blocked,Substrate Bio - Enterprise Rollout,PHS-S1,Launch,,,2026-07-01,2026-07-15,1.00,,,,,TSK-6001,Go-Live,,,,,0.00,,true,
+PRJ-600,TSK-6005,Prep Nested,To do,Substrate Bio - Enterprise Rollout,PHS-S1,Launch,,,2026-07-01,2026-07-15,1.00,,,,,TSK-6001,Go-Live,,,,,0.00,,true,
+PRJ-600,TSK-6006,Grandchild,To do,Substrate Bio - Enterprise Rollout,PHS-S1,Launch,,,2026-07-01,2026-07-15,0.00,,,,,TSK-6005,Prep Nested,,,,,0.00,,true,
+PRJ-600,TSK-6007,Prep Done,Completed,Substrate Bio - Enterprise Rollout,PHS-S1,Launch,,,2026-07-01,2026-07-15,1.00,,,,,TSK-6001,Go-Live,,,2026-07-01,2026-07-10,0.00,,true,

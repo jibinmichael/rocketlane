@@ -111,7 +111,9 @@ describe("MissionEngine — hero journey: Mark Acme Implementation as completed"
       1,
     )
     mission = await h.engine.decline(mission.id, stepByLabel(mission, "Acme Implementation").id)
-    expect(mission.state).toBe("BLOCKED")
+    // The user said no: that is a cancellation, not a governance block.
+    expect(mission.state).toBe("CANCELLED")
+    expect(mission.outcome?.perTarget[0]?.outcome).toBe("cancelled")
     expect(h.sor.current().project(h.project("Acme Implementation").id as never)?.status).toBe(
       "IN_PROGRESS",
     )

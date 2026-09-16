@@ -1,0 +1,19 @@
+﻿ProjectId,TaskId,TaskName,Status,ProjectName,PhaseId,Phase,Assignee,Priority,StartDate,DueDate,HoursTracked,Is this a Billing Milestone?,Invoice Raised?,% of amount to be billed,Dependency,ParentTaskId,ParentTask,AtRisk,Progress,ActualStartDate,CompletedAt,RemainingHours,Effort(hrs),Billable,Category
+PRJ-800,TSK-8001,Kickoff,Completed,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,2.00,,,,,,,,,2026-07-01,2026-07-10,0.00,,true,
+PRJ-800,TSK-8002,Short row,To do,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,0.00,,,,,,,,,,,0.00,,true
+PRJ-800,TSK-8003,Long row,To do,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,0.00,,,,,,,,,,,0.00,,true,,extra
+PRJ-800,TSK-8004,Waiting on vendor,Waiting,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,0.00,,,,,,,,,,,0.00,,true,
+PRJ-800,TSK-8005,Negative hours,To do,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,-2.00,,,,,,,,,,,0.00,,true,
+PRJ-999,TSK-8006,Orphan task,To do,Ghost,,,,,2026-07-01,2026-07-15,0.00,,,,,,,,,,,0.00,,true,
+PRJ-800,TSK-8001,Duplicate id,To do,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,1.00,,,,,,,,,,,0.00,,true,
+,TSK-8007,No project,To do,Malformed Metals - Migration,,,,,2026-07-01,2026-07-15,0.00,,,,,,,,,,,0.00,,true,
+PRJ-800,,No task id,To do,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,0.00,,,,,,,,,,,0.00,,true,
+PRJ-800,TSK-8008,"Line one
+Line two",To do,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,1.00,,,,,,,,,,,0.00,,true,
+PRJ-800,TSK-8009,Bad dates,To do,Malformed Metals - Migration,PHS-X1,Build,,,31/12/2026,not-a-date,1.00,,,,,,,,,,,0.00,,true,
+PRJ-800,task-x10,Non-standard id,To do,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,1.00,,,,,,,,,,,0.00,,true,
+PRJ-800,TSK-8011,Orphan subtask,To do,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,1.00,,,,,TSK-9999,Nope,,,,,0.00,,true,
+PRJ-800,TSK-8012,Hours as text,To do,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,abc,,,,,,,,,,,0.00,,true,
+PRJ-800,TSK-8013,Odd case status,  completed ,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,1.00,,,,,,,,,,,0.00,,true,
+PRJ-800,TSK-8014,Month 13,Completed,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,1.00,,,,,,,,,2026-07-01,2026-13-45,0.00,,true,
+PRJ-800,TSK-8015,Stray quote,To do,Malformed Metals - Migration,PHS-X1,Build,,,2026-07-01,2026-07-15,1.00,,,,,,,,,,,0.00,,true,Build and "Deploy
