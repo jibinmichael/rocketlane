@@ -69,7 +69,10 @@ export class EventLog {
 
   restore(events: readonly AgentEvent[]): void {
     this.events.splice(0, this.events.length, ...events)
-    this.counter = events.length
+    this.counter = events.reduce((max, e) => {
+      const n = Number.parseInt(e.id.replace("evt-", ""), 10)
+      return Number.isFinite(n) ? Math.max(max, n) : max
+    }, 0)
   }
 }
 

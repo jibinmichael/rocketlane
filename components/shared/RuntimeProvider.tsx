@@ -1,31 +1,43 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
+import { useEffect, useState } from "react"
+import { MotionConfig } from "motion/react"
 
-import { loadFixture } from "@/app/actions/fixtures"
-import { interpretUtterance } from "@/app/actions/interpret"
+import type { IntentProposal, InterpretationContext } from "@/core/agent/intent/intent"
 import { RuntimeContext } from "@/hooks/use-runtime"
 import { Runtime } from "@/lib/runtime"
 
+export type FixtureLoader = (
+  id: string,
+) => Promise<{ id: string; projectsCsv: string; tasksCsv: string }>
+export type RemoteInterpret = (
+  utterance: string,
+  ctx: InterpretationContext,
+) => Promise<IntentProposal | null>
+
 export function RuntimeProvider({
   children,
+  loadFixture,
+  interpret,
   modelAvailable,
 }: {
   children: React.ReactNode
+  loadFixture: FixtureLoader
+  interpret: RemoteInterpret
   modelAvailable: boolean
 }) {
-  const runtime = useMemo(
-    () =>
-      new Runtime({
-        loadFixture,
-        ...(modelAvailable ? { remoteInterpreter: interpretUtterance } : {}),
-      }),
-    [modelAvailable],
+  const [runtime] = useState(
+    () => new Runtime({ loadFixture, ...(modelAvailable ? { remoteInterpreter: interpret } : {}) }),
   )
 
   useEffect(() => {
     void runtime.boot()
+    return () => runtime.dispose()
   }, [runtime])
 
-  return <RuntimeContext.Provider value={runtime}>{children}</RuntimeContext.Provider>
+  return (
+    <RuntimeContext.Provider value={runtime}>
+      <MotionConfig reducedMotion="user">{children}</MotionConfig>
+    </RuntimeContext.Provider>
+  )
 }

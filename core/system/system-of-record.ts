@@ -37,6 +37,10 @@ export type WriteResult = {
 
 export type StateChange = {
   readonly ref: EntityRef
+  /** Project the changed entity belongs to; lets the engine scope revalidation without peeking at the store. */
+  readonly projectId: ProjectId | null
+  /** "remote" when adopted from another tab; never re-persisted or re-broadcast. */
+  readonly origin: "local" | "remote"
   readonly previousVersion: number
   readonly version: number
   readonly correlationId: string

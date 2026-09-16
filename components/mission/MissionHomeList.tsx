@@ -58,8 +58,8 @@ export function MissionHomeList() {
           </div>
         ) : (
           <Body muted className="text-[13px]">
-            Name an outcome. I resolve the target, check the four governance policies, trace
-            dependencies, and ask you only for what I cannot decide or invent.
+            Name an outcome. I find the target, check the four policies, trace dependencies, and ask
+            only for what I cannot decide.
           </Body>
         )}
       </div>
@@ -69,13 +69,18 @@ export function MissionHomeList() {
           <h2 className="text-muted-foreground text-[11px] font-medium tracking-[0.005em] uppercase">
             Missions
           </h2>
-          {snapshot.status === "ready" && (
+          {snapshot.status === "ready" && missions.length > 0 && (
             <span className="text-muted-foreground text-[11px] tabular-nums">
               {missions.length}
             </span>
           )}
         </div>
-        {snapshot.status !== "ready" ? (
+        {snapshot.status === "error" ? (
+          <Body className="text-state-error px-2 text-[13px]">
+            The workspace could not load: {snapshot.error}. Open Test Lab, Dataset, Reset to
+            original.
+          </Body>
+        ) : snapshot.status !== "ready" ? (
           <Body muted className="px-2 text-[13px]">
             Loading workspace…
           </Body>

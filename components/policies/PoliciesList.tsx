@@ -1,7 +1,8 @@
 import { Body, H1 } from "@/components/shared/Typography"
 import { POLICY_SET_VERSION, SUPPLIED_POLICIES } from "@/core/governance/policies/supplied-policies"
+import type { PolicyId } from "@/core/governance/policy"
 
-const LABEL: Record<string, string> = {
+const LABEL: Record<PolicyId, string> = {
   P1_PROJECT_MILESTONES: "Policy 1",
   P2_MILESTONE_SUBTASKS: "Policy 2",
   P3_TASK_PREDECESSORS: "Policy 3",

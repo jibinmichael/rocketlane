@@ -11,6 +11,8 @@ import type { Block, BlockAction } from "@/core/agent/conversation/blocks"
 import { revealDelay, settle } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
+const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
+
 const TONE_RAIL: Record<Block["tone"], string> = {
   neutral: "bg-border",
   blocked: "bg-state-blocked",
@@ -26,6 +28,7 @@ export function ConversationBlockItem({
   frozen,
   actionTaken,
   isLast = false,
+  decidedAt = null,
   onAction,
 }: {
   block: Block
@@ -33,6 +36,7 @@ export function ConversationBlockItem({
   frozen: boolean
   actionTaken: string | null
   isLast?: boolean
+  decidedAt?: number | null
   onAction: (action: BlockAction, payload?: { hours?: number }) => void
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -107,7 +111,6 @@ export function ConversationBlockItem({
                     onChange={(e) => setHours(e.target.value)}
                     aria-label="Hours to log"
                     className="h-8 w-24 text-[13px] tabular-nums"
-                    autoFocus
                   />
                   <Button type="submit" size="sm" disabled={!(Number.parseFloat(hours) > 0)}>
                     {action.label}
@@ -137,6 +140,9 @@ export function ConversationBlockItem({
           <span className="text-muted-foreground mt-1 inline-flex items-center gap-1.5 text-[12px]">
             <span aria-hidden className="bg-state-completed size-1.5 rounded-full" />
             {actionTaken}
+            {decidedAt !== null && (
+              <span className="tabular-nums">· {timeFormat.format(new Date(decidedAt))}</span>
+            )}
           </span>
         )}
       </div>

@@ -26,7 +26,6 @@ export type BlockAction =
   | { readonly kind: "continue"; readonly label: string }
   | { readonly kind: "cancel"; readonly label: string }
   | { readonly kind: "view_activity"; readonly label: string }
-  | { readonly kind: "ask_owner"; readonly ownerName: string; readonly label: string }
   | { readonly kind: "pick_candidate"; readonly ref: EntityRef; readonly label: string }
 
 export type BlockType =

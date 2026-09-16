@@ -12,12 +12,14 @@ import {
 } from "@/core/agent/conversation/blocks"
 import type { Intent } from "@/core/agent/intent/intent"
 import type { WorkspaceGraph } from "@/core/domain/graph"
-import type { EntityRef } from "@/core/domain/ids"
+import type { ActorId, EntityRef } from "@/core/domain/ids"
 import { isTaskComplete } from "@/core/domain/status"
 import type { PolicyId, ReasonCode } from "@/core/governance/policy"
-import type { Mission, PlanStep } from "@/core/mission/mission"
+import type { Mission, PlanStep, TargetOutcome } from "@/core/mission/mission"
 import { type Blocker, nextActionable } from "@/core/resolver/blockers"
 import { labelOf } from "@/core/resolver/target"
+import { fnv1a } from "@/core/ingestion/hash"
+import { MISSION_LABEL } from "@/core/mission/labels"
 import type { AgentEvent } from "@/core/telemetry/events"
 
 /**
@@ -63,6 +65,9 @@ export function renderMission(
   if (!target) return blocks
   const targetLabel = mission.targetLabels[0] ?? labelOf(target, graph)
   const writes = mission.plan.filter((s) => s.transition === "COMPLETED")
+
+  // Permission is the first and only blocker when the actor may not act at all.
+  if (mission.state === "PERMISSION_DENIED") return renderTerminal(ctx, target, targetLabel)
 
   // 1. Outcome
   if (mission.state === "FAILED" && mission.plan.length === 0) {
@@ -150,17 +155,19 @@ export function renderMission(
       ),
     )
     if (mission.state !== "STALE" && notice.replan) {
-      blocks.push(
-        block("replanned", "neutral", [
-          [
-            text("Replanned. "),
-            count(notice.replan.kept),
-            text(` of `),
-            count(notice.replan.planned),
-            text(" updates still apply."),
-          ],
-        ]),
-      )
+      const next = nextActionable(mission.blockers)
+      const line: Inline[] = [
+        text("Replanned. "),
+        count(notice.replan.kept),
+        text(` of `),
+        count(notice.replan.planned),
+        text(
+          ` ${plural(notice.replan.planned, "update")} still ${notice.replan.kept === 1 ? "applies" : "apply"}.`,
+        ),
+      ]
+      if (next && !mission.landedAt)
+        line.push(text(" Next: "), ...firstActionLabel(next, graph), text("."))
+      blocks.push(block("replanned", "neutral", [line]))
     }
   }
 
@@ -356,7 +363,8 @@ function renderStepResult(ctx: Ctx, step: PlanStep): Block[] {
         [
           text("Not done. "),
           entity(step.ref, step.label),
-          text(` stays ${statusWord(step.ref, graph)}. Nothing was written.`),
+          text(` stays ${statusWord(step.ref, graph)}.`),
+          text(earlierUpdatesNote(ctx.mission)),
         ],
       ]),
     )
@@ -369,38 +377,46 @@ function renderPending(ctx: Ctx, target: EntityRef): Block[] {
   const pending = mission.pending
   if (!pending) return []
   if (pending.kind === "input_hours") {
-    const step = mission.plan.find((s) => s.id === pending.stepId)!
+    const step = mission.plan.find((s) => s.id === pending.stepId)
+    if (!step) return []
     return [
       block(
         "action_request.input",
         "waiting",
         [
-          [
-            text("I need hours for "),
-            entity(step.ref, step.label),
-            text(". I won't invent a time entry."),
-          ],
+          [text("I need hours for "), entity(step.ref, step.label), text(".")],
+          [text(`Logged as ${actorName(graph, mission.actorId)}.`)],
         ],
         [{ kind: "log_time", stepId: step.id, label: "Log time" }],
       ),
     ]
   }
   if (pending.kind === "confirm_step") {
-    const step = mission.plan.find((s) => s.id === pending.stepId)!
+    const step = mission.plan.find((s) => s.id === pending.stepId)
+    if (!step) return []
     const milestones = target.kind === "project" ? graph.milestonesOf(target.id) : []
     const done = milestones.filter((m) => isTaskComplete(m.status)).length
     const open = mission.openButNotRequired.length
-    const lines: Inline[][] = [
-      [
-        text("Complete "),
-        entity(step.ref, step.label),
-        text("? "),
-        count(done),
-        text(` of `),
-        count(milestones.length),
-        text(` ${plural(milestones.length, "milestone")} complete.`),
-      ],
-    ]
+    const lines: Inline[][] =
+      milestones.length === 0
+        ? [
+            [
+              text("Complete "),
+              entity(step.ref, step.label),
+              text("? It has no milestones on record."),
+            ],
+          ]
+        : [
+            [
+              text("Complete "),
+              entity(step.ref, step.label),
+              text("? "),
+              count(done),
+              text(` of `),
+              count(milestones.length),
+              text(` ${plural(milestones.length, "milestone")} complete.`),
+            ],
+          ]
     if (open > 0) {
       lines.push([
         count(open),
@@ -448,7 +464,11 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
         ),
       ]
     case "CANCELLED": {
-      const written = mission.plan.filter((s) => s.status === "succeeded").length
+      const written = mission.plan.filter(
+        (s) => s.status === "succeeded" && s.transition === "COMPLETED",
+      ).length
+      if (written === 0)
+        return [block("cancelled", "paused", [[text("Stopped. Nothing was written.")]])]
       return [
         block("cancelled", "paused", [
           [
@@ -461,37 +481,59 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
         ]),
       ]
     }
+    case "FAILED": {
+      const failed = mission.plan.find((s) => s.status === "failed")
+      const why = failed
+        ? [
+            text(": the update to "),
+            entity(failed.ref, failed.label),
+            text(` failed (${(failed.failureClass ?? "failure").replace("_", " ")})`),
+          ]
+        : []
+      return [
+        block("result.mismatch", "error", [
+          [
+            entity(target, targetLabel),
+            text(" could not be completed"),
+            ...why,
+            text(". State was reconciled; nothing further was written."),
+          ],
+        ]),
+      ]
+    }
     case "PERMISSION_DENIED": {
       const denied = mission.plan.find((s) => s.status === "permission_denied")
+      const deniedTask = denied && denied.ref.kind === "task" ? graph.task(denied.ref.id) : null
       const project =
         target.kind === "project"
           ? graph.project(target.id)
-          : denied
-            ? graph.project(graph.task(denied.ref.id as never)?.projectId as never)
+          : deniedTask
+            ? graph.project(deniedTask.projectId)
             : null
       const owner = project?.ownerName ?? "the project owner"
-      return [
-        block(
-          "permission_denied",
-          "blocked",
-          [
-            [
+      const first: Inline[] =
+        denied && denied.ref.kind === "task" && target.kind !== "task"
+          ? [
+              text("Only the project owner can complete "),
+              entity(denied.ref, denied.label),
+              text(" in "),
+              entity(target, targetLabel),
+              text(`. ${owner} owns it.`),
+            ]
+          : [
               text("Only the project owner can complete "),
               entity(target, targetLabel),
               text(`. ${owner} owns it.`),
-            ],
-          ],
-          project?.ownerName
-            ? [
-                {
-                  kind: "ask_owner",
-                  ownerName: project.ownerName,
-                  label: `Ask ${project.ownerName} to complete`,
-                },
-              ]
-            : [],
-        ),
-      ]
+            ]
+      const lines: Inline[][] = [first]
+      if (project?.ownerName) {
+        lines.push([
+          text(
+            `Ask ${project.ownerName} to complete it, or switch the acting user in the Test Lab.`,
+          ),
+        ])
+      }
+      return [block("permission_denied", "blocked", lines)]
     }
     case "BLOCKED": {
       const declined = mission.plan.some((s) => s.note === "declined by user")
@@ -514,7 +556,7 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
 }
 
 function renderBatch(ctx: Ctx): Block[] {
-  const { mission, graph } = ctx
+  const { mission } = ctx
   const blocks: Block[] = []
   const writes = mission.plan.filter((s) => s.transition === "COMPLETED")
   const projects = mission.targets.length
@@ -529,9 +571,7 @@ function renderBatch(ctx: Ctx): Block[] {
             count(writes.length),
             text(` ${plural(writes.length, "update")} across `),
             count(projects),
-            text(
-              ` ${plural(projects, "project")}. Project completions are high impact; I'll confirm once for the set.`,
-            ),
+            text(` ${plural(projects, "project")}. One confirmation covers the set.`),
           ],
         ],
         [
@@ -565,13 +605,21 @@ function renderBatch(ctx: Ctx): Block[] {
   bucket(outcome.completed, "completed")
   bucket(outcome.blocked, "blocked by governance")
   bucket(outcome.alreadyComplete, "already complete")
-  bucket(outcome.failed, "failed — state reconciled, not completed")
-  bucket(outcome.permissionDenied, "not permitted for you")
+  const failedClasses = new Map<string, number>()
+  for (const t of outcome.perTarget) {
+    if (t.outcome !== "failed") continue
+    const step = mission.plan.find((s) => s.status === "failed" && sameTarget(s.forTarget, t.ref))
+    const cls = (step?.failureClass ?? "failure").replace("_", " ")
+    failedClasses.set(cls, (failedClasses.get(cls) ?? 0) + 1)
+  }
+  for (const [cls, n] of failedClasses)
+    bucket(n, `failed — ${cls}, state reconciled, not completed`)
+  bucket(outcome.permissionDenied, "not permitted")
   bucket(outcome.cancelled, "cancelled")
   bucket(outcome.completedBeforeScopeChange, "completed before the scope change")
   const detail = outcome.perTarget.map((t) => [
     entity(t.ref, t.label),
-    text(` — ${t.outcome.replace(/_/g, " ")}`),
+    text(` — ${OUTCOME_LABEL[t.outcome]}`),
   ])
   blocks.push({
     ...block("partial_summary", mission.state === "COMPLETED" ? "success" : "neutral", lines, [
@@ -582,7 +630,6 @@ function renderBatch(ctx: Ctx): Block[] {
   if (mission.state === "CANCELLED") {
     blocks.push(block("cancelled", "paused", [[text("Stopped. Nothing further was written.")]]))
   }
-  void graph
   return blocks
 }
 
@@ -643,7 +690,7 @@ export function renderIntentReply(
             count(done),
             text(" of "),
             count(writes.length),
-            text(` updates done. Mission is ${mission.state.toLowerCase().replace(/_/g, " ")}.`),
+            text(` ${plural(writes.length, "update")} done. ${MISSION_LABEL[mission.state]}.`),
           ],
         ]),
       ]
@@ -676,16 +723,30 @@ export function renderIntentReply(
       if (!blocker) return [block("status", "neutral", [[text("Nothing is blocked right now.")]])]
       return renderBlockerChain({ mission, graph, events: [] }, blocker)
     }
-    case "change_scope":
+    case "change_scope": {
+      const label = labelOf(intent.exclude, graph)
+      if (isComplete(intent.exclude, graph)) {
+        return [
+          block("scope_change", "paused", [
+            [
+              entity(intent.exclude, label),
+              text(
+                " was already verified complete before you asked. No policy lets me reopen it. Continuing with the remaining updates.",
+              ),
+            ],
+          ]),
+        ]
+      }
       return [
         block("scope_change", "paused", [
           [
             text("Stopped. "),
-            entity(intent.exclude, labelOf(intent.exclude, graph)),
+            entity(intent.exclude, label),
             text(" stays open. Continuing with the remaining updates."),
           ],
         ]),
       ]
+    }
     case "cancel":
       return []
     case "continue":
@@ -721,16 +782,18 @@ export function renderIntentReply(
 
 // ------------------------------------------------------------------------------------------------
 
-let blockCounter = 0
-
+/**
+ * Block ids are content-derived so React keys are stable across re-renders: the same state renders
+ * the same id, and a block never remounts (or re-animates, or steals focus) because state changed elsewhere.
+ */
 function block(
   type: Block["type"],
   tone: Block["tone"],
   lines: readonly (readonly Inline[])[],
   actions: readonly BlockAction[] = [],
 ): Block {
-  blockCounter += 1
-  return { id: `${type}-${blockCounter}`, type, lines, actions, detail: null, path: null, tone }
+  const id = `${type}-${fnv1a(JSON.stringify(lines))}`
+  return { id, type, lines, actions, detail: null, path: null, tone }
 }
 
 function joinEntities(items: ReadonlyArray<readonly [EntityRef, string]>): Inline[] {
@@ -740,6 +803,30 @@ function joinEntities(items: ReadonlyArray<readonly [EntityRef, string]>): Inlin
     out.push(entity(ref, label))
   })
   return out
+}
+
+const OUTCOME_LABEL: Record<TargetOutcome, string> = {
+  completed: "completed",
+  blocked: "blocked by governance",
+  already_complete: "already complete",
+  failed: "failed",
+  cancelled: "cancelled",
+  permission_denied: "not permitted",
+  pending: "not reached",
+  completed_before_scope_change: "completed before the scope change",
+}
+
+function earlierUpdatesNote(mission: Mission): string {
+  const n = mission.plan.filter(
+    (s) => s.status === "succeeded" && s.transition === "COMPLETED",
+  ).length
+  return n === 0
+    ? " Nothing was written."
+    : ` The ${n} earlier ${plural(n, "update")} stand; nothing further was written.`
+}
+
+function sameTarget(a: EntityRef, b: EntityRef): boolean {
+  return a.kind === b.kind && a.id === b.id
 }
 
 function isComplete(ref: EntityRef, graph: WorkspaceGraph): boolean {
@@ -758,8 +845,8 @@ function statusWord(ref: EntityRef, graph: WorkspaceGraph): string {
   return "open"
 }
 
-function actorName(graph: WorkspaceGraph, actorId: string): string {
-  return graph.actor(actorId as never)?.name ?? "someone"
+function actorName(graph: WorkspaceGraph, actorId: ActorId | null): string {
+  return actorId ? (graph.actor(actorId)?.name ?? "someone") : "someone"
 }
 
 export { POLICY_LABEL }

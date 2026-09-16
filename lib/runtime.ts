@@ -6,12 +6,12 @@ import type { Intent, IntentProposal, InterpretationContext } from "@/core/agent
 import { proposeFromIntent } from "@/core/agent/planner"
 import type { Actor } from "@/core/domain/entities"
 import { WorkspaceGraph } from "@/core/domain/graph"
-import type { ActorId, EntityRef, ProjectId } from "@/core/domain/ids"
+import type { ActorId, ProjectId } from "@/core/domain/ids"
 import { MissionEngine } from "@/core/execution/engine"
 import { RoleBasedPermissions } from "@/core/governance/permissions"
 import { ingestTwoFileExport } from "@/core/ingestion/export-two-file"
 import type { IngestionReport } from "@/core/ingestion/report"
-import { type Mission, type MissionSummary, summarize } from "@/core/mission/mission"
+import type { Mission, MissionSummary } from "@/core/mission/mission"
 import { BrowserClock } from "@/core/system/clock"
 import { InMemorySystemOfRecord } from "@/core/system/in-memory"
 import {
@@ -23,7 +23,7 @@ import {
   threadPersistence,
   workspacePersistence,
 } from "@/core/system/persistence"
-import type { StateChange, WriteCommand } from "@/core/system/system-of-record"
+import type { WriteCommand } from "@/core/system/system-of-record"
 import type { Scenario } from "@/core/evaluation/scenario"
 import { type AgentEvent, EventLog } from "@/core/telemetry/events"
 
@@ -86,6 +86,9 @@ export type RuntimeOptions = {
   readonly defaultFixture?: string
 }
 
+/** Measured 0.7–3 s per call on Haiku 4.5; the deterministic interpreter takes over visibly after this. */
+const REMOTE_INTERPRETER_TIMEOUT_MS = 6500
+
 const DATASET_LABELS: Record<string, string> = {
   "cascading-conflicts": "Demo workspace",
   "rocketlane-export": "Rocketlane export",
@@ -103,7 +106,27 @@ export class Runtime {
   private threads: Record<string, ThreadEntry[]> = {}
   private channel: TabChannel | null = null
   private missionCounter = 0
-  private lastChange: StateChange | null = null
+  private disposers: Array<() => void> = []
+  private readonly pendingWork = new Map<string, () => void>()
+
+  /** Run one write per microtask per key: persistence and broadcasts never sit in the hot path twice. */
+  private coalesce(key: string, work: () => void): void {
+    const first = this.pendingWork.size === 0
+    this.pendingWork.set(key, work)
+    if (!first) return
+    queueMicrotask(() => {
+      const jobs = [...this.pendingWork.values()]
+      this.pendingWork.clear()
+      for (const job of jobs) job()
+    })
+  }
+
+  dispose(): void {
+    for (const d of this.disposers) d()
+    this.disposers = []
+    this.channel?.close()
+    this.channel = null
+  }
 
   constructor(private readonly options: RuntimeOptions) {
     this.snapshot = {
@@ -198,6 +221,8 @@ export class Runtime {
     this.store = new LocalStorageMissionStore()
     this.events.restore(eventPersistence.load())
     this.threads = threadPersistence.load()
+    for (const dispose of this.disposers) dispose()
+    this.disposers = []
     const engine = new MissionEngine({
       sor,
       permissions: new RoleBasedPermissions(),
@@ -206,17 +231,23 @@ export class Runtime {
       clock: this.clock,
       resolveActor: (id) => sor.current().actor(id),
     })
-    engine.subscribe(() => {
-      this.publish()
-      this.channel?.post({ type: "missions_changed" })
-    })
-    this.events.subscribe(() => eventPersistence.save(this.events.all()))
-    sor.subscribe((change) => {
-      this.lastChange = change
-      this.persistWorkspace()
-      this.channel?.post({ type: "system_changed", change })
-      this.publish()
-    })
+    this.disposers.push(
+      engine.subscribe(() => {
+        this.publish()
+        this.coalesce("missions", () => this.channel?.post({ type: "missions_changed" }))
+      }),
+      this.events.subscribe(() =>
+        this.coalesce("events", () => eventPersistence.save(this.events.all())),
+      ),
+      sor.subscribe((change) => {
+        // Changes adopted from another tab are already persisted there; re-posting would ping-pong forever.
+        if (change.origin === "local") {
+          this.coalesce("workspace", () => this.persistWorkspace())
+          this.channel?.post({ type: "system_changed", change })
+        }
+        this.publish()
+      }),
+    )
     this.engine = engine
     this.channel?.close()
     this.channel = new TabChannel((message) => this.onBroadcast(message))
@@ -294,7 +325,7 @@ export class Runtime {
             kind: "agent",
             blocks: JSON.parse(e.blocksJson) as Block[],
             at: e.at,
-            actionTaken: (e as { actionTaken?: string | null }).actionTaken ?? null,
+            actionTaken: e.actionTaken,
           },
     )
   }
@@ -311,10 +342,6 @@ export class Runtime {
     return renderMission(mission, graph, this.events.forMission(missionId)).filter(
       (b) => !frozen.has(blockKey(b)),
     )
-  }
-
-  missionEvents(missionId: string): readonly AgentEvent[] {
-    return this.events.forMission(missionId)
   }
 
   session(missionId: string): AgentSessionState {
@@ -334,7 +361,7 @@ export class Runtime {
       case "VERIFYING":
         return "VERIFYING"
       case "STALE":
-        return "RECHECKING"
+        return "WAITING_FOR_USER"
       case "COMPLETED":
       case "PARTIALLY_COMPLETED":
         return "COMPLETED"
@@ -356,8 +383,8 @@ export class Runtime {
       kind: "agent",
       blocksJson: JSON.stringify(live),
       at: this.clock.now(),
-      ...(actionTaken ? { actionTaken } : {}),
-    } as ThreadEntry)
+      actionTaken,
+    })
     this.threads[missionId] = entries
     threadPersistence.save(this.threads)
   }
@@ -393,10 +420,13 @@ export class Runtime {
   private async interpret(utterance: string, ctx: InterpretationContext): Promise<IntentProposal> {
     if (this.snapshot.interpreterMode === "model" && this.options.remoteInterpreter) {
       try {
+        let timer: ReturnType<typeof setTimeout> | undefined
         const proposal = await Promise.race([
           this.options.remoteInterpreter(utterance, ctx),
-          new Promise<null>((resolve) => setTimeout(() => resolve(null), 6500)),
-        ])
+          new Promise<null>((resolve) => {
+            timer = setTimeout(() => resolve(null), REMOTE_INTERPRETER_TIMEOUT_MS)
+          }),
+        ]).finally(() => clearTimeout(timer))
         if (proposal) {
           this.publish({ lastInterpretedBy: "model" })
           return proposal
@@ -471,7 +501,8 @@ export class Runtime {
     if (!missionId || !current) {
       // No mission context: reply in a scratch thread attached to a synthetic id so the UI can show it.
       const scratchId = missionId ?? this.newMissionId("reply")
-      this.pushUser(scratchId, utterance)
+      if (!missionId) this.pushUser(scratchId, utterance)
+      else this.setBusy(missionId, null)
       this.pushAgent(scratchId, renderIntentReply(intent, graph, null))
       this.publish()
       return scratchId
@@ -556,11 +587,44 @@ export class Runtime {
     missionId: string,
     action: BlockAction,
     payload: { hours?: number } = {},
-  ): Promise<void> {
+  ): Promise<string> {
+    if (!this.engine) return missionId
+    // A clarification in a scratch thread has no mission yet: picking a candidate starts one.
+    if (action.kind === "pick_candidate") {
+      const actor = this.actor()
+      if (!actor) return missionId
+      const utterance = [...(this.threads[missionId] ?? [])]
+        .reverse()
+        .find((e) => e.kind === "user")
+      const goalText = utterance?.kind === "user" ? utterance.text : action.label
+      const newId = this.newMissionId()
+      this.freeze(missionId, action.label)
+      this.pushUser(newId, goalText)
+      this.setBusy(newId, "PLANNING")
+      try {
+        await this.engine.start(
+          { missionId: newId, goalText, targets: [action.ref], excluded: [], actor },
+          {
+            datasetId: this.snapshot.datasetId,
+            interpretedBy: this.snapshot.lastInterpretedBy === "model" ? "model" : "deterministic",
+          },
+        )
+      } finally {
+        this.setBusy(newId, null)
+      }
+      return newId
+    }
     const mission = this.mission(missionId)
-    if (!mission || !this.engine) return
+    if (!mission) return missionId
+    const who = this.actor()?.name ?? "you"
     const label =
-      action.kind === "log_time" && payload.hours ? `Logged ${payload.hours}h` : action.label
+      action.kind === "log_time" && payload.hours
+        ? `Logged ${payload.hours}h by ${who}`
+        : action.kind === "approve"
+          ? `Confirmed by ${who}`
+          : action.kind === "decline"
+            ? `Declined by ${who}`
+            : action.label
     this.freeze(missionId, label)
     try {
       switch (action.kind) {
@@ -584,22 +648,13 @@ export class Runtime {
         case "cancel":
           this.engine.cancel(missionId)
           break
-        case "pick_candidate": {
-          const actor = this.actor()
-          if (!actor) break
-          await this.engine.start(
-            { missionId, goalText: mission.goalText, targets: [action.ref], excluded: [], actor },
-            { datasetId: this.snapshot.datasetId },
-          )
-          break
-        }
         case "view_activity":
-        case "ask_owner":
           break
       }
     } finally {
       this.setBusy(missionId, null)
     }
+    return missionId
   }
 
   /** Fault injection for the live workspace (Lab). */
@@ -692,21 +747,9 @@ export class Runtime {
     this.publish()
   }
 
-  entityLabel(ref: EntityRef): string {
-    const graph = this.sor?.current()
-    if (!graph) return ref.id
-    if (ref.kind === "project") return graph.project(ref.id)?.name ?? ref.id
-    if (ref.kind === "task") return graph.task(ref.id)?.name ?? ref.id
-    return graph.phase(ref.id)?.name ?? ref.id
-  }
-
   private newMissionId(prefix = "m"): string {
     this.missionCounter += 1
     return `${prefix}-${this.clock.now().toString(36)}-${this.missionCounter}`
-  }
-
-  lastStateChange(): StateChange | null {
-    return this.lastChange
   }
 }
 
@@ -723,5 +766,3 @@ function isTerminalState(state: Mission["state"]): boolean {
     state === "PERMISSION_DENIED"
   )
 }
-
-export { summarize }

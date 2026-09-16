@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
 import "./globals.css"
 
-import { modelInterpreterAvailable } from "@/app/actions/interpret"
+import { loadFixture } from "@/app/actions/fixtures"
+import { interpretUtterance, modelInterpreterAvailable } from "@/app/actions/interpret"
 import { AppShellNav } from "@/components/shared/AppShellNav"
 import { RuntimeProvider } from "@/components/shared/RuntimeProvider"
 
@@ -19,7 +20,11 @@ export default async function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="flex h-full min-h-full flex-col">
-        <RuntimeProvider modelAvailable={modelAvailable}>
+        <RuntimeProvider
+          loadFixture={loadFixture}
+          interpret={interpretUtterance}
+          modelAvailable={modelAvailable}
+        >
           <div className="flex min-h-0 flex-1">
             <AppShellNav />
             <main className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</main>

@@ -125,14 +125,24 @@ export class MissionEngine {
     }
     this.commit(mission)
 
-    const cmd: WriteCommand =
-      step.ref.kind === "task"
-        ? { kind: "add_time_entry", taskId: step.ref.id, hours, actorId: mission.actorId }
-        : { kind: "add_time_entry", taskId: step.ref.id as never, hours, actorId: mission.actorId }
-    mission = await this.write(mission, step, cmd, (graph) => {
-      const task = step.ref.kind === "task" ? graph.task(step.ref.id) : null
-      return task !== null && hoursTracked(task) > this.governance.minimumHours
-    })
+    if (step.ref.kind !== "task") return mission
+    const cmd: WriteCommand = {
+      kind: "add_time_entry",
+      taskId: step.ref.id,
+      hours,
+      actorId: mission.actorId,
+    }
+    const before = await this.deps.sor.snapshot()
+    mission = await this.write(
+      mission,
+      step,
+      cmd,
+      (graph) => {
+        const task = step.ref.kind === "task" ? graph.task(step.ref.id) : null
+        return task !== null && hoursTracked(task) > this.governance.minimumHours
+      },
+      versionOf(step.ref, before),
+    )
     this.commit(mission)
     return this.run(missionId)
   }
@@ -272,6 +282,10 @@ export class MissionEngine {
         plan.requiresPlanConfirmation && !mission.planConfirmed ? { kind: "confirm_plan" } : null,
       state: plan.requiresPlanConfirmation && !mission.planConfirmed ? "WAITING" : nextState,
     }
+    // Permission is the first boundary, before any input is requested or anything is written.
+    if (mission.targets.length === 1 && plan.permissionDenials.length > 0) {
+      return this.finish(next, "PERMISSION_DENIED")
+    }
     return next
   }
 
@@ -356,9 +370,10 @@ export class MissionEngine {
           break
         }
         const result = await this.execute(mission, step)
-        // The world may have paused this mission while the step was in flight (spec §10).
+        // The world may have paused, or the user cancelled, while the step was in flight (§10, §11).
         const latest = this.require(missionId)
-        mission = latest.state === "STALE" ? mergeStepResults(latest, result) : result
+        mission =
+          latest.state === "STALE" || isTerminal(latest) ? mergeStepResults(latest, result) : result
         this.commit(mission)
         mission = this.require(missionId)
       }
@@ -457,13 +472,20 @@ export class MissionEngine {
     }
 
     // Execute + verify.
+    if (step.ref.kind === "phase") return this.finish(mission, "FAILED")
     const cmd: WriteCommand =
       step.ref.kind === "project"
         ? { kind: "complete_project", projectId: step.ref.id }
-        : { kind: "complete_task", taskId: step.ref.id as never }
+        : { kind: "complete_task", taskId: step.ref.id }
     mission = this.setStep(mission, step.id, { status: "running" }, "EXECUTING")
     this.commit(mission)
-    return this.write(mission, step, cmd, (g) => isCompleted(step.ref, g))
+    return this.write(
+      mission,
+      step,
+      cmd,
+      (g) => isCompleted(step.ref, g),
+      versionOf(step.ref, graph),
+    )
   }
 
   /**
@@ -475,11 +497,12 @@ export class MissionEngine {
     step: PlanStep,
     cmd: WriteCommand,
     verify: (graph: WorkspaceGraph) => boolean,
+    expectedVersion: number | null,
   ): Promise<Mission> {
     this.emit(mission, "ACTION_STARTED", [step.ref], { step: step.label, command: cmd.kind })
     const meta = {
       idempotencyKey: step.id,
-      expectedVersion: null,
+      expectedVersion,
       actorId: mission.actorId,
       correlationId: mission.correlationId,
     }
@@ -514,7 +537,7 @@ export class MissionEngine {
             {
               ref: step.ref,
               summary: "changed concurrently",
-              actorId: "unknown" as ActorId,
+              actorId: null,
             },
           )
         }
@@ -525,11 +548,9 @@ export class MissionEngine {
             step: step.label,
             reason: "api_failure",
           })
-          return this.setStep(
-            mission,
-            step.id,
-            { status: "failed", failureClass, retries },
-            "ACTIVE",
+          return this.failTarget(
+            this.setStep(mission, step.id, { status: "failed", failureClass, retries }, "ACTIVE"),
+            step,
           )
         }
       }
@@ -544,16 +565,19 @@ export class MissionEngine {
         reason: "verification mismatch",
         verified: false,
       })
-      return this.setStep(
-        mission,
-        step.id,
-        {
-          status: "failed",
-          verification: "MISMATCH",
-          failureClass: failureClass ?? "partial_execution",
-          retries,
-        },
-        "ACTIVE",
+      return this.failTarget(
+        this.setStep(
+          mission,
+          step.id,
+          {
+            status: "failed",
+            verification: "MISMATCH",
+            failureClass: failureClass ?? "partial_execution",
+            retries,
+          },
+          "ACTIVE",
+        ),
+        step,
       )
     }
     this.emit(mission, "ACTION_COMPLETED", [step.ref], {
@@ -587,14 +611,16 @@ export class MissionEngine {
     for (const mission of this.deps.store.all()) {
       if (isTerminal(mission)) continue
       if (change.correlationId === mission.correlationId) continue
-      if (!this.inClosure(mission, change.ref)) continue
+      if (!this.inClosure(mission, change)) continue
       const graph = await this.deps.sor.snapshot()
-      this.emit(mission, "STATE_CHANGED", [change.ref], {
+      const fresh = this.deps.store.load(mission.id)
+      if (!fresh || isTerminal(fresh)) continue
+      this.emit(fresh, "STATE_CHANGED", [change.ref], {
         summary: change.summary,
         by: change.actorId,
         cause: change.cause,
       })
-      const paused = this.pause(mission, graph, {
+      const paused = this.pause(fresh, graph, {
         ref: change.ref,
         summary: change.summary,
         actorId: change.actorId,
@@ -603,25 +629,24 @@ export class MissionEngine {
     }
   }
 
-  private inClosure(mission: Mission, ref: EntityRef): boolean {
+  /** Closure for revalidation is keyed by project (any change inside a project in scope is relevant). */
+  private inClosure(mission: Mission, change: StateChange): boolean {
+    const { ref } = change
     for (const target of mission.targets) {
       if (target.kind === ref.kind && target.id === ref.id) return true
+      if (target.kind === "project" && change.projectId === target.id) return true
     }
-    const projectIds = new Set<string>()
-    for (const step of mission.plan) if (step.ref.kind === "project") projectIds.add(step.ref.id)
-    for (const target of mission.targets) if (target.kind === "project") projectIds.add(target.id)
-    const graph = (this.deps.sor as { current?: () => WorkspaceGraph }).current?.()
-    if (ref.kind === "task" && graph) {
-      const task = graph.task(ref.id)
-      if (task && projectIds.has(task.projectId)) return true
+    for (const step of mission.plan) {
+      if (step.ref.kind === ref.kind && step.ref.id === ref.id) return true
+      if (step.ref.kind === "project" && change.projectId === step.ref.id) return true
     }
-    return mission.plan.some((s) => s.ref.kind === ref.kind && s.ref.id === ref.id)
+    return false
   }
 
   private pause(
     mission: Mission,
     graph: WorkspaceGraph,
-    change: { ref: EntityRef; summary: string; actorId: ActorId },
+    change: { ref: EntityRef; summary: string; actorId: ActorId | null },
   ): Mission {
     const affected = mission.plan
       .filter(
@@ -662,6 +687,17 @@ export class MissionEngine {
 
   // ---------------------------------------------------------------------------------------------
   // Aggregation and finishing
+
+  /** A failed write ends work on its target: dependents cannot proceed. Single-target missions finish FAILED. */
+  private failTarget(mission: Mission, step: PlanStep): Mission {
+    const plan = mission.plan.map((s) =>
+      s.status === "pending" && sameRef(s.forTarget, step.forTarget) && s.id !== step.id
+        ? { ...s, status: "skipped" as const, note: "failed upstream" }
+        : s,
+    )
+    const updated = { ...mission, plan }
+    return mission.targets.length > 1 ? updated : this.finish(updated, "FAILED")
+  }
 
   private markTargetBlocked(
     mission: Mission,
@@ -849,7 +885,9 @@ export function aggregate(mission: Mission): MissionOutcome {
     const steps = mission.plan.filter((s) => sameRef(s.forTarget, ref))
     const targetStep = steps.find((s) => sameRef(s.ref, ref) && s.transition === "COMPLETED")
     let outcome: TargetOutcome = "pending"
-    if (steps.length === 0) outcome = "already_complete"
+    const excluded = mission.excluded.some((e) => sameRef(e, ref))
+    if (excluded) outcome = "cancelled"
+    else if (steps.length === 0) outcome = "already_complete"
     else if (targetStep?.status === "succeeded") outcome = "completed"
     else if (targetStep?.status === "already_complete") outcome = "already_complete"
     else if (steps.some((s) => s.status === "permission_denied")) outcome = "permission_denied"

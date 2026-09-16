@@ -4,6 +4,11 @@ import { useState } from "react"
 
 import { Body } from "@/components/shared/Typography"
 import { Button } from "@/components/ui/button"
+import {
+  actorId as toActorId,
+  projectId as toProjectId,
+  taskId as toTaskId,
+} from "@/core/domain/ids"
 import type { TaskStatus } from "@/core/domain/status"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
 
@@ -29,14 +34,16 @@ export function LabWorldTab() {
       </Body>
     )
 
-  const project = graph.project((projectId || graph.projects[0]?.id || "") as never)
+  const project = graph.project(toProjectId(projectId || graph.projects[0]?.id || ""))
   const tasks = project ? graph.tasksOf(project.id) : []
-  const task = graph.task((taskId || tasks[0]?.id || "") as never)
+  const task = graph.task(toTaskId(taskId || tasks[0]?.id || ""))
   const actor = graph.actor(
-    (actorId ||
-      graph.actors.find((a) => a.id !== snapshot.actorId)?.id ||
-      graph.actors[0]?.id ||
-      "") as never,
+    toActorId(
+      actorId ||
+        graph.actors.find((a) => a.id !== snapshot.actorId)?.id ||
+        graph.actors[0]?.id ||
+        "",
+    ),
   )
 
   const apply = async () => {
@@ -122,8 +129,8 @@ export function LabWorldTab() {
         </div>
         <Body muted className="text-[12px]">
           Bypasses governance on purpose: this is not the agent, it is the world. Any live mission
-          whose closure includes this task pauses, explains the change, and replans. Open the
-          mission in another tab to watch it happen.
+          that depends on this task pauses, explains the change, and replans. Open the mission in
+          another tab to watch it happen.
         </Body>
       </section>
 

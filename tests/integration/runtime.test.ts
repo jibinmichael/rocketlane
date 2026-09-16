@@ -46,7 +46,7 @@ describe("Runtime — the conversation surface end to end, headless", () => {
     // The input block froze into the thread with the decision recorded; live shows only what is new.
     const frozen = rt.thread(id).filter((e) => e.kind === "agent")
     expect(frozen).toHaveLength(1)
-    expect(frozen[0]!.kind === "agent" && frozen[0]!.actionTaken).toBe("Logged 2h")
+    expect(frozen[0]!.kind === "agent" && frozen[0]!.actionTaken).toBe("Logged 2h by Priya Raman")
     live = rt.liveBlocks(id)
     expect(live.map((b) => b.type).filter((t) => t === "result.verified")).toHaveLength(6)
     expect(live[live.length - 1]!.type).toBe("action_request.confirm")
@@ -116,7 +116,7 @@ describe("Runtime — the conversation surface end to end, headless", () => {
       "was completed",
     )
     expect(rt.mission(id)?.state).toBe("STALE")
-    expect(rt.session(id)).toBe("RECHECKING")
+    expect(rt.session(id)).toBe("WAITING_FOR_USER")
     const live = rt.liveBlocks(id)
     const change = live.find((b) => b.type === "state_change")!
     expect(change.actions.map((a) => a.kind)).toEqual(["continue", "cancel"])

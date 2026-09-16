@@ -103,7 +103,7 @@ export type StateChangeNotice = {
   readonly at: number
   readonly ref: EntityRef
   readonly summary: string
-  readonly actorId: ActorId
+  readonly actorId: ActorId | null
   readonly affectedStepIds: readonly string[]
   /** Filled in by the replan that followed the pause; stable so the thread never re-renders it. */
   readonly replan: { readonly kept: number; readonly planned: number } | null

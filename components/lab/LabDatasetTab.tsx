@@ -2,17 +2,14 @@
 
 import { useState } from "react"
 
-import type { FixtureFiles } from "@/app/actions/fixtures"
+import type { FixtureLoader } from "@/components/shared/RuntimeProvider"
 import { Body } from "@/components/shared/Typography"
 import { Button } from "@/components/ui/button"
+import { actorId as toActorId } from "@/core/domain/ids"
 import type { IngestionReport } from "@/core/ingestion/report"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
 
-export function LabDatasetTab({
-  loadFixture,
-}: {
-  loadFixture: (id: string) => Promise<FixtureFiles>
-}) {
+export function LabDatasetTab({ loadFixture }: { loadFixture: FixtureLoader }) {
   const runtime = useRuntime()
   const snapshot = useRuntimeSnapshot()
   const [projectsFile, setProjectsFile] = useState<File | null>(null)
@@ -130,7 +127,7 @@ export function LabDatasetTab({
         </div>
         <select
           value={snapshot.actorId ?? ""}
-          onChange={(e) => runtime.setActor(e.target.value as never)}
+          onChange={(e) => runtime.setActor(toActorId(e.target.value))}
           className="border-border bg-background text-foreground h-8 w-full max-w-sm rounded-md border px-2 text-[13px]"
           aria-label="Acting user"
         >

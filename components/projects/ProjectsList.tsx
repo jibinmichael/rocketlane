@@ -30,9 +30,17 @@ export function ProjectsList() {
           Current state from the loaded dataset. Governance work happens in the agent, not here.
         </Body>
       </div>
-      {!graph ? (
+      {snapshot.status === "error" ? (
+        <Body className="text-state-error text-[13px]">
+          The workspace could not load: {snapshot.error}.
+        </Body>
+      ) : !graph ? (
         <Body muted className="text-[13px]">
           Loading workspace…
+        </Body>
+      ) : graph.projects.length === 0 ? (
+        <Body muted className="text-[13px]">
+          No projects in this dataset. Load one in Test Lab, Dataset.
         </Body>
       ) : (
         <ul className="border-border divide-border divide-y rounded-lg border">

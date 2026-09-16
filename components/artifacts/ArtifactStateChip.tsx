@@ -1,3 +1,4 @@
+import { MISSION_LABEL } from "@/core/mission/labels"
 import type { MissionState } from "@/core/mission/mission"
 import type { AgentSessionState } from "@/lib/runtime"
 import { cn } from "@/lib/utils"
@@ -17,21 +18,6 @@ const MISSION_TONE: Record<MissionState, Tone> = {
   PERMISSION_DENIED: "blocked",
   CANCELLED: "paused",
   PARTIALLY_COMPLETED: "completed",
-}
-
-const MISSION_LABEL: Record<MissionState, string> = {
-  READY: "Ready",
-  ACTIVE: "Working",
-  WAITING: "Waiting for you",
-  EXECUTING: "Updating",
-  VERIFYING: "Verifying",
-  COMPLETED: "Landed",
-  BLOCKED: "Blocked",
-  FAILED: "Could not continue",
-  STALE: "Paused — project changed",
-  PERMISSION_DENIED: "Not permitted",
-  CANCELLED: "Stopped",
-  PARTIALLY_COMPLETED: "Landed with exceptions",
 }
 
 const SESSION_TONE: Record<AgentSessionState, Tone> = {
@@ -95,4 +81,4 @@ export function ArtifactStateChip({
   )
 }
 
-export { MISSION_LABEL, MISSION_TONE }
+export { MISSION_TONE }

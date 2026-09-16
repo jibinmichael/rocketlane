@@ -48,7 +48,7 @@ export function MissionPathList({ path }: { path: readonly PathNode[] }) {
                   ? "act here"
                   : node.state === "complete"
                     ? "complete"
-                    : `depth ${i}`}
+                    : ""}
             </span>
           </li>
         )

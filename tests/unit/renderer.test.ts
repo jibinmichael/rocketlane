@@ -59,9 +59,7 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
     expect(flat(blocks[2]!.lines)).toBe(
       "6 updates to complete [Acme Implementation]. First: log time on [QA Complete].",
     )
-    expect(flat(blocks[3]!.lines)).toBe(
-      "I need hours for [QA Complete]. I won't invent a time entry.",
-    )
+    expect(flat(blocks[3]!.lines)).toBe("I need hours for [QA Complete].\nLogged as Priya Raman.")
     expect(blocks[3]!.actions).toEqual([
       { kind: "log_time", stepId: mission.plan[0]!.id, label: "Log time" },
     ])
@@ -174,7 +172,7 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
     blocks = renderMission(mission, h.sor.current())
     expect(types(blocks)).toEqual(["partial_summary"])
     const summary = flat(blocks[0]!.lines)
-    expect(summary).toMatch(/not permitted for you\./)
+    expect(summary).toMatch(/not permitted\./)
     expect(summary).not.toMatch(/\b0 /)
     expect(blocks[0]!.detail).toHaveLength(31)
   })

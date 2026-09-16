@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
-import type { FixtureFiles } from "@/app/actions/fixtures"
+import type { FixtureLoader } from "@/components/shared/RuntimeProvider"
 import { Body } from "@/components/shared/Typography"
 import { Button } from "@/components/ui/button"
 import { runScenario, toRegressionRecord } from "@/core/evaluation/runner"
@@ -26,7 +26,7 @@ export function LabScenariosTab({
   loadFixture,
 }: {
   scenarios: readonly Scenario[]
-  loadFixture: (id: string) => Promise<FixtureFiles>
+  loadFixture: FixtureLoader
 }) {
   const snapshot = useRuntimeSnapshot()
   const router = useRouter()
@@ -119,9 +119,9 @@ export function LabScenariosTab({
           </div>
         </div>
         <Body muted className="text-[12px]">
-          Scenarios run on an isolated engine with a virtual clock: fresh system of record, memory
-          store, the same core as the conversation. The evaluator judges every write against the
-          reference policies at write time, so a weakened engine is caught, not trusted.
+          Scenarios run on an isolated engine with a virtual clock and a fresh system of record. It
+          is the same core as the conversation. The evaluator judges every write against the
+          reference policies, so a weakened engine is caught, not trusted.
         </Body>
       </section>
 

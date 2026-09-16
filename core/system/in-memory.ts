@@ -85,7 +85,9 @@ export class InMemorySystemOfRecord implements SystemOfRecord {
     this.ledger.clear()
     for (const [key, result] of state.ledger) this.ledger.set(key, result)
     this.changeCount = state.changeCount
-    if (change) for (const listener of this.listeners) listener({ ...change, cause: "external" })
+    if (change)
+      for (const listener of this.listeners)
+        listener({ ...change, cause: "external", origin: "remote" })
   }
 
   injectFault(fault: Fault): void {
@@ -183,7 +185,10 @@ export class InMemorySystemOfRecord implements SystemOfRecord {
         const next: Task = {
           ...task,
           status: cmd.status,
-          completedAt: cmd.status === "COMPLETED" ? task.completedAt : null,
+          completedAt:
+            cmd.status === "COMPLETED"
+              ? (task.completedAt ?? new Date(this.clock.now()).toISOString().slice(0, 10))
+              : null,
           version: task.version + 1,
         }
         this.graph = this.graph.with({ tasks: [next] })
@@ -211,6 +216,13 @@ export class InMemorySystemOfRecord implements SystemOfRecord {
     this.changeCount += 1
     const change: StateChange = {
       ref,
+      projectId:
+        ref.kind === "project"
+          ? ref.id
+          : ref.kind === "task"
+            ? (this.graph.task(ref.id)?.projectId ?? null)
+            : null,
+      origin: "local",
       previousVersion,
       version,
       correlationId,

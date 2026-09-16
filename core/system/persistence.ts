@@ -15,7 +15,12 @@ const KEY_PREFIX = "rga:v1:"
 
 export type ThreadEntry =
   | { readonly kind: "user"; readonly text: string; readonly at: number }
-  | { readonly kind: "agent"; readonly blocksJson: string; readonly at: number }
+  | {
+      readonly kind: "agent"
+      readonly blocksJson: string
+      readonly at: number
+      readonly actionTaken: string | null
+    }
 
 export type PersistedWorkspace = {
   readonly datasetId: string
@@ -141,7 +146,7 @@ type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : n
 
 export class TabChannel {
   private readonly channel: BroadcastChannel | null
-  readonly tabId = `tab-${Math.random().toString(36).slice(2, 8)}`
+  readonly tabId = `tab-${globalThis.crypto?.randomUUID?.() ?? Date.now().toString(36)}`
 
   constructor(private readonly onMessage: (message: BroadcastMessage) => void) {
     this.channel =

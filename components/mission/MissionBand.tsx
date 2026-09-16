@@ -1,6 +1,7 @@
 "use client"
 
 import { ArtifactStateChip } from "@/components/artifacts/ArtifactStateChip"
+import { MISSION_LABEL } from "@/core/mission/labels"
 import type { Mission } from "@/core/mission/mission"
 import { summarize } from "@/core/mission/mission"
 import type { AgentSessionState } from "@/lib/runtime"
@@ -15,7 +16,7 @@ const SESSION_LABEL: Record<AgentSessionState, string> = {
   EXECUTING: "Updating",
   VERIFYING: "Verifying",
   RECHECKING: "Rechecking",
-  COMPLETED: "Every update verified by re-read",
+  COMPLETED: "Landed",
   ERROR: "Could not continue",
   CANCELLED: "Stopped",
 }
@@ -30,17 +31,21 @@ const WORKING: ReadonlySet<AgentSessionState> = new Set([
 ])
 
 /**
- * One 52px band: goal · progress · state chip, hairline below (spec §26 "keep the goal anchored").
- * The hairline is indeterminate while working with no known total, determinate otherwise.
+ * One 52px band: goal · progress · what the agent is doing · state chip, hairline below
+ * (spec §26 "keep the goal anchored"). Nothing else is pinned above the thread.
  */
 export function MissionBand({
   mission,
   session,
   interpretedNote,
+  pinned,
+  onJump,
 }: {
   mission: Mission
   session: AgentSessionState
   interpretedNote: string | null
+  pinned: boolean
+  onJump: () => void
 }) {
   const { progress } = summarize(mission)
   const working = WORKING.has(session)
@@ -48,10 +53,11 @@ export function MissionBand({
   const currentStep = mission.currentStepId
     ? mission.plan.find((s) => s.id === mission.currentStepId)
     : null
-  const label =
+  const activity =
     session === "EXECUTING" && currentStep
       ? `Updating ${currentStep.label}`
       : SESSION_LABEL[session]
+  const showActivity = working
 
   return (
     <header className="border-border bg-background/95 sticky top-0 z-10 border-b backdrop-blur">
@@ -59,10 +65,26 @@ export function MissionBand({
         <h1 className="text-foreground min-w-0 flex-1 truncate text-[14px] font-medium tracking-[-0.005em]">
           {mission.goalText}
         </h1>
+        {showActivity && (
+          <span aria-live="polite" className="text-muted-foreground shrink-0 text-[12px]">
+            {activity}
+          </span>
+        )}
+        {!pinned && (
+          <button
+            type="button"
+            onClick={onJump}
+            className="border-border text-muted-foreground hover:text-foreground h-6 shrink-0 rounded-full border px-2 text-[12px] transition-colors duration-[var(--motion-fast)]"
+          >
+            {MISSION_LABEL[mission.state]} ↓
+          </button>
+        )}
         <span className="text-muted-foreground shrink-0 text-[12px] tabular-nums">
           {progress.done} of {progress.total} {progress.total === 1 ? "update" : "updates"}
         </span>
-        <ArtifactStateChip state={mission.state} session={session} />
+        <span title={interpretedNote ?? undefined}>
+          <ArtifactStateChip state={mission.state} session={session} />
+        </span>
       </div>
       <div className="relative h-px w-full overflow-hidden">
         {working && progress.total === 0 && (
@@ -84,14 +106,6 @@ export function MissionBand({
             )}
             style={{ width: `${pct}%` }}
           />
-        )}
-      </div>
-      <div className="mx-auto flex w-full max-w-[720px] items-center gap-2 px-6 py-1">
-        <span aria-live="polite" className="text-muted-foreground text-[12px]">
-          {label}
-        </span>
-        {interpretedNote && (
-          <span className="text-muted-foreground/70 text-[11px]">· {interpretedNote}</span>
         )}
       </div>
     </header>

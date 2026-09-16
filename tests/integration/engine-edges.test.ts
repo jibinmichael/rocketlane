@@ -67,10 +67,11 @@ describe("MissionEngine — execution safety", () => {
       h.propose(mei, "Complete Acme", [h.project("Acme Implementation")]),
       { datasetId: "x" },
     )
-    // Mei may log time on QA Complete (assigned) — the mission legitimately waits for that input first.
-    expect(mission.state).toBe("WAITING")
+    // Permission is the first boundary: the mission ends before any input is requested or written.
+    expect(mission.state).toBe("PERMISSION_DENIED")
     const projectStep = step(mission, "Acme Implementation")
     expect(projectStep.status).toBe("permission_denied")
+    expect(mission.pending).toBeNull()
     expect(h.sor.serialize().changeCount).toBe(before)
     const denied = h.events.forMission(mission.id).filter((e) => e.type === "PERMISSION_DENIED")
     expect(denied.length).toBeGreaterThan(0)

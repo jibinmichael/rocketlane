@@ -86,6 +86,8 @@ export function validateFlightPlan(
   const seen = new Set<string>()
 
   for (const target of proposed.targets) {
+    // "Leave X open" on a target drops it from the plan entirely; the outcome reports it as cancelled.
+    if (excludedKeys.has(key(target))) continue
     const closure = resolveClosure(
       target,
       ctx.graph,
@@ -106,7 +108,7 @@ export function validateFlightPlan(
       const permission = ctx.permissions.check(proposed.actor, action, required.ref, ctx.graph)
       if (!permission.allowed) permissionDenials.push(permission)
 
-      const actionClass = classify(required.ref, required.to, ctx.graph, isBatch)
+      const actionClass = classify(required.ref, required.to)
       steps.push({
         id,
         ref: required.ref,
@@ -148,18 +150,13 @@ export function closureRulesFor(policies: readonly Policy[] | undefined): Closur
   }
 }
 
-function classify(
-  ref: EntityRef,
-  transition: PlanStep["transition"],
-  graph: WorkspaceGraph,
-  isBatch: boolean,
-): ActionClass {
+function classify(ref: EntityRef, transition: PlanStep["transition"]): ActionClass {
   if (transition === "TIME_LOGGED") return "DECISION_REQUIRED"
   if (ref.kind === "project") {
     // A-05: completing a project is high impact; completing one with no tasks on record even more so.
     return "HIGH_IMPACT"
   }
-  return isBatch ? "SAFE_WRITE" : "SAFE_WRITE"
+  return "SAFE_WRITE"
 }
 
 function permissionActionFor(ref: EntityRef, transition: PlanStep["transition"]): PermissionAction {

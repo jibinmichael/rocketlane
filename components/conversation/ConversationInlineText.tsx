@@ -24,7 +24,7 @@ export function ConversationInlineText({
             return (
               <span
                 key={i}
-                className="bg-muted text-foreground inline-flex max-w-[28ch] items-baseline truncate rounded-[4px] px-1 py-px align-baseline text-[13px] font-medium"
+                className="bg-muted text-foreground inline rounded-[4px] px-1 py-px text-[13px] font-medium"
                 title={part.label}
                 data-entity={`${part.ref.kind}:${part.ref.id}`}
               >
@@ -35,7 +35,7 @@ export function ConversationInlineText({
             return (
               <span
                 key={i}
-                className="text-muted-foreground border-border inline-flex items-baseline rounded-[4px] border px-1 py-px align-baseline text-[11px] font-medium tracking-[0.005em]"
+                className="text-muted-foreground border-border ml-1 inline rounded-[4px] border px-1 py-px text-[11px] font-medium tracking-[0.005em]"
                 data-policy={part.policyId}
               >
                 {part.label}

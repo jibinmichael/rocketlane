@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
-import { loadFixture } from "@/app/actions/fixtures"
 import { LabDatasetTab } from "@/components/lab/LabDatasetTab"
 import { LabScenariosTab } from "@/components/lab/LabScenariosTab"
 import { LabWorldTab } from "@/components/lab/LabWorldTab"
+import type { FixtureLoader } from "@/components/shared/RuntimeProvider"
 import { Body, H1 } from "@/components/shared/Typography"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BUILT_IN_SCENARIOS } from "@/core/evaluation/scenarios"
@@ -17,7 +17,7 @@ import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
  * headlessly against scenarios, injects faults, and lets the world change under a live mission.
  * `?run=<scenarioId>` plays a scenario through the live conversation and navigates to it.
  */
-export function LabPanel() {
+export function LabPanel({ loadFixture }: { loadFixture: FixtureLoader }) {
   const runtime = useRuntime()
   const snapshot = useRuntimeSnapshot()
   const router = useRouter()
@@ -45,8 +45,8 @@ export function LabPanel() {
       <div className="flex flex-col gap-1">
         <H1 className="text-[20px] tracking-[-0.01em]">Test Lab</H1>
         <Body muted className="text-[13px]">
-          Ground control. Load any dataset, run scenarios through the same engine the conversation
-          uses, weaken a policy to prove the evaluator catches it, and change the world under a live
+          Ground control. Load any dataset. Run scenarios through the same engine the conversation
+          uses. Weaken a policy and watch the evaluator catch it. Change the world under a live
           mission.
         </Body>
       </div>
