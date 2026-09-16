@@ -9,6 +9,7 @@ import { AgentMark } from "@/components/agent/AgentMark"
 import { ConversationComposer } from "@/components/conversation/ConversationComposer"
 import { MissionHistoryRow } from "@/components/mission/MissionHistoryRow"
 import { MissionQuickActions, quickActionsFor } from "@/components/mission/MissionQuickActions"
+import { iceBreakers } from "@/lib/suggestions"
 import { HeightReveal } from "@/components/shared/HeightReveal"
 import { LinearIcon } from "@/components/shared/LinearIcon"
 import { Body } from "@/components/shared/Typography"
@@ -57,7 +58,9 @@ export function MissionHomeList() {
     graph?.projects.find((p) => p.ownerId === snapshot.actorId)?.name ??
     graph?.projects[0]?.name ??
     null
-  const actions = quickActionsFor(firstProject)
+  const actions = quickActionsFor(
+    iceBreakers(graph ?? null, snapshot.actorId, snapshot.missions.length),
+  )
   const pick = (a: (typeof actions)[number]) => {
     if (a.fill === null) setDataOpen(true)
     else {

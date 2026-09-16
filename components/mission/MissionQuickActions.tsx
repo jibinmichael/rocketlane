@@ -1,6 +1,7 @@
 "use client"
 
 import { LinearIcon, type LinearIconName } from "@/components/shared/LinearIcon"
+import type { Suggestion } from "@/lib/suggestions"
 import { cn } from "@/lib/utils"
 
 type QuickAction = {
@@ -15,22 +16,9 @@ type QuickAction = {
  * Ways in, each a real capability of the agent (never a template gallery). Three fill the composer
  * with an outcome the user can edit before sending; the fourth opens project-data upload.
  */
-export function quickActionsFor(projectName: string | null): QuickAction[] {
-  const name = projectName ?? "a project"
+export function quickActionsFor(suggestions: readonly Suggestion[]): QuickAction[] {
   return [
-    { id: "complete", icon: "network", title: `Complete ${name}`, fill: `Complete ${name}` },
-    {
-      id: "blocking",
-      icon: "search",
-      title: `What's blocking ${name}?`,
-      fill: `What's blocking ${name}?`,
-    },
-    {
-      id: "mine",
-      icon: "layers",
-      title: "Complete all my projects",
-      fill: "Complete all my projects",
-    },
+    ...suggestions.map((s) => ({ id: s.id, icon: s.icon, title: s.text, fill: s.text })),
     { id: "data", icon: "upload", title: "Test any project files", fill: null },
   ]
 }

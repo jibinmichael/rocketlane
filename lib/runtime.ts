@@ -178,11 +178,16 @@ export class Runtime {
     if (this.snapshot.status === "ready") return
     try {
       const persisted = workspacePersistence.load()
-      if (persisted) {
+      const wanted = this.options.defaultFixture ?? "cascading-conflicts"
+      // A built-in dataset is not the person's data: the configured default wins over a remembered
+      // fixture. Uploaded project files (any other id) are kept.
+      const keep =
+        persisted && (!(persisted.datasetId in DATASET_LABELS) || persisted.datasetId === wanted)
+      if (persisted && keep) {
         const sor = InMemorySystemOfRecord.restore(persisted.system, this.clock)
         this.install(sor, persisted.datasetId, null)
       } else {
-        await this.loadFixtureById(this.options.defaultFixture ?? "cascading-conflicts")
+        await this.loadFixtureById(wanted)
       }
     } catch (error) {
       this.publish({

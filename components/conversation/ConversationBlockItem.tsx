@@ -38,6 +38,7 @@ export function ConversationBlockItem({
   onAction,
   personAvatar = null,
   animate = true,
+  offsetMs = 0,
   working = true,
 }: {
   block: Block
@@ -51,6 +52,8 @@ export function ConversationBlockItem({
   personAvatar?: string | null
   /** False when the turn is already history: no typing, no stagger. */
   animate?: boolean
+  /** Typing starts this much later: earlier blocks of the same reply are still writing. */
+  offsetMs?: number
   /** False while the agent waits on the user: the last step is done, not in progress. */
   working?: boolean
 }) {
@@ -73,7 +76,7 @@ export function ConversationBlockItem({
       ? block.lines.slice(0, 1)
       : block.lines
   const typingMs = typedLines.reduce((ms, line) => ms + lineTypingMs(line) + LINE_GAP_MS, 0)
-  const [typed, setTyped] = useState(!(animate && !frozen) || isActivity)
+  const [typed, setTyped] = useState(!animate || isActivity)
   // A skip ends the animation: the text is whole, so the fold and the buttons follow at once.
   const [animatedFor, setAnimatedFor] = useState(animate)
   if (animatedFor !== animate) {
@@ -82,9 +85,9 @@ export function ConversationBlockItem({
   }
   useEffect(() => {
     if (typed) return
-    const t = window.setTimeout(() => setTyped(true), typingMs)
+    const t = window.setTimeout(() => setTyped(true), offsetMs + typingMs)
     return () => window.clearTimeout(t)
-  }, [typed, typingMs])
+  }, [typed, typingMs, offsetMs])
   const expanded = open ?? (defaultOpen && typed)
   const hasPath = Boolean(block.path && block.path.length > 0)
   const hasDetail = Boolean(block.detail && block.detail.length > 0)
@@ -92,7 +95,7 @@ export function ConversationBlockItem({
   // long as nothing was chosen; decisions do not.
   const showActions =
     block.actions.length > 0 &&
-    (frozen || typed) &&
+    typed &&
     (!frozen || (actionTaken === null && block.actions.every((a) => a.kind === "resend")))
   const speech = block.icon === null && !isActivity
 
@@ -156,10 +159,13 @@ export function ConversationBlockItem({
             <ConversationInlineText
               key={i}
               line={line}
-              typing={!frozen && animate}
-              startDelayMs={visibleLines
-                .slice(0, i)
-                .reduce((ms, prev) => ms + lineTypingMs(prev) + LINE_GAP_MS, 0)}
+              typing={animate}
+              startDelayMs={
+                offsetMs +
+                visibleLines
+                  .slice(0, i)
+                  .reduce((ms, prev) => ms + lineTypingMs(prev) + LINE_GAP_MS, 0)
+              }
               className={cn(
                 isLanding && i === 0 && "font-medium",
                 isEvaluation && "text-muted-foreground text-[13px] leading-[20px]",

@@ -23,6 +23,7 @@ import { avatarFor } from "@/lib/avatar"
 import type { AgentSessionState } from "@/lib/runtime"
 import { crossfade, expand, LINE_GAP_MS, settle, STEP_CADENCE_MS } from "@/lib/motion"
 import { SESSION_LABEL, WORKING_STATES } from "@/lib/session-label"
+import { followUps as suggestNext } from "@/lib/suggestions"
 import { cn } from "@/lib/utils"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
@@ -106,10 +107,33 @@ export function ConversationThread({ missionId }: { missionId: string }) {
     revealing,
     skip,
   } = usePacedReveal(live, (next, i) => delayForBlock(next, i, live[i - 1]), !fresh)
+  // A reply to a question is history the moment it exists; when it answers this session's latest
+  // turn it still writes itself in, block after block.
+  const lastEntry = thread[thread.length - 1]
+  const replay =
+    live.length === 0 &&
+    lastEntry?.kind === "agent" &&
+    fresh &&
+    lastUserAt !== null &&
+    lastEntry.at >= lastUserAt
+      ? lastEntry
+      : null
+  const replayOffsets = replay
+    ? replay.blocks.reduce<number[]>((acc, b, i) => {
+        acc.push(i === 0 ? 0 : acc[i - 1]! + durationOf(replay.blocks[i - 1]!))
+        return acc
+      }, [])
+    : []
   // The last block keeps typing after it is revealed; states that mark "done" wait for it.
   const lastLive = live[live.length - 1]
-  const tailKey = `${live.length}:${lastLive?.id ?? ""}`
-  const tailMs = lastLive && fresh && !skipped && !seen.has(lastLive.id) ? durationOf(lastLive) : 0
+  const tailKey = `${live.length}:${lastLive?.id ?? ""}:${replay?.at ?? ""}`
+  const tailMs = lastLive
+    ? fresh && !skipped && !seen.has(lastLive.id)
+      ? durationOf(lastLive)
+      : 0
+    : replay && !skipped
+      ? replay.blocks.reduce((ms, b) => ms + durationOf(b), 0)
+      : 0
   const [tail, setTail] = useState({ key: tailKey, done: tailMs === 0 })
   if (tail.key !== tailKey) setTail({ key: tailKey, done: tailMs === 0 })
   useEffect(() => {
@@ -237,45 +261,25 @@ export function ConversationThread({ missionId }: { missionId: string }) {
       ? `Updating ${currentStep.label}`
       : SESSION_LABEL[session]
 
-  // Follow-ups are real capabilities, never generated prose (final brief: the conversation never
+  // Follow-ups are real capabilities chosen for this moment (final brief: the conversation never
   // ends in a dead end). Offered once the agent has settled; nothing already asked is repeated.
-  const firstProject =
-    snapshot.graph?.projects.find((p) => p.ownerId === snapshot.actorId)?.name ??
-    snapshot.graph?.projects[0]?.name ??
-    null
   const asked = thread
     .filter((e) => e.kind === "user")
-    .map((e) => (e.kind === "user" ? e.text.trim().toLowerCase() : ""))
-  const notAsked = (text: string) => !asked.includes(text.trim().toLowerCase())
+    .map((e) => (e.kind === "user" ? e.text : ""))
   const followUps: { label: string; run: () => void }[] = settled
-    ? [
-        ...(mission
-          ? [
-              {
-                label: "View activity",
-                run: () => onAction({ kind: "view_activity", label: "View activity" }),
-              },
-            ]
-          : []),
-        ...(firstProject &&
-        !(mission?.goalText ?? "").includes(firstProject) &&
-        notAsked(`What's blocking ${firstProject}?`)
-          ? [
-              {
-                label: `What's blocking ${firstProject}?`,
-                run: () => void onSend(`What's blocking ${firstProject}?`),
-              },
-            ]
-          : []),
-        ...(notAsked("Complete all my projects")
-          ? [
-              {
-                label: "Complete all my projects",
-                run: () => void onSend("Complete all my projects"),
-              },
-            ]
-          : []),
-      ]
+    ? suggestNext({
+        graph: snapshot.graph,
+        actorId: snapshot.actorId,
+        mission,
+        asked,
+        seed: thread.length,
+      }).map((s) => ({
+        label: s.text,
+        run: () =>
+          s.action === "view_activity"
+            ? onAction({ kind: "view_activity", label: "View activity" })
+            : void onSend(s.text),
+      }))
     : []
 
   const lastAgent = [...thread].reverse().find((e) => e.kind === "agent")
@@ -327,6 +331,8 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                         decidedAt={entry.at}
                         onAction={onAction}
                         personAvatar={avatar}
+                        animate={replay === entry && !skipped}
+                        offsetMs={replay === entry ? (replayOffsets[j] ?? 0) : 0}
                       />
                     ))}
                   </ul>
