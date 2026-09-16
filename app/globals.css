@@ -855,3 +855,45 @@
 [data-presence="waiting"] .presence-x rect {
   animation: presence-exhaust 2.4s steps(2) infinite;
 }
+
+/* Streaming label: the shimmer lives in the text colour only, never in a background. */
+.text-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--muted-foreground) 0%,
+    var(--muted-foreground) 35%,
+    var(--foreground) 50%,
+    var(--muted-foreground) 65%,
+    var(--muted-foreground) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: text-shimmer 1.8s linear infinite;
+}
+@keyframes text-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+/* Suggested rows: the four stops on the icon always, on the text while hovered. */
+.icon-vibe [fill="currentColor"] {
+  fill: url(#vibe-gradient);
+}
+.group:hover .text-vibe-hover {
+  background-image: var(--vibe-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  .text-shimmer {
+    animation: none;
+    color: var(--muted-foreground);
+    background: none;
+  }
+}

@@ -33,7 +33,7 @@ export function ConversationInlineText({
             return (
               <span
                 key={i}
-                className="bg-muted text-foreground mx-px inline-flex items-center gap-1 rounded-[5px] px-1.5 py-px align-baseline text-[13px] font-medium"
+                className="bg-muted text-foreground mx-px inline-flex h-[21px] items-center gap-1 rounded-[5px] px-1.5 align-[-5px] text-[13px] leading-none font-medium"
                 title={part.label}
                 data-entity={`${part.ref.kind}:${part.ref.id}`}
               >

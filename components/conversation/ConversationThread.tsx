@@ -11,6 +11,7 @@ import { ArtifactStateChip } from "@/components/artifacts/ArtifactStateChip"
 import { ConversationBlockItem } from "@/components/conversation/ConversationBlockItem"
 import { ConversationComposer } from "@/components/conversation/ConversationComposer"
 import { ConversationFeedbackRow } from "@/components/conversation/ConversationFeedbackRow"
+import { MissionActivityPanel } from "@/components/mission/MissionActivityPanel"
 import { Body } from "@/components/shared/Typography"
 import { Button } from "@/components/ui/button"
 import type { Block, BlockAction } from "@/core/agent/conversation/blocks"
@@ -31,6 +32,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [pinned, setPinned] = useState(true)
   const [dataOpen, setDataOpen] = useState(false)
+  const [activityOpen, setActivityOpen] = useState(false)
 
   const mission = snapshot.status === "ready" ? runtime.mission(missionId) : null
   const thread = snapshot.status === "ready" ? runtime.thread(missionId) : []
@@ -77,7 +79,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
       return
     }
     if (action.kind === "view_activity") {
-      router.push(`/activity?mission=${missionId}`)
+      setActivityOpen(true)
       return
     }
     if (action.kind === "resend") {
@@ -148,7 +150,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
         ...(mission
           ? [
               {
-                label: "View the full activity log",
+                label: "View activity",
                 run: () => onAction({ kind: "view_activity", label: "View activity" }),
               },
             ]
@@ -267,7 +269,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.22 }}
-                        className="text-muted-foreground text-[13px]"
+                        className="text-shimmer text-[13px]"
                       >
                         {workingLabel}
                       </motion.span>
@@ -316,6 +318,11 @@ export function ConversationThread({ missionId }: { missionId: string }) {
         </div>
       </div>
       <AgentDataDialog open={dataOpen} onClose={() => setDataOpen(false)} />
+      <MissionActivityPanel
+        mission={mission}
+        open={activityOpen}
+        onClose={() => setActivityOpen(false)}
+      />
     </div>
   )
 }
