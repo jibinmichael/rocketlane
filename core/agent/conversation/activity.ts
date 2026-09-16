@@ -20,6 +20,14 @@ import type { AgentEvent, AgentEventType } from "@/core/telemetry/events"
  * live while it runs and a clean conversation afterwards.
  */
 
+/** The supplied policies, as a person would read them. */
+const POLICY_EVIDENCE: Record<string, string> = {
+  P1_PROJECT_MILESTONES: "Policy 1 · a project completes only when its milestones are complete",
+  P2_MILESTONE_SUBTASKS: "Policy 2 · a milestone completes only when its subtasks are complete",
+  P3_TASK_PREDECESSORS: "Policy 3 · a task completes only when its predecessors are complete",
+  P4_TASK_TIME: "Policy 4 · a task completes only with time logged",
+}
+
 export type ActivityPhase = {
   readonly index: number
   /** Index in the event log where the phase starts (a boundary event, or 0). */
@@ -90,11 +98,15 @@ function itemFor(
         : null
     case "PLAN_CREATED": {
       if (batch || !target || target.kind !== "project") return null
-      const milestones = graph.milestonesOf(target.id).length
+      const milestoneTasks = graph.milestonesOf(target.id)
+      const milestones = milestoneTasks.length
       return {
         icon: "milestone",
         label: "Checking milestones",
         detail: [text(`${milestones} ${plural(milestones, "milestone")}`)],
+        evidence: milestoneTasks.map(
+          (t) => `${t.name} · ${t.status.toLowerCase().replace("_", " ")}`,
+        ),
       }
     }
     case "POLICY_CHECKED": {
@@ -102,6 +114,14 @@ function itemFor(
         // One line per phase, however many targets were consulted.
         if (soFar.some((i) => i.icon === "policy")) return null
         const checked = typeof event.detail["checked"] === "number" ? event.detail["checked"] : null
+        const policies =
+          typeof event.detail["policies"] === "string"
+            ? event.detail["policies"]
+                .split(",")
+                .map((p) => p.trim())
+                .filter(Boolean)
+                .map((p) => POLICY_EVIDENCE[p] ?? p)
+            : []
         return {
           icon: "policy",
           label: "Checking governance",
@@ -109,6 +129,7 @@ function itemFor(
             checked !== null
               ? [text(`${checked} ${plural(checked, "policy", "policies")} checked`)]
               : null,
+          ...(policies.length > 0 ? { evidence: policies } : {}),
         }
       }
       // Execution-time checks after a human boundary: the plan is being revalidated.

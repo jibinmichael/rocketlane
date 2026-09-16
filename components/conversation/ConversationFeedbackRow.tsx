@@ -1,24 +1,30 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { motion } from "motion/react"
 
 import { LinearIcon } from "@/components/shared/LinearIcon"
 import { cn } from "@/lib/utils"
 
 /**
- * Under a finished answer (ClickUp Brain, Fin): thumbs and copy. Feedback is local to the session;
- * it never changes what the agent did. Once rated, it thanks briefly and leaves the block clean
- * (adapted from the Wati "vibe" feedback artifact).
+ * Under a finished answer (ClickUp Brain, Fin): thumbs and copy, quiet until touched. A vote pops
+ * the chosen thumb once (the YouTube beat: fill, lift, settle), then the row thanks briefly and
+ * leaves the block clean. Feedback is local to the session; it never changes what the agent did.
  */
 export function ConversationFeedbackRow({ text }: { text: string }) {
   const [vote, setVote] = useState<"up" | "down" | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [thanks, setThanks] = useState(false)
   const [gone, setGone] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (!vote) return
-    const t = window.setTimeout(() => setGone(true), 2200)
-    return () => window.clearTimeout(t)
+    const a = window.setTimeout(() => setThanks(true), 720)
+    const b = window.setTimeout(() => setGone(true), 3000)
+    return () => {
+      window.clearTimeout(a)
+      window.clearTimeout(b)
+    }
   }, [vote])
 
   if (gone) return null
@@ -34,54 +40,80 @@ export function ConversationFeedbackRow({ text }: { text: string }) {
   }
 
   return (
-    <div className="flex items-center gap-0.5 pt-1" role="group" aria-label="Rate this result">
-      {vote ? (
-        <span
+    <div className="flex h-7 items-center gap-0.5 pt-1" role="group" aria-label="Rate this result">
+      {thanks ? (
+        <motion.span
+          initial={{ opacity: 0, y: 2 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
           className="text-muted-foreground inline-flex items-center gap-1.5 text-[12px]"
           aria-live="polite"
         >
           <LinearIcon name="check" className="size-3.5" />
           {vote === "up" ? "Thanks for the feedback" : "Noted. Tell me what was off."}
-        </span>
+        </motion.span>
       ) : (
         <>
-          <IconButton label="Helpful" onClick={() => setVote("up")}>
-            <LinearIcon name="thumbs-up" className="size-3.5" />
-          </IconButton>
-          <IconButton label="Not helpful" onClick={() => setVote("down")}>
-            <LinearIcon name="thumbs-down" className="size-3.5" />
-          </IconButton>
+          <Thumb kind="up" pressed={vote === "up"} onClick={() => setVote("up")} />
+          <Thumb kind="down" pressed={vote === "down"} onClick={() => setVote("down")} />
           <span aria-hidden className="bg-border mx-1 h-3.5 w-px" />
-          <IconButton label={copied ? "Copied" : "Copy"} onClick={() => void copy()}>
+          <button
+            type="button"
+            aria-label={copied ? "Copied" : "Copy"}
+            title={copied ? "Copied" : "Copy"}
+            onClick={() => void copy()}
+            className="text-muted-foreground/60 hover:bg-muted hover:text-foreground flex size-7 items-center justify-center rounded-full transition-colors duration-[var(--motion-fast)]"
+          >
             <LinearIcon
-              name={copied ? "check" : "clipboard"}
+              name={copied ? "check" : "document"}
               className={cn("size-3.5", copied && "text-state-completed")}
             />
-          </IconButton>
+          </button>
         </>
       )}
     </div>
   )
 }
 
-function IconButton({
-  label,
+function Thumb({
+  kind,
+  pressed,
   onClick,
-  children,
 }: {
-  label: string
+  kind: "up" | "down"
+  pressed: boolean
   onClick: () => void
-  children: React.ReactNode
 }) {
   return (
-    <button
+    <motion.button
       type="button"
-      aria-label={label}
-      title={label}
+      aria-label={kind === "up" ? "Helpful" : "Not helpful"}
+      title={kind === "up" ? "Helpful" : "Not helpful"}
+      aria-pressed={pressed}
       onClick={onClick}
-      className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-7 items-center justify-center rounded-full transition-colors duration-[var(--motion-fast)]"
+      animate={
+        pressed
+          ? { scale: [1, 1.35, 0.94, 1], rotate: kind === "up" ? [0, -14, 4, 0] : [0, 14, -4, 0] }
+          : { scale: 1, rotate: 0 }
+      }
+      transition={{ duration: 0.55, ease: [0.32, 0.72, 0, 1], times: [0, 0.35, 0.7, 1] }}
+      className={cn(
+        "relative flex size-7 items-center justify-center rounded-full transition-colors duration-[var(--motion-fast)]",
+        pressed
+          ? "text-foreground"
+          : "text-muted-foreground/60 hover:bg-muted hover:text-foreground",
+      )}
     >
-      {children}
-    </button>
+      {pressed && (
+        <motion.span
+          aria-hidden
+          initial={{ scale: 0.4, opacity: 0.6 }}
+          animate={{ scale: 1.9, opacity: 0 }}
+          transition={{ duration: 0.55, ease: "easeOut" }}
+          className="border-foreground/40 absolute inset-1 rounded-full border"
+        />
+      )}
+      <LinearIcon name={kind === "up" ? "thumbs-up" : "thumbs-down"} className="size-3.5" />
+    </motion.button>
   )
 }

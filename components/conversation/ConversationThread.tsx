@@ -25,6 +25,31 @@ const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute:
 const AGENT_NAME = "Governance Agent"
 const AVATARS = 8
 
+/** How long the agent visibly works before a block appears: steps are walked one by one. */
+function delayForBlock(block: Block, index: number): number {
+  if (index === 0) return 760
+  if (block.type === "activity") return 520 + 460 * (block.activity?.length ?? 0)
+  if (block.type === "landing" || block.type === "evaluation") return 900
+  return 560
+}
+
+/** Walks a list of labels on a fixed beat; null when the list is empty. */
+function useCycle(labels: readonly string[], everyMs: number): string | null {
+  const [i, setI] = useState(0)
+  const key = labels.join("|")
+  const [seen, setSeen] = useState(key)
+  if (key !== seen) {
+    setSeen(key)
+    setI(0)
+  }
+  useEffect(() => {
+    if (labels.length < 2) return
+    const t = window.setInterval(() => setI((n) => Math.min(n + 1, labels.length - 1)), everyMs)
+    return () => window.clearInterval(t)
+  }, [key, labels.length, everyMs])
+  return labels[Math.min(i, labels.length - 1)] ?? null
+}
+
 export function ConversationThread({ missionId }: { missionId: string }) {
   const runtime = useRuntime()
   const snapshot = useRuntimeSnapshot()
@@ -37,7 +62,13 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   const mission = snapshot.status === "ready" ? runtime.mission(missionId) : null
   const thread = snapshot.status === "ready" ? runtime.thread(missionId) : []
   const live = snapshot.status === "ready" ? runtime.liveBlocks(missionId) : []
-  const { shown: pacedLive, revealing, skip } = usePacedReveal(live)
+  const { shown: pacedLive, revealing, skip } = usePacedReveal(live, delayForBlock)
+  const nextBlock = live[pacedLive.length]
+  const nextSteps =
+    nextBlock?.type === "activity" && nextBlock.activity
+      ? nextBlock.activity.map((i) => i.label)
+      : []
+  const stepLabel = useCycle(nextSteps, 460)
   const session = runtime.session(missionId)
   const actorIndex = snapshot.actors.findIndex((a) => a.id === snapshot.actorId)
   const actor = actorIndex >= 0 ? snapshot.actors[actorIndex] : undefined
@@ -133,7 +164,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
     ? mission.plan.find((s) => s.id === mission.currentStepId)
     : null
   const workingLabel = revealing
-    ? "Writing"
+    ? (stepLabel ?? "Writing")
     : session === "EXECUTING" && currentStep
       ? `Updating ${currentStep.label}`
       : SESSION_LABEL[session]

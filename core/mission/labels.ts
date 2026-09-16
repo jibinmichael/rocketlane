@@ -8,11 +8,11 @@ export const MISSION_LABEL: Record<MissionState, string> = {
   EXECUTING: "In flight",
   VERIFYING: "Verifying",
   PAUSED: "Paused",
-  COMPLETED: "Landed",
+  COMPLETED: "Completed",
   BLOCKED: "Blocked",
   FAILED: "Could not complete",
   STALE: "Paused — project changed",
   PERMISSION_DENIED: "Not permitted",
   CANCELLED: "Stopped",
-  PARTIALLY_COMPLETED: "Landed with exceptions",
+  PARTIALLY_COMPLETED: "Completed with exceptions",
 }

@@ -12,7 +12,7 @@ export const SESSION_LABEL: Record<AgentSessionState, string> = {
   RECHECKING: "Course correction",
   PAUSING: "Pausing · finishing the current update",
   PAUSED: "Paused",
-  COMPLETED: "Landed",
+  COMPLETED: "Completed",
   ERROR: "Could not continue",
   CANCELLED: "Stopped",
 }

@@ -59,6 +59,8 @@ export type ActivityItem = {
   readonly icon: SemanticIcon
   readonly label: string
   readonly detail: readonly Inline[] | null
+  /** What stands behind the detail ("4 policies checked" → the four policy names), for inspection on hover. */
+  readonly evidence?: readonly string[]
 }
 
 export type BlockType =

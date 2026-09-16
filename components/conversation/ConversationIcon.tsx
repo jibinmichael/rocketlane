@@ -29,11 +29,11 @@ const ICON: Record<SemanticIcon, { name: LinearIconName; rotate?: number }> = {
 
 const TONE_COLOR: Record<Block["tone"], string> = {
   neutral: "text-muted-foreground",
-  blocked: "text-state-blocked",
-  waiting: "text-state-waiting",
-  success: "text-state-completed",
-  paused: "text-state-paused",
-  error: "text-state-error",
+  blocked: "text-muted-foreground",
+  waiting: "text-muted-foreground",
+  success: "text-muted-foreground",
+  paused: "text-muted-foreground",
+  error: "text-muted-foreground",
 }
 
 export function ConversationIcon({

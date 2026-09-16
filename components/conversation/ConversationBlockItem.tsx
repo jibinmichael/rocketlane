@@ -42,7 +42,8 @@ export function ConversationBlockItem({
   const isEvaluation = block.type === "evaluation"
   const isLanding = block.type === "landing"
   const isBlocker = block.type === "blocker"
-  const defaultOpen = isActivity && !block.collapsed && !frozen
+  // Everything stays open while the mission is live; it compacts only once the turn is frozen.
+  const defaultOpen = isActivity ? !block.collapsed && !frozen : !frozen
   const expanded = open ?? defaultOpen
   const hasPath = Boolean(block.path && block.path.length > 0)
   const hasDetail = Boolean(block.detail && block.detail.length > 0)
@@ -102,9 +103,11 @@ export function ConversationBlockItem({
               key={i}
               line={line}
               className={cn(
+                !frozen && "line-reveal",
                 isLanding && i === 0 && "font-medium",
                 isEvaluation && "text-muted-foreground text-[13px]",
               )}
+              {...(!frozen ? { style: { animationDelay: `${i * 140}ms` } } : {})}
             />
           ))}
         </div>
@@ -276,7 +279,7 @@ function StepSpine({
             key={`${item.icon}-${item.label}-${i}`}
             initial={{ opacity: 0, y: -2 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ ...settle, delay: live ? revealDelay(i) : 0 }}
+            transition={{ ...settle, delay: live ? i * 0.26 : 0 }}
             className={cn("relative flex items-center gap-2.5 pl-5", compact ? "py-[3px]" : "py-1")}
           >
             <span
@@ -308,14 +311,54 @@ function StepSpine({
               </span>
             )}
             {item.detail && (
-              <ConversationInlineText
-                line={item.detail}
-                className="text-muted-foreground text-[12px]"
-              />
+              <EvidenceHover evidence={item.evidence}>
+                <ConversationInlineText
+                  line={item.detail}
+                  className="text-muted-foreground text-[12px]"
+                />
+              </EvidenceHover>
             )}
           </motion.li>
         )
       })}
     </ul>
+  )
+}
+
+/**
+ * A detail with something behind it ("4 policies checked") reads as a quiet dotted link; hovering
+ * or focusing shows the evidence in a small card, in place, without leaving the thread.
+ */
+function EvidenceHover({
+  evidence,
+  children,
+}: {
+  evidence: readonly string[] | undefined
+  children: React.ReactNode
+}) {
+  if (!evidence || evidence.length === 0) return <>{children}</>
+  return (
+    <span className="group/evidence relative inline-flex">
+      <span
+        tabIndex={0}
+        className="decoration-muted-foreground/50 focus-visible:ring-ring/50 cursor-help rounded-sm underline decoration-dotted underline-offset-[3px] outline-none focus-visible:ring-2"
+      >
+        {children}
+      </span>
+      <span
+        role="tooltip"
+        className="bg-card text-card-foreground border-border pointer-events-none absolute top-full left-0 z-30 mt-1.5 hidden w-max max-w-[360px] flex-col gap-1 rounded-lg border px-3 py-2 text-[12px] shadow-[var(--shadow-lg)] group-focus-within/evidence:flex group-hover/evidence:flex"
+      >
+        {evidence.map((line, i) => (
+          <span key={i} className="flex items-baseline gap-2">
+            <span
+              aria-hidden
+              className="bg-muted-foreground/60 mt-[2px] size-1.5 shrink-0 rounded-[1px]"
+            />
+            <span className="text-foreground leading-[1.45]">{line}</span>
+          </span>
+        ))}
+      </span>
+    </span>
   )
 }

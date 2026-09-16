@@ -18,12 +18,17 @@ const KIND_ICON: Record<string, LinearIconName> = {
 export function ConversationInlineText({
   line,
   className,
+  style,
 }: {
   line: readonly Inline[]
   className?: string
+  style?: React.CSSProperties
 }) {
   return (
-    <span className={cn("text-foreground text-[14px] leading-[1.6]", className)}>
+    <span
+      className={cn("text-foreground text-[14px] leading-[1.6]", className)}
+      {...(style ? { style } : {})}
+    >
       {line.map((part, i) => {
         switch (part.kind) {
           case "text":

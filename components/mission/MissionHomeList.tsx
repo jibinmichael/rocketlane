@@ -1,34 +1,37 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRef, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 
 import { AgentDataDialog } from "@/components/agent/AgentDataDialog"
 import { AgentPresence } from "@/components/agent/AgentPresence"
-import {
-  ConversationComposer,
-  type ComposerPlaceholder,
-} from "@/components/conversation/ConversationComposer"
+import { ConversationComposer } from "@/components/conversation/ConversationComposer"
 import { MissionHistoryRow } from "@/components/mission/MissionHistoryRow"
 import { MissionQuickActions, quickActionsFor } from "@/components/mission/MissionQuickActions"
+import { LinearIcon } from "@/components/shared/LinearIcon"
 import { Body } from "@/components/shared/Typography"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
 import { settle } from "@/lib/motion"
 
+const AGENT_NAME = "Governance Agent"
+
 /**
- * The agent's front door (final brief §5, §26; docs/design/visual-direction.md). Quiet, in the
- * ClickUp Brain / Notion AI shape: presence, one greeting, the composer, suggested rows, recent
- * missions. On send the greeting lifts away and the composer settles to the bottom, where the
- * mission page keeps it. No module navigation anywhere.
+ * The agent's front door (final brief §5, §26; docs/design/visual-direction.md). Two entrances:
+ * the landing (presence, one greeting, composer, suggested rows, recent missions) and, from
+ * "New chat", chat mode: the greeting as the agent's first turn with suggestion chips and the
+ * composer already at the bottom. On send the composer settles to where the mission page keeps it.
  */
 export function MissionHomeList() {
   const runtime = useRuntime()
   const snapshot = useRuntimeSnapshot()
   const router = useRouter()
+  const params = useSearchParams()
+  const chat = params.get("chat") === "1"
   const [sending, setSending] = useState(false)
   const [dataOpen, setDataOpen] = useState(false)
   const [fill, setFill] = useState<{ text: string; key: number } | null>(null)
+  const fillKey = useRef(0)
   // Relative times are computed against the moment the page rendered; rows never re-tick.
   const [now] = useState(() => Date.now())
 
@@ -45,15 +48,13 @@ export function MissionHomeList() {
 
   const firstProject = snapshot.graph?.projects[0]?.name ?? null
   const actions = quickActionsFor(firstProject)
-  const placeholders: ComposerPlaceholder[] = [
-    { text: "State an outcome.", suggestion: false },
-    ...(firstProject
-      ? [
-          { text: `Complete ${firstProject}`, suggestion: true },
-          { text: `What's blocking ${firstProject}?`, suggestion: true },
-        ]
-      : []),
-  ]
+  const pick = (a: (typeof actions)[number]) => {
+    if (a.fill === null) setDataOpen(true)
+    else {
+      fillKey.current += 1
+      setFill({ text: a.fill, key: fillKey.current })
+    }
+  }
 
   const missions = snapshot.missions
     .map((s) => runtime.mission(s.id))
@@ -64,6 +65,76 @@ export function MissionHomeList() {
       return aNeeds - bNeeds || b.updatedAt - a.updatedAt
     })
     .slice(0, 6)
+
+  const composer = (
+    <ConversationComposer
+      onSend={(t) => void onSend(t)}
+      onAttach={() => setDataOpen(true)}
+      disabled={snapshot.status !== "ready" || sending}
+      autoFocus
+      placeholder="State an outcome."
+      fill={fill}
+    />
+  )
+  const trust = sending ? (
+    <div className="flex items-center gap-2 pt-1">
+      <AgentPresence state="working" size={18} />
+      <Body muted className="text-[12px]">
+        Preparing mission
+      </Body>
+    </div>
+  ) : (
+    <p className="text-muted-foreground text-center text-[11px]">
+      AI can make mistakes. Consequential changes are verified before they&apos;re treated as
+      complete.
+    </p>
+  )
+
+  if (chat) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-6 pt-8 pb-4">
+            <div className="flex gap-3">
+              <span className="flex w-7 shrink-0 justify-center pt-px">
+                <AgentPresence state={sending ? "working" : "idle"} size={26} />
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <span className="text-foreground text-[13px] font-semibold">{AGENT_NAME}</span>
+                <p className="text-foreground text-[14px] leading-[1.6]">
+                  Your projects are already moving. I&apos;ll help keep them on course. State an
+                  outcome and I&apos;ll check governance, trace blockers, make the authorized
+                  changes and verify the result.
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {actions.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => pick(a)}
+                      className="group border-border text-foreground hover:border-foreground/30 flex h-8 items-center gap-2 rounded-full border px-3 text-[13px] transition-colors duration-[var(--motion-fast)]"
+                    >
+                      <LinearIcon name={a.icon} className="icon-vibe size-3.5" />
+                      <span className="text-vibe-hover">{a.title}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="shrink-0 px-6 pt-2 pb-5">
+          <div className="mx-auto flex w-full max-w-[680px] flex-col gap-2">
+            {composer}
+            <div className="min-h-4 px-1" aria-live="polite">
+              {trust}
+            </div>
+          </div>
+        </div>
+        <AgentDataDialog open={dataOpen} onClose={() => setDataOpen(false)} />
+      </div>
+    )
+  }
 
   return (
     <LayoutGroup>
@@ -98,28 +169,9 @@ export function MissionHomeList() {
             transition={settle}
             className={sending ? "mt-auto pb-5" : "flex flex-col gap-2"}
           >
-            <ConversationComposer
-              onSend={(t) => void onSend(t)}
-              onAttach={() => setDataOpen(true)}
-              disabled={snapshot.status !== "ready" || sending}
-              autoFocus
-              placeholders={placeholders}
-              fill={fill}
-            />
+            {composer}
             <div className="min-h-4 px-1" aria-live="polite">
-              {sending ? (
-                <div className="flex items-center gap-2 pt-1">
-                  <AgentPresence state="working" size={18} />
-                  <Body muted className="text-[12px]">
-                    Preparing mission
-                  </Body>
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center text-[11px]">
-                  AI can make mistakes. Consequential changes are verified before they&apos;re
-                  treated as complete.
-                </p>
-              )}
+              {trust}
             </div>
           </motion.div>
 
@@ -134,13 +186,7 @@ export function MissionHomeList() {
                 transition={settle}
                 className="flex flex-1 flex-col gap-6 pt-6 pb-12"
               >
-                <MissionQuickActions
-                  actions={actions}
-                  onPick={(a) => {
-                    if (a.fill === null) setDataOpen(true)
-                    else setFill({ text: a.fill, key: Date.now() })
-                  }}
-                />
+                <MissionQuickActions actions={actions} onPick={pick} />
                 <section className="flex flex-col gap-1">
                   <h2 className="text-muted-foreground px-2.5 text-[12px] font-medium">Recent</h2>
                   {snapshot.status === "error" ? (

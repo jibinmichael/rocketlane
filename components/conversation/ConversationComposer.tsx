@@ -185,7 +185,7 @@ export function ConversationComposer({
               onClick={onAttach}
               className="text-muted-foreground hover:text-foreground hover:bg-muted flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-medium transition-colors duration-[var(--motion-fast)]"
             >
-              <LinearIcon name="bolt" className="text-vibe-1 size-3.5" />
+              <LinearIcon name="upload" className="icon-vibe size-3.5" />
               Test any project files
             </button>
           )}

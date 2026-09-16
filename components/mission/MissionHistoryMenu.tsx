@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils"
 /**
  * Mission history behind the current title (ClickUp Brain pattern: the conversation name is a
  * dropdown of past conversations). On the home it reads "Missions"; on a mission it reads the
- * goal. Rows are grouped by day, needs-you first; "New mission" returns home.
+ * goal. Rows are grouped by day, needs-you first; "New chat" opens the home in chat mode.
  */
 export function MissionHistoryMenu() {
   const runtime = useRuntime()
@@ -86,12 +86,12 @@ export function MissionHistoryMenu() {
             role="menuitem"
             onClick={() => {
               setOpen(false)
-              router.push("/")
+              router.push("/?chat=1")
             }}
             className="text-foreground hover:bg-muted flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors duration-[var(--motion-fast)]"
           >
             <LinearIcon name="plus" className="text-muted-foreground size-3.5" />
-            New mission
+            New chat
           </button>
           {groups.length === 0 ? (
             <p className="text-muted-foreground px-2.5 py-2 text-[12px]">

@@ -1,5 +1,11 @@
+import { Suspense } from "react"
+
 import { MissionHomeList } from "@/components/mission/MissionHomeList"
 
 export default function GovernanceAgentPage() {
-  return <MissionHomeList />
+  return (
+    <Suspense fallback={null}>
+      <MissionHomeList />
+    </Suspense>
+  )
 }

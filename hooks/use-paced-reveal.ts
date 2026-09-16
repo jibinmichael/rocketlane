@@ -3,14 +3,15 @@
 import { useCallback, useEffect, useState } from "react"
 
 /**
- * Meters how many of a growing list are shown, releasing one item every `stepMs`. The engine has
- * already produced the blocks; this only paces their appearance so a turn reads as being written,
- * with the streaming marker visible between items (the human's call, 2026-09-16: anticipation
- * over instant paint). `skip` shows everything at once; the list resets when it shrinks (a new turn).
+ * Meters how many of a growing list are shown. The engine has already produced the blocks; this
+ * paces their appearance so a turn reads as being written, with the streaming marker visible
+ * between items (the human's call, 2026-09-16: anticipation over instant paint). `delayFor` lets
+ * the caller hold longer before heavier items. `skip` shows everything at once; the list resets
+ * when it shrinks (a new turn).
  */
 export function usePacedReveal<T>(
   items: readonly T[],
-  stepMs = 380,
+  delayFor: (next: T, index: number) => number = () => 480,
 ): { shown: readonly T[]; revealing: boolean; skip: () => void } {
   const [count, setCount] = useState(0)
   const target = items.length
@@ -19,12 +20,11 @@ export function usePacedReveal<T>(
 
   useEffect(() => {
     if (count >= target) return
-    const t = window.setTimeout(
-      () => setCount((n) => Math.min(n + 1, target)),
-      count === 0 ? 520 : stepMs,
-    )
+    const next = items[count]
+    const delay = next === undefined ? 480 : delayFor(next, count)
+    const t = window.setTimeout(() => setCount((n) => Math.min(n + 1, target)), delay)
     return () => window.clearTimeout(t)
-  }, [count, target, stepMs])
+  }, [count, target, items, delayFor])
 
   const skip = useCallback(() => setCount(target), [target])
   return { shown: items.slice(0, Math.min(count, target)), revealing: count < target, skip }
