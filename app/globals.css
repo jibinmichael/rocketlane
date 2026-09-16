@@ -313,6 +313,13 @@
     background-position: -120% 0;
   }
 }
+/* Soft light entering the workspace behind the landing hero; fades into the canvas. */
+.hero-atmosphere {
+  background:
+    radial-gradient(circle at 50% -10%, rgba(244, 114, 182, 0.1), transparent 32%),
+    radial-gradient(circle at 42% 0%, rgba(139, 92, 246, 0.08), transparent 36%),
+    radial-gradient(circle at 58% 0%, rgba(96, 165, 250, 0.06), transparent 40%);
+}
 /* Suggested rows: the four stops on the icon always, on the text while hovered. */
 .icon-vibe [fill="currentColor"] {
   fill: url(#vibe-gradient);

@@ -479,6 +479,7 @@ function renderBlockerChain(ctx: Ctx, current: Blocker): Block[] {
         ...first,
         text("."),
       ],
+      [text("I'll take it from here, starting with "), ...first, text(".")],
     ]),
   )
   return blocks
@@ -508,24 +509,43 @@ function chainOf(
       const aboveTask = above.kind === "task" ? graph.task(above.id) : null
       const belowTask = below.kind === "task" ? graph.task(below.id) : null
       const isSubtask = belowTask?.parentTaskId === aboveTask?.id
+      // The first hop is a full sentence; each deeper hop is one short line, one chip, so the
+      // chain reads as a ladder and never wraps into a ragged block.
+      const deeper = i > 1
       lines.push(
         isSubtask
-          ? [
-              entity(above, labelOf(above, graph)),
-              text(" can't complete: subtask "),
-              entity(below, labelOf(below, graph)),
-              text(" is open."),
-              text(" "),
-              policy("P2_MILESTONE_SUBTASKS", POLICY_LABEL.P2_MILESTONE_SUBTASKS),
-            ]
-          : [
-              entity(above, labelOf(above, graph)),
-              text(" can't complete: predecessor "),
-              entity(below, labelOf(below, graph)),
-              text(" is incomplete."),
-              text(" "),
-              policy("P3_TASK_PREDECESSORS", POLICY_LABEL.P3_TASK_PREDECESSORS),
-            ],
+          ? deeper
+            ? [
+                text("Waits on subtask "),
+                entity(below, labelOf(below, graph)),
+                text("."),
+                text(" "),
+                policy("P2_MILESTONE_SUBTASKS", POLICY_LABEL.P2_MILESTONE_SUBTASKS),
+              ]
+            : [
+                entity(above, labelOf(above, graph)),
+                text(" can't complete: subtask "),
+                entity(below, labelOf(below, graph)),
+                text(" is open."),
+                text(" "),
+                policy("P2_MILESTONE_SUBTASKS", POLICY_LABEL.P2_MILESTONE_SUBTASKS),
+              ]
+          : deeper
+            ? [
+                text("Waits on "),
+                entity(below, labelOf(below, graph)),
+                text("."),
+                text(" "),
+                policy("P3_TASK_PREDECESSORS", POLICY_LABEL.P3_TASK_PREDECESSORS),
+              ]
+            : [
+                entity(above, labelOf(above, graph)),
+                text(" can't complete: predecessor "),
+                entity(below, labelOf(below, graph)),
+                text(" is incomplete."),
+                text(" "),
+                policy("P3_TASK_PREDECESSORS", POLICY_LABEL.P3_TASK_PREDECESSORS),
+              ],
       )
     }
   }
@@ -993,7 +1013,7 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
       if (project?.ownerName) {
         lines.push([
           text(
-            `Ask ${project.ownerName} to complete it, or switch the acting user from the workspace menu.`,
+            `Ask ${project.ownerName} to complete it, or switch the acting user from the workspace menu. I'll wait here and recheck as soon as it's done.`,
           ),
         ])
       }

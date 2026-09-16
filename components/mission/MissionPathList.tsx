@@ -55,12 +55,12 @@ export function MissionPathList({ path }: { path: readonly PathNode[] }) {
               {node.label}
             </span>
             {node.state === "actionable" && (
-              <StateChip tone="waiting" className="ml-auto">
+              <StateChip tone="waiting" className="ml-1">
                 Start here
               </StateChip>
             )}
             {node.state === "complete" && (
-              <span className="text-muted-foreground ml-auto text-[11px]">Completed</span>
+              <span className="text-muted-foreground ml-1 text-[11px]">Completed</span>
             )}
           </li>
         )

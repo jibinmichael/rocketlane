@@ -5,6 +5,9 @@ import Image from "next/image"
 
 import { LinearIcon, type LinearIconName } from "@/components/shared/LinearIcon"
 import type { Inline } from "@/core/agent/conversation/blocks"
+import type { WorkspaceGraph } from "@/core/domain/graph"
+import type { ProjectId } from "@/core/domain/ids"
+import { isTaskComplete } from "@/core/domain/status"
 import { useRuntimeSnapshot } from "@/hooks/use-runtime"
 import { avatarFor } from "@/lib/avatar"
 import { cn } from "@/lib/utils"
@@ -62,7 +65,7 @@ export function ConversationInlineText({
 }) {
   const total = line.reduce((n, p) => n + weight(p), 0)
   const shown = useTypewriter(total, typing, startDelayMs)
-  const { actors } = useRuntimeSnapshot()
+  const { actors, graph } = useRuntimeSnapshot()
   const offsets = line.reduce<number[]>((acc, part) => {
     acc.push((acc[acc.length - 1] ?? 0) + weight(part))
     return acc
@@ -80,11 +83,9 @@ export function ConversationInlineText({
           }
           case "entity": {
             const icon = KIND_ICON[part.ref.kind] ?? "issues"
-            return (
+            const chip = (
               <span
-                key={i}
                 className="bg-muted text-foreground mx-px inline-block rounded-full px-2 align-baseline text-[13px] leading-[20px] font-medium whitespace-nowrap"
-                title={part.label}
                 data-entity={`${part.ref.kind}:${part.ref.id}`}
               >
                 <LinearIcon
@@ -92,6 +93,15 @@ export function ConversationInlineText({
                   className="text-muted-foreground mr-1 inline size-3 align-[-1.5px]"
                 />
                 {part.label}
+              </span>
+            )
+            return part.ref.kind === "project" ? (
+              <ProjectHover key={i} id={part.ref.id} graph={graph}>
+                {chip}
+              </ProjectHover>
+            ) : (
+              <span key={i} title={part.label}>
+                {chip}
               </span>
             )
           }
@@ -173,5 +183,50 @@ function PeopleText({
         )
       })}
     </>
+  )
+}
+
+/** The project's macro facts on hover: who owns it, where it stands, what is left. */
+function ProjectHover({
+  id,
+  graph,
+  children,
+}: {
+  id: ProjectId
+  graph: WorkspaceGraph | null
+  children: React.ReactNode
+}) {
+  const project = graph?.project(id) ?? null
+  if (!project || !graph) return <>{children}</>
+  const tasks = graph.tasksOf(project.id)
+  const milestones = graph.milestonesOf(project.id)
+  const openTasks = tasks.filter((t) => !isTaskComplete(t.status)).length
+  const doneMilestones = milestones.filter((t) => isTaskComplete(t.status)).length
+  const facts: [string, string][] = [
+    ["Owner", project.ownerName ?? "Unassigned"],
+    ["Status", project.rawStatus.toLowerCase()],
+    ["Milestones", `${doneMilestones} of ${milestones.length} complete`],
+    ["Tasks", `${openTasks} open of ${tasks.length}`],
+  ]
+  if (project.customerName) facts.unshift(["Customer", project.customerName])
+  if (project.dueDate) facts.push(["Due", project.dueDate])
+  return (
+    <span className="group/project relative inline-block">
+      <span tabIndex={0} className="cursor-help rounded-full outline-none">
+        {children}
+      </span>
+      <span
+        role="tooltip"
+        className="bg-card text-card-foreground border-border pointer-events-none absolute top-full left-0 z-30 mt-1.5 hidden w-max max-w-[320px] flex-col gap-1 rounded-lg border px-3 py-2 text-[12px] shadow-[var(--shadow-lg)] group-focus-within/project:flex group-hover/project:flex"
+      >
+        <span className="text-foreground font-medium">{project.name}</span>
+        {facts.map(([k, v]) => (
+          <span key={k} className="flex items-baseline gap-2 whitespace-nowrap">
+            <span className="text-muted-foreground w-20 shrink-0">{k}</span>
+            <span className="text-foreground">{v}</span>
+          </span>
+        ))}
+      </span>
+    </span>
   )
 }

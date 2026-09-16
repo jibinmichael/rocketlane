@@ -79,7 +79,7 @@ export function MissionHomeList() {
       onAttach={() => setDataOpen(true)}
       disabled={snapshot.status !== "ready" || sending}
       autoFocus
-      placeholder="State an outcome."
+      placeholder={firstProject ? `Complete ${firstProject}.` : "State an outcome."}
       fill={fill}
     />
   )
@@ -92,8 +92,7 @@ export function MissionHomeList() {
     </div>
   ) : (
     <p className="text-muted-foreground text-center text-[11px]">
-      AI can make mistakes. Consequential changes are verified before they&apos;re treated as
-      complete.
+      AI can make mistakes. Every consequential change is verified before it&apos;s marked complete.
     </p>
   )
 
@@ -109,9 +108,8 @@ export function MissionHomeList() {
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <span className="text-foreground text-[13px] font-semibold">{AGENT_NAME}</span>
                 <p className="text-foreground text-[15px] leading-[22px]">
-                  Your projects are already moving. I&apos;ll help keep them on course. State an
-                  outcome and I&apos;ll check governance, trace blockers, make the authorized
-                  changes and verify the result.
+                  Keep every project on course. Tell me the outcome. I&apos;ll handle governance,
+                  dependencies, and verification.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">
                   {actions.map((a) => (
@@ -145,7 +143,7 @@ export function MissionHomeList() {
 
   return (
     <LayoutGroup>
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="hero-atmosphere flex min-h-0 flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-[640px] flex-1 flex-col px-6">
           <AnimatePresence initial={false}>
             {!sending && (
@@ -161,10 +159,11 @@ export function MissionHomeList() {
                 <AgentMark size={56} />
                 <div className="flex flex-col gap-1.5">
                   <h1 className="text-foreground text-[20px] leading-[1.3] font-semibold tracking-[-0.015em]">
-                    Your projects are already moving. I&apos;ll help keep them on course.
+                    Keep every project on course.
                   </h1>
                   <p className="text-muted-foreground text-[13px] leading-[1.55]">
-                    Check governance, trace blockers, make authorized changes, verify the result.
+                    Tell me the outcome. I&apos;ll handle governance, dependencies, and
+                    verification.
                   </p>
                 </div>
               </motion.div>

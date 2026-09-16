@@ -58,8 +58,8 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
     expect(flat(chain!.lines)).toBe(
       [
         "[Acme Implementation] can't complete: milestone [Go-Live] is incomplete. (Policy 1)",
-        "[Go-Live] can't complete: predecessor [Deploy API] is incomplete. (Policy 3)",
-        "[Deploy API] can't complete: predecessor [QA Complete] is incomplete. (Policy 3)",
+        "Waits on [Deploy API]. (Policy 3)",
+        "Waits on [QA Complete]. (Policy 3)",
         "[QA Complete] can't complete: no time is logged. (Policy 4)",
       ].join("\n"),
     )
@@ -70,7 +70,7 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
       "QA Complete:actionable",
     ])
     expect(flat(path!.lines)).toBe(
-      "6 updates to complete [Acme Implementation]. First: log time on [QA Complete].",
+      "6 updates to complete [Acme Implementation]. First: log time on [QA Complete].\nI'll take it from here, starting with log time on [QA Complete].",
     )
     expect(flat(ask!.lines)).toBe(
       [
