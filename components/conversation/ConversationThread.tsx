@@ -174,6 +174,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
             onSend={(t) => void onSend(t)}
             onStop={() => onAction({ kind: "cancel", label: "Stop" })}
             executing={executing}
+            focusKey={mission?.pending?.kind === "input" ? mission.pending.stepId : null}
             placeholder={
               mission?.pending?.kind === "input"
                 ? "Reply with the hours, e.g. 2 hours"

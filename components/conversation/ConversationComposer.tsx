@@ -13,6 +13,7 @@ export function ConversationComposer({
   executing = false,
   placeholder = "What do you want done?",
   autoFocus = false,
+  focusKey = null,
   className,
 }: {
   onSend: (text: string) => void
@@ -21,10 +22,19 @@ export function ConversationComposer({
   executing?: boolean
   placeholder?: string
   autoFocus?: boolean
+  /** Changes when the mission starts waiting for typed input; focus moves here unless the user is elsewhere. */
+  focusKey?: string | null
   className?: string
 }) {
   const [value, setValue] = useState("")
   const ref = useRef<HTMLTextAreaElement | null>(null)
+
+  useEffect(() => {
+    if (!focusKey) return
+    const active = document.activeElement
+    if (active && active !== document.body && active !== ref.current) return
+    ref.current?.focus()
+  }, [focusKey])
   const hasText = value.trim().length > 0
 
   const autogrow = useCallback(() => {

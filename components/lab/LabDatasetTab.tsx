@@ -83,7 +83,7 @@ export function LabDatasetTab({ loadFixture }: { loadFixture: FixtureLoader }) {
         </div>
         <div className="flex flex-col gap-2">
           <span className="text-muted-foreground text-[11px] font-medium tracking-[0.005em] uppercase">
-            Upload your own (Rocketlane two-file export)
+            Test with your project data (Rocketlane two-file export)
           </span>
           <div className="flex flex-wrap items-center gap-3 text-[13px]">
             <label className="flex items-center gap-2">
@@ -145,6 +145,26 @@ export function LabDatasetTab({ loadFixture }: { loadFixture: FixtureLoader }) {
 
       {current && (
         <section className="flex flex-col gap-3">
+          <div className="flex flex-col gap-0.5 px-1">
+            <span className="text-foreground text-[13px] font-medium">Project data loaded.</span>
+            <span className="text-muted-foreground text-[13px] tabular-nums">
+              {current.counts.projects} projects · {current.counts.tasks} tasks ·{" "}
+              {current.counts.dependencies} dependencies · {current.counts.milestones} milestones
+            </span>
+            {current.rejected.length + current.warnings.length + current.findings.length > 0 ? (
+              <span className="text-state-waiting text-[13px] tabular-nums">
+                {current.rejected.length + current.warnings.length}{" "}
+                {current.rejected.length + current.warnings.length === 1
+                  ? "record needs"
+                  : "records need"}{" "}
+                attention · {current.findings.length} data{" "}
+                {current.findings.length === 1 ? "finding" : "findings"}. Nothing was dropped
+                silently.
+              </span>
+            ) : (
+              <span className="text-muted-foreground text-[13px]">No data-quality issues.</span>
+            )}
+          </div>
           <h2 className="text-muted-foreground px-1 text-[11px] font-medium tracking-[0.005em] uppercase">
             Ingestion report · {current.datasetId} · {current.timingMs} ms
           </h2>
