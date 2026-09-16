@@ -6,7 +6,6 @@ import { motion } from "motion/react"
 import { ConversationInlineText } from "@/components/conversation/ConversationInlineText"
 import { MissionPathList } from "@/components/mission/MissionPathList"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import type { Block, BlockAction } from "@/core/agent/conversation/blocks"
 import { revealDelay, settle } from "@/lib/motion"
 import { cn } from "@/lib/utils"
@@ -37,10 +36,9 @@ export function ConversationBlockItem({
   actionTaken: string | null
   isLast?: boolean
   decidedAt?: number | null
-  onAction: (action: BlockAction, payload?: { hours?: number }) => void
+  onAction: (action: BlockAction) => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  const [hours, setHours] = useState("")
   const hasDetail =
     (block.detail && block.detail.length > 0) || (block.path && block.path.length > 0)
   const isLanding = block.type === "landing"
@@ -92,51 +90,23 @@ export function ConversationBlockItem({
 
         {showActions && (
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            {block.actions.map((action) =>
-              action.kind === "log_time" ? (
-                <form
-                  key={action.stepId}
-                  className="flex items-center gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    const value = Number.parseFloat(hours)
-                    if (value > 0) onAction(action, { hours: value })
-                  }}
-                >
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    min={0.25}
-                    step={0.25}
-                    placeholder="Hours"
-                    value={hours}
-                    onChange={(e) => setHours(e.target.value)}
-                    aria-label="Hours to log"
-                    aria-describedby={`${block.id}-text`}
-                    className="h-8 w-24 text-[13px] tabular-nums"
-                  />
-                  <Button type="submit" size="sm" disabled={!(Number.parseFloat(hours) > 0)}>
-                    {action.label}
-                  </Button>
-                </form>
-              ) : (
-                <Button
-                  key={`${action.kind}-${"stepId" in action ? action.stepId : action.label}`}
-                  type="button"
-                  size="sm"
-                  variant={
-                    action.kind === "approve" && action.impact === "high"
-                      ? "default"
-                      : action.kind === "decline" || action.kind === "cancel"
-                        ? "ghost"
-                        : "outline"
-                  }
-                  onClick={() => onAction(action)}
-                >
-                  {action.label}
-                </Button>
-              ),
-            )}
+            {block.actions.map((action) => (
+              <Button
+                key={`${action.kind}-${"stepId" in action ? action.stepId : action.label}`}
+                type="button"
+                size="sm"
+                variant={
+                  action.kind === "approve" && action.impact === "high"
+                    ? "default"
+                    : action.kind === "decline" || action.kind === "cancel"
+                      ? "ghost"
+                      : "outline"
+                }
+                onClick={() => onAction(action)}
+              >
+                {action.label}
+              </Button>
+            ))}
           </div>
         )}
         {frozen && actionTaken && isLast && (

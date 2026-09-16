@@ -1,9 +1,9 @@
-import type { Block, BlockAction } from "@/core/agent/conversation/blocks"
+import { type Block, type BlockAction, carriesDecision } from "@/core/agent/conversation/blocks"
 import { renderIntentReply, renderMission } from "@/core/agent/conversation/renderer"
 import { DeterministicInterpreter } from "@/core/agent/intent/deterministic"
 import { ground } from "@/core/agent/intent/ground"
 import { reconcile } from "@/core/agent/intent/reconcile"
-import type { IntentProposal, InterpretationContext } from "@/core/agent/intent/intent"
+import type { Intent, IntentProposal, InterpretationContext } from "@/core/agent/intent/intent"
 import { conduct } from "@/core/agent/conductor"
 import type { Actor } from "@/core/domain/entities"
 import { WorkspaceGraph } from "@/core/domain/graph"
@@ -375,7 +375,7 @@ export class Runtime {
     // A typed turn freezes the narrative but never the open decision: its buttons stay live so a
     // question asked while waiting ("why?") cannot strand the mission.
     const live = this.liveBlocks(missionId).filter(
-      (b) => actionTaken !== null || b.actions.length === 0,
+      (b) => actionTaken !== null || !carriesDecision(b),
     )
     if (live.length === 0 && !actionTaken) return
     const entries = this.threads[missionId] ?? []
@@ -403,7 +403,33 @@ export class Runtime {
       kind: "agent",
       blocksJson: JSON.stringify(blocks),
       at: this.clock.now(),
-    } as ThreadEntry)
+      actionTaken: null,
+    })
+    this.threads[missionId] = entries
+    threadPersistence.save(this.threads)
+  }
+
+  /** The decision block was on screen before the answer was typed; the record keeps that order. */
+  private insertBeforeLastUser(
+    missionId: string,
+    blocks: readonly Block[],
+    actionTaken: string,
+  ): void {
+    if (blocks.length === 0) return
+    const entries = this.threads[missionId] ?? []
+    let index = entries.length
+    for (let i = entries.length - 1; i >= 0; i -= 1) {
+      if (entries[i]?.kind === "user") {
+        index = i
+        break
+      }
+    }
+    entries.splice(index, 0, {
+      kind: "agent",
+      blocksJson: JSON.stringify(blocks),
+      at: this.clock.now(),
+      actionTaken,
+    })
     this.threads[missionId] = entries
     threadPersistence.save(this.threads)
   }
@@ -449,6 +475,8 @@ export class Runtime {
     const graph = this.sor?.current()
     const actor = this.actor()
     if (!graph || !this.engine || !actor) return missionId
+    // Empty input is not a turn: a waiting mission keeps waiting, nothing is written or replied.
+    if (utterance.trim() === "") return missionId
     const current = missionId ? this.mission(missionId) : null
     const scopeProject =
       current?.targets[0]?.kind === "project" ? (current.targets[0].id as ProjectId) : undefined
@@ -483,6 +511,9 @@ export class Runtime {
     const interpretedBy = intent.source === "model" ? "model" : "deterministic"
 
     // One conductor maps the grounded intent to exactly one engine command (shared with the Lab).
+    // If this turn answers the open decision, its block freezes with a receipt, like a button would.
+    const decision = missionId ? this.liveBlocks(missionId).filter(carriesDecision) : []
+    const pendingBefore = current?.pending ?? null
     let startedId: string | null = null
     let outcome: Awaited<ReturnType<typeof conduct>>
     try {
@@ -515,8 +546,19 @@ export class Runtime {
     switch (outcome.kind) {
       case "started":
         return outcome.missionId
-      case "applied":
+      case "applied": {
+        const after = missionId ? this.mission(missionId) : null
+        const receipt = receiptFor(intent, actor.name)
+        if (
+          missionId &&
+          pendingBefore &&
+          receipt &&
+          resolvedPending(pendingBefore, after?.pending ?? null)
+        ) {
+          this.insertBeforeLastUser(missionId, decision, receipt)
+        }
         return missionId
+      }
       case "reply": {
         // No command to run: reply in the mission's thread, or in a scratch thread with a synthetic id.
         const scratchId = missionId ?? this.newMissionId("reply")
@@ -529,11 +571,7 @@ export class Runtime {
   }
 
   /** Inline block actions (buttons). */
-  async act(
-    missionId: string,
-    action: BlockAction,
-    payload: { hours?: number } = {},
-  ): Promise<string> {
+  async act(missionId: string, action: BlockAction): Promise<string> {
     if (!this.engine) return missionId
     // A clarification in a scratch thread has no mission yet: picking a candidate starts one.
     if (action.kind === "pick_candidate") {
@@ -564,13 +602,11 @@ export class Runtime {
     if (!mission) return missionId
     const who = this.actor()?.name ?? "you"
     const label =
-      action.kind === "log_time" && payload.hours
-        ? `Logged ${payload.hours}h by ${who}`
-        : action.kind === "approve"
-          ? `Confirmed by ${who}`
-          : action.kind === "decline"
-            ? `Declined by ${who}`
-            : action.label
+      action.kind === "approve"
+        ? `Confirmed by ${who}`
+        : action.kind === "decline"
+          ? `Declined by ${who}`
+          : action.label
     this.freeze(missionId, label)
     try {
       switch (action.kind) {
@@ -580,12 +616,6 @@ export class Runtime {
           break
         case "decline":
           await this.engine.decline(missionId, action.stepId)
-          break
-        case "log_time":
-          if (payload.hours && payload.hours > 0) {
-            this.setBusy(missionId, "EXECUTING")
-            await this.engine.provideHours(missionId, action.stepId, payload.hours)
-          }
           break
         case "continue":
           this.setBusy(missionId, "RECHECKING")
@@ -628,12 +658,8 @@ export class Runtime {
           missionId = await this.send(turn.text, missionId)
           break
         case "hours":
-          if (mission?.pending?.kind === "input_hours")
-            await this.act(
-              missionId!,
-              { kind: "log_time", stepId: mission.pending.stepId, label: "Log time" },
-              { hours: turn.hours },
-            )
+          // The value arrives the way a person would give it: in the conversation.
+          if (mission?.pending?.kind === "input") await this.send(`${turn.hours} hours`, missionId)
           break
         case "approve":
           if (mission?.pending?.kind === "confirm_step")
@@ -721,5 +747,26 @@ function parseBlocks(json: string): Block[] | null {
     return Array.isArray(value) ? (value as Block[]) : null
   } catch {
     return null
+  }
+}
+
+function resolvedPending(before: Mission["pending"], after: Mission["pending"]): boolean {
+  if (!before) return false
+  if (!after) return true
+  if (after.kind !== before.kind) return true
+  return "stepId" in after && "stepId" in before && after.stepId !== before.stepId
+}
+
+/** Receipt for a decision answered in the conversation; null when the turn was not an answer. */
+function receiptFor(intent: Intent, who: string): string | null {
+  switch (intent.kind) {
+    case "log_time":
+      return `Logged ${intent.hours} ${intent.hours === 1 ? "hour" : "hours"} by ${who}`
+    case "approve":
+      return `Confirmed by ${who}`
+    case "decline":
+      return `Declined by ${who}`
+    default:
+      return null
   }
 }

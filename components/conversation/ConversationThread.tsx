@@ -40,12 +40,12 @@ export function ConversationThread({ missionId }: { missionId: string }) {
     setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 80)
   }
 
-  const onAction = (action: BlockAction, payload?: { hours?: number }) => {
+  const onAction = (action: BlockAction) => {
     if (action.kind === "view_activity") {
       router.push(`/activity?mission=${missionId}`)
       return
     }
-    void runtime.act(missionId, action, payload).then((id) => {
+    void runtime.act(missionId, action).then((id) => {
       if (id !== missionId) router.push(`/m/${id}`)
     })
   }
@@ -175,8 +175,8 @@ export function ConversationThread({ missionId }: { missionId: string }) {
             onStop={() => onAction({ kind: "cancel", label: "Stop" })}
             executing={executing}
             placeholder={
-              mission?.pending?.kind === "input_hours"
-                ? "Type the hours, e.g. 2h"
+              mission?.pending?.kind === "input"
+                ? "Reply with the hours, e.g. 2 hours"
                 : "Reply, or state a new outcome"
             }
           />
