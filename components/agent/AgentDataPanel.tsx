@@ -118,7 +118,10 @@ export function AgentDataPanel({ onLoaded }: { onLoaded?: () => void }) {
             )}
           >
             {attention > 0 && (
-              <LinearIcon name="alert" className="text-state-waiting mt-[3px] size-3.5 shrink-0" />
+              <LinearIcon
+                name="alert"
+                className="text-muted-foreground mt-[3px] size-3.5 shrink-0"
+              />
             )}
             <span>
               {attention > 0
@@ -140,19 +143,19 @@ export function AgentDataPanel({ onLoaded }: { onLoaded?: () => void }) {
             <ul className="border-border divide-border bg-card mt-1 max-h-48 divide-y overflow-y-auto rounded-lg border text-[12px]">
               {current.rejected.map((r, i) => (
                 <li key={`r-${i}`} className="text-muted-foreground px-3 py-1.5">
-                  <span className="text-foreground">Rejected</span> · {r.file}:{r.line} · {r.reason}{" "}
-                  · {r.detail}
+                  <span className="text-foreground">Rejected</span> · {r.file}:{r.line} ·{" "}
+                  {humanise(r.reason)} · {r.detail}
                 </li>
               ))}
               {current.warnings.map((w, i) => (
                 <li key={`w-${i}`} className="text-muted-foreground px-3 py-1.5">
-                  <span className="text-foreground">Warning</span> · {w.file}:{w.line} · {w.reason}{" "}
-                  · {w.detail}
+                  <span className="text-foreground">Warning</span> · {w.file}:{w.line} ·{" "}
+                  {humanise(w.reason)} · {w.detail}
                 </li>
               ))}
               {current.findings.map((f, i) => (
                 <li key={`f-${i}`} className="text-muted-foreground px-3 py-1.5">
-                  <span className="text-foreground">{f.kind}</span> · {f.detail}
+                  <span className="text-foreground">{humanise(f.kind)}</span> · {f.detail}
                 </li>
               ))}
             </ul>
@@ -218,4 +221,10 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/** A code like MALFORMED_DATE reads as "Malformed date". */
+function humanise(code: string): string {
+  const words = code.toLowerCase().replace(/_/g, " ")
+  return words.charAt(0).toUpperCase() + words.slice(1)
 }

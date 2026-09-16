@@ -9,10 +9,11 @@ import { AgentPresence } from "@/components/agent/AgentPresence"
 import { ConversationComposer } from "@/components/conversation/ConversationComposer"
 import { MissionHistoryRow } from "@/components/mission/MissionHistoryRow"
 import { MissionQuickActions, quickActionsFor } from "@/components/mission/MissionQuickActions"
+import { HeightReveal } from "@/components/shared/HeightReveal"
 import { LinearIcon } from "@/components/shared/LinearIcon"
 import { Body } from "@/components/shared/Typography"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
-import { settle } from "@/lib/motion"
+import { crossfade, settle } from "@/lib/motion"
 
 const AGENT_NAME = "Governance Agent"
 
@@ -153,7 +154,7 @@ export function MissionHomeList() {
                 layout
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12, transition: { duration: 0.18 } }}
+                exit={{ opacity: 0, y: -12, transition: crossfade }}
                 transition={settle}
                 className="flex flex-1 flex-col items-center justify-end gap-5 pt-16 pb-6 text-center"
               >
@@ -188,7 +189,7 @@ export function MissionHomeList() {
                 layout
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                exit={{ opacity: 0, transition: { duration: 0.14 } }}
+                exit={{ opacity: 0, transition: crossfade }}
                 transition={settle}
                 className="flex flex-1 flex-col gap-6 pt-6 pb-12"
               >
@@ -207,37 +208,39 @@ export function MissionHomeList() {
                       className="size-3 transition-transform duration-[var(--motion-fast)]"
                     />
                   </button>
-                  {!recentOpen ? null : snapshot.status === "error" ? (
-                    <Body className="text-state-error px-2.5 text-[13px]">
-                      The workspace could not load: {snapshot.error}. Use the workspace menu to
-                      reset the project data.
-                    </Body>
-                  ) : snapshot.status !== "ready" ? (
-                    <Body muted className="px-2.5 text-[13px]">
-                      Loading workspace…
-                    </Body>
-                  ) : missions.length === 0 ? (
-                    <Body muted className="px-2.5 text-[13px]">
-                      Nothing yet. The first outcome you state starts one.
-                    </Body>
-                  ) : (
-                    <ul className="flex flex-col">
-                      {recent.map((m) => (
-                        <MissionHistoryRow key={m.id} mission={m} now={now} />
-                      ))}
-                      {missions.length > 3 && (
-                        <li>
-                          <button
-                            type="button"
-                            onClick={() => setRecentAll((v) => !v)}
-                            className="text-muted-foreground hover:text-foreground h-8 px-2.5 text-[12px] font-medium transition-colors duration-[var(--motion-fast)]"
-                          >
-                            {recentAll ? "Show fewer" : `Show all ${missions.length}`}
-                          </button>
-                        </li>
-                      )}
-                    </ul>
-                  )}
+                  <HeightReveal open={recentOpen}>
+                    {snapshot.status === "error" ? (
+                      <Body className="text-state-error px-2.5 text-[13px]">
+                        The workspace could not load: {snapshot.error}. Use the workspace menu to
+                        reset the project data.
+                      </Body>
+                    ) : snapshot.status !== "ready" ? (
+                      <Body muted className="px-2.5 text-[13px]">
+                        Loading workspace…
+                      </Body>
+                    ) : missions.length === 0 ? (
+                      <Body muted className="px-2.5 text-[13px]">
+                        Nothing yet. The first outcome you state starts one.
+                      </Body>
+                    ) : (
+                      <ul className="flex flex-col">
+                        {recent.map((m) => (
+                          <MissionHistoryRow key={m.id} mission={m} now={now} />
+                        ))}
+                        {missions.length > 3 && (
+                          <li>
+                            <button
+                              type="button"
+                              onClick={() => setRecentAll((v) => !v)}
+                              className="text-muted-foreground hover:text-foreground h-8 px-2.5 text-[12px] font-medium transition-colors duration-[var(--motion-fast)]"
+                            >
+                              {recentAll ? "Show fewer" : `Show all ${missions.length}`}
+                            </button>
+                          </li>
+                        )}
+                      </ul>
+                    )}
+                  </HeightReveal>
                 </section>
               </motion.div>
             )}

@@ -2,10 +2,12 @@
 
 import { useEffect, useId, useRef, useState } from "react"
 import Link from "next/link"
+import { AnimatePresence, motion } from "motion/react"
 import { usePathname, useRouter } from "next/navigation"
 
 import { ConversationIcon } from "@/components/conversation/ConversationIcon"
 import { LinearIcon } from "@/components/shared/LinearIcon"
+import { settle } from "@/lib/motion"
 import type { Block, SemanticIcon } from "@/core/agent/conversation/blocks"
 import type { Mission } from "@/core/mission/mission"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
@@ -74,68 +76,75 @@ export function MissionHistoryMenu() {
         <span className="truncate">{current ? current.goalText : "Missions"}</span>
         <LinearIcon name="chevron-down" className="text-muted-foreground size-3 shrink-0" />
       </button>
-      {open && (
-        <div
-          id={panelId}
-          role="menu"
-          aria-label="Mission history"
-          className="border-border bg-card text-card-foreground absolute top-full left-0 z-30 mt-1.5 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border p-1.5 shadow-[var(--shadow-lg)]"
-        >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false)
-              router.push("/?chat=1")
-            }}
-            className="text-foreground hover:bg-muted flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors duration-[var(--motion-fast)]"
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            key="menu"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={settle}
+            id={panelId}
+            role="menu"
+            aria-label="Mission history"
+            className="border-border bg-card text-card-foreground absolute top-full left-0 z-30 mt-1.5 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border p-1.5 shadow-[var(--shadow-lg)]"
           >
-            <LinearIcon name="plus" className="text-muted-foreground size-3.5" />
-            New chat
-          </button>
-          {groups.length === 0 ? (
-            <p className="text-muted-foreground px-2.5 py-2 text-[12px]">
-              Nothing yet. The first outcome you state starts one.
-            </p>
-          ) : (
-            <div className="max-h-[60vh] overflow-y-auto">
-              {groups.map((g) => (
-                <div key={g.label} className="pt-1.5">
-                  <span className="text-muted-foreground block px-2.5 pb-1 text-[12px] font-medium">
-                    {g.label}
-                  </span>
-                  {g.items.map((m) => {
-                    const { icon, tone } = presentation(m)
-                    return (
-                      <Link
-                        key={m.id}
-                        role="menuitem"
-                        href={`/m/${m.id}`}
-                        className={cn(
-                          "hover:bg-muted flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors duration-[var(--motion-fast)]",
-                          m.id === currentId && "bg-muted/70",
-                        )}
-                      >
-                        <span className="flex w-4 shrink-0 justify-center">
-                          <ConversationIcon name={icon} tone={tone} />
-                        </span>
-                        <span className="text-foreground min-w-0 flex-1 truncate">
-                          {m.goalText}
-                        </span>
-                        {m.pending && (
-                          <span className="text-state-waiting shrink-0 text-[11px] font-medium">
-                            Needs you
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false)
+                router.push("/?chat=1")
+              }}
+              className="text-foreground hover:bg-muted flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors duration-[var(--motion-fast)]"
+            >
+              <LinearIcon name="plus" className="text-muted-foreground size-3.5" />
+              New chat
+            </button>
+            {groups.length === 0 ? (
+              <p className="text-muted-foreground px-2.5 py-2 text-[12px]">
+                Nothing yet. The first outcome you state starts one.
+              </p>
+            ) : (
+              <div className="max-h-[60vh] overflow-y-auto">
+                {groups.map((g) => (
+                  <div key={g.label} className="pt-1.5">
+                    <span className="text-muted-foreground block px-2.5 pb-1 text-[12px] font-medium">
+                      {g.label}
+                    </span>
+                    {g.items.map((m) => {
+                      const { icon, tone } = presentation(m)
+                      return (
+                        <Link
+                          key={m.id}
+                          role="menuitem"
+                          href={`/m/${m.id}`}
+                          className={cn(
+                            "hover:bg-muted flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors duration-[var(--motion-fast)]",
+                            m.id === currentId && "bg-muted/70",
+                          )}
+                        >
+                          <span className="flex w-4 shrink-0 justify-center">
+                            <ConversationIcon name={icon} tone={tone} />
                           </span>
-                        )}
-                      </Link>
-                    )
-                  })}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+                          <span className="text-foreground min-w-0 flex-1 truncate">
+                            {m.goalText}
+                          </span>
+                          {m.pending && (
+                            <span className="text-state-waiting shrink-0 text-[11px] font-medium">
+                              Needs you
+                            </span>
+                          )}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

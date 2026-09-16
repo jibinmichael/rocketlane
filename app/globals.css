@@ -311,53 +311,6 @@
   }
 }
 
-/* Agent presence (docs/design/visual-direction.md). The halo turns only while working; eyes blink
-   on a 5s cycle; the face breathes while working. All neutral grey. */
-@keyframes presence-halo {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@keyframes presence-breathe {
-  0%,
-  100% {
-    transform: scale(1) translateX(0);
-  }
-  30% {
-    transform: scale(0.95) translateX(-1.5px);
-  }
-  50% {
-    transform: scale(1) translateX(0);
-  }
-  70% {
-    transform: scale(0.95) translateX(1.5px);
-  }
-}
-@keyframes presence-blink {
-  0%,
-  88%,
-  100% {
-    transform: scaleY(1);
-  }
-  92% {
-    transform: scaleY(0.15);
-  }
-  96% {
-    transform: scaleY(1);
-  }
-}
-@keyframes presence-dot {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: translateY(0);
-  }
-  50% {
-    opacity: 1;
-    transform: translateY(-1px);
-  }
-}
-
 /* Brick-game rocket (AgentPresence): rows drop in cell steps, bottom row first, hold, blink twice, clear. */
 @keyframes presence-drop-0 {
   0% {

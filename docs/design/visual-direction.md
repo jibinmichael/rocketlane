@@ -14,17 +14,17 @@ One direction for the last pass. Decided against the references the human holds,
 
 ## Vibrance (decided with the ClickUp Brain² reference, 2026-09-16)
 
-Four stops, used in four places only: Iris `#7B68EE` → Pink `#FF6EC7` → Amber `#FFB955` → Sky `#49CCF9`. Presence halo (blurred, turning while working), composer focus ring (soft iris), active Send, Stop ring. Everything else neutral. Type scale matched to ClickUp, Linear and Notion: greeting 20/600, body 13, meta 12, eyebrow 11, composer 14.
+Four stops: Iris `#7B68EE` → Pink `#FF6EC7` → Amber `#FFB955` → Sky `#49CCF9`. Where they appear: the pixel rocket, the composer focus ring (soft iris), the active Send (lifted toward white), the Stop ring, the gradient glyphs and hover text on the suggested rows and chips, and the upload drop zone while a file hovers. Everything else neutral. Type scale from the Linear file: greeting 20, message body 15/22, rows and chips 13, secondary 12, meta 11.
 
 ## Decisions
 
 - **Accent: none.** Neutral grey only. Colour is reserved for state dots and state icons (success, waiting, blocked, paused, error) at the restrained chroma already in the tokens. The indigo `--accent-brand` token is neutralised, not used.
-- **Font: Avenir Next** (installed on the recording machine, no font files in the repo, not Wati's identity). System stack as fallback. Weights 400/500/600.
+- **Font: system UI stack** (-apple-system, SF Pro Text, Segoe UI, Roboto). No font files in the repo. Weights 400/500/600.
 - **Dark mode: skipped** for this pass. Tokens stay defined, nothing is reviewed.
-- **No left borders, no bubbles for the agent, no emoji anywhere.** Warnings and state use lucide icons at 14px, tone-coloured, subordinate to text.
-- **Mascot:** `AgentPresence`. Two square eyes on a white disc, blink every 5s, the vibrant halo behind. The halo rotates only while the agent is working; it fades on landing; eyes rest half-closed while paused. It is the agent's face on the home page (60px) and the agent's marker on the thread's working row (16px). It never emotes beyond state.
-- **Home is a peer-agent landing, not a form.** Vertically centred: presence, "Your projects are already moving. I'll help keep them on course.", support line, composer, four quick actions that map to real capabilities (complete the first project, what blocks it, complete my projects, test with project data), trust line, previous missions below the fold.
-- **Composer** is one component on the home and the mission page: attach inside (opens "Test with project data" in place), trailing control swaps Send → Pause (Esc) → Resume by state, rotating placeholder only on the home.
+- **No left borders, no bubbles for the agent, no emoji anywhere.** Icons are the Linear Design System set (exported from the Figma community file, inlined with `currentColor`), muted grey by default; state colour appears only on step, path and timeline markers at reduced strength and on chips. The single lucide glyph left is Pause in the composer; the Stop ring's glyph is foreground on purpose.
+- **Mascot:** `AgentPresence`, one pixel rocket in the brick-game idiom (rows drop in cell steps, stack, hold, blink, clear while working; assembled and ticking when idle; dimmed when paused; still on landing). 56px on the home, 20px as the agent's avatar, 22px on the streaming row. It never emotes beyond state.
+- **Home is a peer-agent landing, not a form.** Vertically centred: presence, "Your projects are already moving. I'll help keep them on course.", support line, composer, four suggested rows that map to real capabilities (complete the first project the acting user owns, what blocks it, complete my projects, test with project files), trust line, recent missions (three by default, collapsible). "New chat" opens the same home in chat mode.
+- **Composer** is one component on the home and the mission page: "Test any project files" inside on the left (opens the upload modal), trailing control grows from Send into the Stop ring while a turn is streaming or the engine is in flight (Esc does the same), then Resume while paused. Fixed placeholder "State an outcome."
 - **Surfaces:** canvas `--background` off-white, `--card` white for composer, panels, dialogs; hairline `--border`; shadows only on the composer and floating layers.
 
 ## Order of work
@@ -35,3 +35,12 @@ Four stops, used in four places only: Iris `#7B68EE` → Pink `#FF6EC7` → Ambe
 4. Mission page: band, working row, user pills, block typography, decision buttons, chips.
 5. Workspace dialog and data panel surfaces.
 6. Screenshots of every state; fix what reads wrong.
+
+## Chips and markers
+
+One chip grammar everywhere (`StateChip`, `ArtifactStateChip`): a round filled dot on a softly tinted field, ink text. One marker grammar: the Linear circle set (ring pending, half-filled current, check done, close failed) at reduced strength, in step lists, the dependency path and the activity timeline. Decision receipts use the check glyph. No squares, no hand-drawn dots.
+
+## Motion and pacing
+
+Tokens only: `settle`, `crossfade`, `expand`, `springEnter`, `easeOut` from `lib/motion.ts`; folds use `HeightReveal`. Streaming is paced on purpose (the human's call, 2026-09-16): a block starts only after the previous one has finished typing or landing its steps, plus a beat; live lines type at 28ms per character; live steps land on `STEP_CADENCE_MS`. A mission opened from history renders whole.
+

@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useState } from "react"
 
+import { HeightReveal } from "@/components/shared/HeightReveal"
+
 import { LinearIcon, type LinearIconName } from "@/components/shared/LinearIcon"
 import type { Mission } from "@/core/mission/mission"
 import type { AgentEvent, AgentEventType } from "@/core/telemetry/events"
@@ -176,7 +178,7 @@ export function MissionActivityPanel({
                         : ""}
                   </span>
                 )}
-                {audit && (
+                <HeightReveal open={audit}>
                   <dl className="bg-muted/60 mt-1 grid grid-cols-[92px_1fr] gap-x-3 gap-y-0.5 rounded-lg px-2.5 py-2 text-[11px]">
                     <dt className="text-muted-foreground">event</dt>
                     <dd className="text-foreground truncate font-mono lowercase">{e.type}</dd>
@@ -185,7 +187,7 @@ export function MissionActivityPanel({
                     {e.refs.length > 0 && (
                       <>
                         <dt className="text-muted-foreground">targets</dt>
-                        <dd className="text-foreground font-mono break-all">
+                        <dd className="text-foreground font-mono break-all lowercase">
                           {e.refs.map((r) => `${r.kind}:${r.id}`).join(", ")}
                         </dd>
                       </>
@@ -196,7 +198,7 @@ export function MissionActivityPanel({
                     <dt className="text-muted-foreground">id</dt>
                     <dd className="text-foreground truncate font-mono">{e.id}</dd>
                   </dl>
-                )}
+                </HeightReveal>
               </div>
             </li>
           )

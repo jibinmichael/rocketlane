@@ -1,4 +1,5 @@
 import { LinearIcon } from "@/components/shared/LinearIcon"
+import { StateChip } from "@/components/shared/StateChip"
 import type { PathNode } from "@/core/agent/conversation/blocks"
 import { cn } from "@/lib/utils"
 
@@ -54,12 +55,12 @@ export function MissionPathList({ path }: { path: readonly PathNode[] }) {
               {node.label}
             </span>
             {node.state === "actionable" && (
-              <span className="bg-status-warning-soft text-state-waiting/90 ml-auto inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium">
+              <StateChip tone="waiting" className="ml-auto">
                 Start here
-              </span>
+              </StateChip>
             )}
             {node.state === "complete" && (
-              <span className="text-muted-foreground ml-auto text-[11px]">complete</span>
+              <span className="text-muted-foreground ml-auto text-[11px]">Completed</span>
             )}
           </li>
         )

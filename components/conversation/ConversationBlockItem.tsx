@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { AnimatePresence, motion } from "motion/react"
+import { motion } from "motion/react"
 
 import { ConversationIcon } from "@/components/conversation/ConversationIcon"
 import {
@@ -10,10 +10,12 @@ import {
   lineTypingMs,
 } from "@/components/conversation/ConversationInlineText"
 import { MissionPathList } from "@/components/mission/MissionPathList"
+import { HeightReveal } from "@/components/shared/HeightReveal"
 import { LinearIcon } from "@/components/shared/LinearIcon"
+import { StateChip } from "@/components/shared/StateChip"
 import { Button } from "@/components/ui/button"
 import type { ActivityItem, Block, BlockAction } from "@/core/agent/conversation/blocks"
-import { revealDelay, settle } from "@/lib/motion"
+import { revealDelay, settle, STEP_CADENCE_MS } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
@@ -83,9 +85,9 @@ export function ConversationBlockItem({
         <Fold open={expanded} onToggle={() => setOpen(!expanded)} strong={live}>
           {label}
         </Fold>
-        <Reveal open={expanded}>
+        <HeightReveal open={expanded}>
           <StepSpine items={items} live={live && animate} />
-        </Reveal>
+        </HeightReveal>
       </motion.li>
     )
   }
@@ -141,7 +143,7 @@ export function ConversationBlockItem({
             <Fold open={expanded} onToggle={() => setOpen(!expanded)}>
               {expanded ? "Hide why" : "Show why"}
             </Fold>
-            <Reveal open={expanded}>
+            <HeightReveal open={expanded}>
               <ul className="flex flex-col gap-0.5">
                 {restLines.map((line, i) => (
                   <li key={i}>
@@ -150,7 +152,7 @@ export function ConversationBlockItem({
                 ))}
               </ul>
               {block.path && <MissionPathList path={block.path} />}
-            </Reveal>
+            </HeightReveal>
           </>
         )}
 
@@ -161,9 +163,9 @@ export function ConversationBlockItem({
                 ? "Hide the updates"
                 : `Show the ${block.activity.length} ${block.activity.length === 1 ? "update" : "updates"}`}
             </Fold>
-            <Reveal open={expanded}>
+            <HeightReveal open={expanded}>
               <StepSpine items={block.activity} live={false} compact pill="Completed" />
-            </Reveal>
+            </HeightReveal>
           </>
         )}
 
@@ -172,7 +174,7 @@ export function ConversationBlockItem({
             <Fold open={expanded} onToggle={() => setOpen(!expanded)}>
               {expanded ? "Hide evidence" : "View evidence"}
             </Fold>
-            <Reveal open={expanded}>
+            <HeightReveal open={expanded}>
               <StepSpine items={block.activity} live={false} compact />
               {block.detail && (
                 <ul className="flex flex-col gap-0.5">
@@ -186,7 +188,7 @@ export function ConversationBlockItem({
                   ))}
                 </ul>
               )}
-            </Reveal>
+            </HeightReveal>
           </>
         )}
 
@@ -195,7 +197,7 @@ export function ConversationBlockItem({
             <Fold open={expanded} onToggle={() => setOpen(!expanded)}>
               {expanded ? "Hide detail" : block.path ? "Show full path" : "Show detail"}
             </Fold>
-            <Reveal open={expanded}>
+            <HeightReveal open={expanded}>
               {block.path && <MissionPathList path={block.path} />}
               {block.detail && (
                 <ul className="mt-1 flex flex-col gap-0.5">
@@ -209,7 +211,7 @@ export function ConversationBlockItem({
                   ))}
                 </ul>
               )}
-            </Reveal>
+            </HeightReveal>
           </>
         )}
 
@@ -237,7 +239,7 @@ export function ConversationBlockItem({
         )}
         {frozen && actionTaken && isLast && (
           <span className="text-muted-foreground mt-1 inline-flex items-center gap-1.5 text-[12px]">
-            <span aria-hidden className="bg-state-completed/70 size-1.5 rounded-full" />
+            <LinearIcon name="check" className="text-state-completed/80 size-3" />
             {actionTaken}
             {decidedAt !== null && (
               <span className="tabular-nums"> · {timeFormat.format(new Date(decidedAt))}</span>
@@ -283,7 +285,7 @@ function Fold({
 
 /**
  * Observable work as a brick spine (ClickUp Brain, in our pixel grammar): a hairline down the
- * left, one square per step, the current step's square solid. Rows enter as their events arrive.
+ * left, one circle per step, the current step half-filled, done steps checked. Rows enter as their events arrive.
  * `pill` labels every row with a muted state pill (the landing list).
  */
 function StepSpine({
@@ -309,7 +311,7 @@ function StepSpine({
             key={`${item.icon}-${item.label}-${i}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ ...settle, delay: live ? i * 0.45 : 0 }}
+            transition={{ ...settle, delay: live ? (i * STEP_CADENCE_MS) / 1000 : 0 }}
             className={cn("relative flex items-center gap-2.5 pl-5", compact ? "py-[3px]" : "py-1")}
           >
             <span
@@ -334,16 +336,9 @@ function StepSpine({
               {item.label}
             </span>
             {pill && (
-              <span
-                className={cn(
-                  "inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium",
-                  failed
-                    ? "bg-status-error-soft text-state-error/90"
-                    : "bg-status-success-soft text-state-completed/90",
-                )}
-              >
+              <StateChip tone={failed ? "error" : "completed"}>
                 {failed ? "Failed" : pill}
-              </span>
+              </StateChip>
             )}
             {item.detail && (
               <EvidenceHover evidence={item.evidence}>
@@ -386,41 +381,14 @@ function EvidenceHover({
       >
         {evidence.map((line, i) => (
           <span key={i} className="flex items-baseline gap-2">
-            <span
-              aria-hidden
-              className="bg-muted-foreground/60 mt-[2px] size-1.5 shrink-0 rounded-[1px]"
+            <LinearIcon
+              name="circle"
+              className="text-muted-foreground/50 mt-[3px] size-2.5 shrink-0"
             />
             <span className="text-foreground leading-[1.45]">{line}</span>
           </span>
         ))}
       </span>
     </span>
-  )
-}
-
-/** Opens and closes with height and fade on the product's ease; nothing appears or vanishes cut. */
-function Reveal({ open, children }: { open: boolean; children: React.ReactNode }) {
-  // Mounted open (no entry animation) counts as settled, so hover cards are never clipped.
-  const [settled, setSettled] = useState(open)
-  return (
-    <AnimatePresence initial={false} onExitComplete={() => setSettled(false)}>
-      {open && (
-        <motion.div
-          key="reveal"
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          onAnimationStart={() => setSettled(false)}
-          onAnimationComplete={() => setSettled(true)}
-          transition={{
-            height: { duration: 0.26, ease: [0.32, 0.72, 0, 1] },
-            opacity: { duration: 0.2, ease: [0.32, 0.72, 0, 1] },
-          }}
-          className={cn("flex flex-col gap-1", settled ? "overflow-visible" : "overflow-hidden")}
-        >
-          {children}
-        </motion.div>
-      )}
-    </AnimatePresence>
   )
 }

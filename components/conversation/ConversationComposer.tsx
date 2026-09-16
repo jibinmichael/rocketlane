@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { Pause } from "lucide-react"
 
 import { LinearIcon } from "@/components/shared/LinearIcon"
-import { springEnter } from "@/lib/motion"
+import { crossfade, springEnter } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
 const MAX_HEIGHT_PX = 180
@@ -160,14 +160,14 @@ export function ConversationComposer({
                 initial={{ y: "100%", opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: "-100%", opacity: 0 }}
-                transition={{ y: springEnter, opacity: { duration: 0.18 } }}
+                transition={{ y: springEnter, opacity: crossfade }}
                 className="flex items-center gap-2"
               >
                 <span className="text-muted-foreground truncate text-[14px] leading-[1.6]">
                   {current.text}
                 </span>
                 {current.suggestion && (
-                  <kbd className="bg-muted text-muted-foreground inline-flex shrink-0 items-center rounded-[4px] px-1.5 py-0.5 font-sans text-[10.5px] leading-none font-semibold">
+                  <kbd className="bg-muted text-muted-foreground inline-flex shrink-0 items-center rounded-[4px] px-1.5 py-0.5 font-sans text-[11px] leading-none font-semibold">
                     tab
                   </kbd>
                 )}
@@ -183,15 +183,26 @@ export function ConversationComposer({
             <button
               type="button"
               onClick={onAttach}
-              className="text-muted-foreground hover:text-foreground hover:bg-muted flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-medium transition-colors duration-[var(--motion-fast)]"
+              className="text-muted-foreground hover:text-foreground hover:bg-muted flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium transition-colors duration-[var(--motion-fast)]"
             >
               <LinearIcon name="upload" className="icon-vibe size-3.5" />
               Test any project files
             </button>
           )}
-          {executing && (
-            <span className="text-muted-foreground truncate pl-1 text-[12px]">Esc pauses</span>
-          )}
+          <AnimatePresence initial={false}>
+            {executing && (
+              <motion.span
+                key="esc"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={crossfade}
+                className="text-muted-foreground truncate pl-1 text-[12px]"
+              >
+                Esc pauses
+              </motion.span>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="flex items-center gap-1">

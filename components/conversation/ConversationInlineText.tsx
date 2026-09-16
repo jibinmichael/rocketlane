@@ -95,7 +95,7 @@ export function ConversationInlineText({
             return (
               <span
                 key={i}
-                className="text-muted-foreground border-border ml-1 inline rounded-[4px] border px-1 py-px text-[11px] font-medium tracking-[0.005em]"
+                className="text-muted-foreground border-border ml-1 inline rounded-[4px] border px-1 py-px text-[11px] font-medium"
                 data-policy={part.policyId}
               >
                 {part.label}

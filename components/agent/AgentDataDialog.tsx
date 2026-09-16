@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react"
 
 import { AgentDataPanel } from "@/components/agent/AgentDataPanel"
 import { LinearIcon } from "@/components/shared/LinearIcon"
-import { settle } from "@/lib/motion"
+import { crossfade, settle } from "@/lib/motion"
 
 /**
  * "Test any project files" as a modal (Delphi / Perplexity upload pattern): one surface, a drop
@@ -37,8 +37,8 @@ export function AgentDataDialog({ open, onClose }: { open: boolean; onClose: () 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.16 }}
-          className="fixed inset-0 z-40 flex items-start justify-center bg-black/20 px-4 pt-[12vh] backdrop-blur-[2px]"
+          transition={crossfade}
+          className="bg-foreground/20 fixed inset-0 z-40 flex items-start justify-center px-4 pt-[12vh] backdrop-blur-[2px]"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) onClose()
           }}

@@ -20,7 +20,7 @@ import { isTerminal, type MissionState } from "@/core/mission/mission"
 import { usePacedReveal } from "@/hooks/use-paced-reveal"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
 import type { AgentSessionState } from "@/lib/runtime"
-import { springEnter } from "@/lib/motion"
+import { crossfade, expand, settle, springEnter } from "@/lib/motion"
 import { SESSION_LABEL, WORKING_STATES } from "@/lib/session-label"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
@@ -284,75 +284,94 @@ export function ConversationThread({ missionId }: { missionId: string }) {
               ),
             )}
 
-            {showLive && (
-              <AgentTurn
-                at={null}
-                state={working || revealing ? "working" : "idle"}
-                live
-                pill={working || revealing ? null : pill}
-              >
-                {/* Live region: new agent blocks are announced; frozen history is not re-read. */}
-                <ul className="flex flex-col" aria-live="polite" aria-relevant="additions">
-                  {pacedLive.map((block) => (
-                    <ConversationBlockItem
-                      key={block.id}
-                      block={block}
-                      index={0}
-                      frozen={false}
-                      actionTaken={null}
-                      onAction={onAction}
-                      personAvatar={avatar}
-                      animate={fresh}
-                    />
-                  ))}
-                </ul>
-                <AnimatePresence initial={false}>
-                  {(working || revealing) && (
-                    <motion.div
-                      key="working"
-                      initial={{ opacity: 0, y: -2 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.18 }}
-                      className="relative flex items-center py-1"
-                      aria-live="polite"
-                    >
-                      <span className="absolute top-1/2 -left-[29px] flex w-5 -translate-y-1/2 justify-center">
-                        <AgentPresenceStreaming />
-                      </span>
-                      <AnimatePresence mode="popLayout" initial={false}>
-                        <motion.span
-                          key={workingLabel}
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -4 }}
-                          transition={{ duration: 0.22 }}
-                          className="text-shimmer text-[13px] leading-[22px]"
-                        >
-                          {workingLabel}
-                        </motion.span>
-                      </AnimatePresence>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                {settled && feedbackText && <ConversationFeedbackRow text={feedbackText} />}
-              </AgentTurn>
-            )}
-
-            {followUps.length > 0 && (
-              <div className="flex flex-wrap gap-2 pl-10">
-                {followUps.map((f) => (
-                  <button
-                    key={f.label}
-                    type="button"
-                    onClick={f.run}
-                    className="border-border text-foreground hover:bg-muted h-8 rounded-full border px-3.5 text-[13px] transition-colors duration-[var(--motion-fast)]"
+            <AnimatePresence initial={false}>
+              {showLive && (
+                <motion.div
+                  key="live-turn"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={settle}
+                >
+                  <AgentTurn
+                    at={null}
+                    state={working || revealing ? "working" : "idle"}
+                    live
+                    pill={working || revealing ? null : pill}
                   >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            )}
+                    {/* Live region: new agent blocks are announced; frozen history is not re-read. */}
+                    <ul className="flex flex-col" aria-live="polite" aria-relevant="additions">
+                      {pacedLive.map((block) => (
+                        <ConversationBlockItem
+                          key={block.id}
+                          block={block}
+                          index={0}
+                          frozen={false}
+                          actionTaken={null}
+                          onAction={onAction}
+                          personAvatar={avatar}
+                          animate={fresh}
+                        />
+                      ))}
+                    </ul>
+                    <AnimatePresence initial={false}>
+                      {(working || revealing) && (
+                        <motion.div
+                          key="working"
+                          initial={{ opacity: 0, y: -2 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          transition={crossfade}
+                          className="relative flex items-center py-1"
+                          aria-live="polite"
+                        >
+                          <span className="absolute top-1/2 -left-[29px] flex w-5 -translate-y-1/2 justify-center">
+                            <AgentPresenceStreaming />
+                          </span>
+                          <AnimatePresence mode="popLayout" initial={false}>
+                            <motion.span
+                              key={workingLabel}
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -4 }}
+                              transition={crossfade}
+                              className="text-shimmer text-[13px] leading-[22px]"
+                            >
+                              {workingLabel}
+                            </motion.span>
+                          </AnimatePresence>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    {settled && feedbackText && <ConversationFeedbackRow text={feedbackText} />}
+                  </AgentTurn>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence initial={false}>
+              {followUps.length > 0 && (
+                <motion.div
+                  key="follow-ups"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={settle}
+                  className="flex flex-wrap gap-2 pl-10"
+                >
+                  {followUps.map((f) => (
+                    <button
+                      key={f.label}
+                      type="button"
+                      onClick={f.run}
+                      className="border-border text-foreground hover:bg-muted h-8 rounded-full border px-3.5 text-[13px] transition-colors duration-[var(--motion-fast)]"
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
         <div className="shrink-0 px-6 pt-2 pb-5">
@@ -386,7 +405,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
             exit={{ width: 0, opacity: 0 }}
             transition={{
               width: springEnter,
-              opacity: { duration: 0.22, ease: [0.32, 0.72, 0, 1] },
+              opacity: expand,
             }}
             className="h-full shrink-0 overflow-hidden"
           >
@@ -457,9 +476,19 @@ function AgentTurn({
           <span className="text-muted-foreground text-[11px] tabular-nums">
             {at === null ? (live ? "Now" : "") : timeFormat.format(new Date(at))}
           </span>
-          {pill && (
-            <ArtifactStateChip state={pill.state} session={pill.session} className="h-5 px-2" />
-          )}
+          <AnimatePresence initial={false}>
+            {pill && (
+              <motion.span
+                key="pill"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={crossfade}
+              >
+                <ArtifactStateChip state={pill.state} session={pill.session} className="h-5 px-2" />
+              </motion.span>
+            )}
+          </AnimatePresence>
         </div>
         {children}
       </div>

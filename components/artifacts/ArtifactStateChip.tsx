@@ -84,7 +84,6 @@ export function ArtifactStateChip({
         className={cn(
           "size-1.5 rounded-full transition-colors duration-[var(--motion-normal)]",
           DOT_CLASS[tone],
-          tone === "working" && "animate-pulse",
         )}
       />
       {MISSION_LABEL[state]}

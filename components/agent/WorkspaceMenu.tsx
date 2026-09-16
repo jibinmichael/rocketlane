@@ -258,8 +258,8 @@ function OutsideWorld() {
           onChange={(e) => setFault(e.target.value as typeof fault)}
           aria-label="Fault"
         >
-          <option value="timeout_once">timeout once</option>
-          <option value="fail_once">fail once</option>
+          <option value="timeout_once">Timeout once</option>
+          <option value="fail_once">Fail once</option>
         </select>
         <Button size="sm" variant="outline" className="rounded-full" onClick={arm} disabled={!task}>
           Arm on next write
