@@ -23,6 +23,7 @@ const noTarget = (kind: IntentProposal["kind"]) => ({
   targetSpans: [],
   hours: null,
   all: false,
+  mine: false,
 })
 
 function spanOf(match: RegExpMatchArray, groupIndex: number, utterance: string): Span[] {
@@ -92,6 +93,7 @@ const RULES: readonly Rule[] = [
       targetSpans: targetSpan(m, 2, u),
       hours: Number.parseFloat(m[1]!),
       all: false,
+      mine: false,
     }),
   },
   {
@@ -101,6 +103,7 @@ const RULES: readonly Rule[] = [
       targetSpans: targetSpan(m, 2, u),
       hours: Number.parseFloat(m[1]!),
       all: false,
+      mine: false,
     }),
   },
   {
@@ -110,6 +113,7 @@ const RULES: readonly Rule[] = [
       targetSpans: [],
       hours: Number.parseFloat(m[1]!),
       all: false,
+      mine: false,
     }),
   },
   {
@@ -119,6 +123,7 @@ const RULES: readonly Rule[] = [
       targetSpans: targetSpan(m, 1, u),
       hours: null,
       all: false,
+      mine: false,
     }),
   },
   {
@@ -128,6 +133,7 @@ const RULES: readonly Rule[] = [
       targetSpans: targetSpan(m, 1, u),
       hours: null,
       all: false,
+      mine: false,
     }),
   },
   {
@@ -141,6 +147,7 @@ const RULES: readonly Rule[] = [
         targetSpans: target ? targetSpan(target, 1, u) : [],
         hours: null,
         all: false,
+        mine: false,
       }
     },
   },
@@ -151,6 +158,7 @@ const RULES: readonly Rule[] = [
       targetSpans: targetSpan(m, 1, u),
       hours: null,
       all: false,
+      mine: false,
     }),
   },
   {
@@ -164,9 +172,27 @@ const RULES: readonly Rule[] = [
     build: () => noTarget("show_status"),
   },
   {
+    // "my projects" narrows to what the actor owns; it never widens to the workspace.
+    pattern:
+      /\b(?:mark|complete|close(?:\s+out)?|finish|wrap\s+up|set)\s+(?:all\s+(?:of\s+)?)?(?:my\s+projects|the\s+projects\s+I\s+own|projects\s+I\s+own|everything\s+I\s+own)\b/i,
+    build: () => ({
+      kind: "complete_target",
+      targetSpans: [],
+      hours: null,
+      all: true,
+      mine: true,
+    }),
+  },
+  {
     pattern:
       /\b(?:mark|complete|close(?:\s+out)?|finish|wrap\s+up|set)\s+(?:all\s+(?:the\s+)?projects|every\s+project|all\s+of\s+them)\b/i,
-    build: () => ({ kind: "complete_target", targetSpans: [], hours: null, all: true }),
+    build: () => ({
+      kind: "complete_target",
+      targetSpans: [],
+      hours: null,
+      all: true,
+      mine: false,
+    }),
   },
   {
     pattern:
@@ -176,6 +202,7 @@ const RULES: readonly Rule[] = [
       targetSpans: targetSpan(m, 1, u),
       hours: null,
       all: false,
+      mine: false,
     }),
   },
 ]

@@ -41,6 +41,8 @@ export const IntentProposalSchema = z.object({
   hours: z.number().positive().nullable(),
   /** "all projects" style requests. */
   all: z.boolean(),
+  /** "my projects": limit `all` to projects the acting user owns. Never widens scope. */
+  mine: z.boolean().default(false),
   confidence: z.number().min(0).max(1),
   source: z.enum(["deterministic", "model"]),
 })
@@ -97,7 +99,14 @@ export type Intent =
     }
   | {
       readonly kind: "unsupported"
-      readonly reason: "out_of_scope" | "target_not_found" | "no_target"
+      readonly reason:
+        | "out_of_scope"
+        | "target_not_found"
+        | "no_target"
+        /** In scope for the product, not supported yet: scoping by assignee or date. */
+        | "unsupported_scope"
+        /** "my projects" resolved to nothing the actor owns. */
+        | "none_owned"
       readonly query: string | null
       readonly utterance: string
       readonly source: IntentProposal["source"]

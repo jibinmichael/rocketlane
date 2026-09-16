@@ -43,6 +43,14 @@ export type FailureClass =
   | "duplicate"
   | "partial_execution"
 
+/** Closed set of step annotations. Rendering and aggregation branch on these, never on prose. */
+export type StepNote =
+  | "confirmed"
+  | "declined by user"
+  | "completed before scope change"
+  | "blocked upstream"
+  | "failed upstream"
+
 export type PlanStep = {
   /** Stable: hash(missionId, ref, transition). Doubles as the idempotency key (D-20). */
   readonly id: string
@@ -58,7 +66,7 @@ export type PlanStep = {
   readonly retries: number
   readonly observedVersion: number | null
   readonly blockers: readonly Blocker[]
-  readonly note: string | null
+  readonly note: StepNote | null
 }
 
 export type Decision = {

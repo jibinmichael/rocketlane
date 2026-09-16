@@ -381,14 +381,19 @@ function renderPending(ctx: Ctx, target: EntityRef): Block[] {
   if (pending.kind === "input_hours") {
     const step = mission.plan.find((s) => s.id === pending.stepId)
     if (!step) return []
+    // The consequence stays visible: whose task it is, and whose time this will be (north star).
+    const actor = actorName(graph, mission.actorId)
+    const task = step.ref.kind === "task" ? graph.task(step.ref.id) : null
+    const assignees = (task?.assigneeNames ?? []).filter((name) => name !== actor)
+    const attribution =
+      assignees.length > 0
+        ? `It's assigned to ${joinNames(assignees)}; hours you enter are recorded as yours.`
+        : "Hours you enter are recorded as yours."
     return [
       block(
         "action_request.input",
         "waiting",
-        [
-          [text("I need hours for "), entity(step.ref, step.label), text(".")],
-          [text(`Logged as ${actorName(graph, mission.actorId)}.`)],
-        ],
+        [[text("I need hours for "), entity(step.ref, step.label), text(".")], [text(attribution)]],
         [{ kind: "log_time", stepId: step.id, label: "Log time" }],
       ),
     ]
@@ -672,6 +677,28 @@ export function renderIntentReply(
           ]),
         ]
       }
+      if (intent.reason === "unsupported_scope") {
+        return [
+          block("boundary", "neutral", [
+            [
+              text(
+                "I can't scope by assignee or date yet. Name a project or task and I'll take it from there.",
+              ),
+            ],
+          ]),
+        ]
+      }
+      if (intent.reason === "none_owned") {
+        return [
+          block("boundary", "neutral", [
+            [
+              text(
+                "You don't own a project in this workspace. Name one and I'll check what I'm allowed to do.",
+              ),
+            ],
+          ]),
+        ]
+      }
       return [
         block("boundary", "neutral", [
           [text("I can only act on projects, tasks and governance in this workspace.")],
@@ -847,6 +874,11 @@ function statusWord(ref: EntityRef, graph: WorkspaceGraph): string {
   if (ref.kind === "task")
     return (graph.task(ref.id)?.status ?? "open").toLowerCase().replace("_", " ")
   return "open"
+}
+
+function joinNames(names: readonly string[]): string {
+  if (names.length <= 1) return names[0] ?? ""
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
 }
 
 function actorName(graph: WorkspaceGraph, actorId: ActorId | null): string {

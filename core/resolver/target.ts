@@ -21,6 +21,8 @@ export type Candidate = { readonly ref: EntityRef; readonly label: string; reado
 
 /** Two candidates closer than this are treated as a tie → clarification (spec §2A). */
 const AMBIGUITY_MARGIN = 0.15
+/** Exact or normalised-exact match (see `scoreName`). */
+const EXACT_SCORE = 0.98
 const MIN_SCORE = 0.45
 
 export function resolveProject(query: string, graph: WorkspaceGraph): TargetResolution {
@@ -73,6 +75,10 @@ function pick(query: string, candidates: readonly Candidate[]): TargetResolution
   const best = ranked[0]
   if (!best) return { status: "not_found", query }
   const second = ranked[1]
+  // An exact name is never ambiguous against a longer name that merely starts with it.
+  if (best.score >= EXACT_SCORE && (!second || second.score < EXACT_SCORE)) {
+    return { status: "resolved", ref: best.ref, label: best.label, score: best.score }
+  }
   if (second && best.score - second.score < AMBIGUITY_MARGIN && best.label !== second.label) {
     return { status: "ambiguous", candidates: ranked.slice(0, 4) }
   }

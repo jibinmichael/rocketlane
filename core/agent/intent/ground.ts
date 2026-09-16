@@ -5,18 +5,25 @@ import {
   spanText,
 } from "@/core/agent/intent/intent"
 import type { WorkspaceGraph } from "@/core/domain/graph"
-import type { EntityRef, ProjectId } from "@/core/domain/ids"
+import type { ActorId, EntityRef, ProjectId } from "@/core/domain/ids"
 import { resolveAny, resolveTask } from "@/core/resolver/target"
 
 /**
  * Deterministic grounding: spans → entity refs (D-04). Runs on every proposal regardless of which
  * interpreter produced it. Ambiguity becomes a clarification; nothing is guessed.
  */
+export type GroundingScope = {
+  /** The active mission's project: task names resolve inside it first. */
+  readonly projectId?: ProjectId
+  /** The acting user: "my projects" resolves against what they own. */
+  readonly actorId?: ActorId
+}
+
 export function ground(
   rawProposal: unknown,
   utterance: string,
   graph: WorkspaceGraph,
-  scope: { projectId?: ProjectId } = {},
+  scope: GroundingScope = {},
 ): Intent {
   const parsed = IntentProposalSchema.safeParse(rawProposal)
   if (!parsed.success) {
@@ -43,7 +50,13 @@ export function ground(
       return { kind: proposal.kind, utterance, source }
     case "unsupported":
     case "ambiguous":
-      return { kind: "unsupported", reason: "out_of_scope", query: null, utterance, source }
+      return {
+        kind: "unsupported",
+        reason: asksForUnsupportedScope(utterance) ? "unsupported_scope" : "out_of_scope",
+        query: null,
+        utterance,
+        source,
+      }
     case "log_time": {
       const hours = proposal.hours
       if (hours === null || !Number.isFinite(hours) || hours <= 0) {
@@ -75,8 +88,20 @@ export function ground(
     case "explain_blocker":
     case "show_path":
     case "create_routine": {
-      if (proposal.all && proposal.kind === "complete_target") {
-        const targets: EntityRef[] = graph.projects.map((p) => ({ kind: "project", id: p.id }))
+      if ((proposal.all || proposal.mine) && proposal.kind === "complete_target") {
+        const projects = proposal.mine
+          ? graph.projects.filter((p) => scope.actorId !== undefined && p.ownerId === scope.actorId)
+          : graph.projects
+        if (projects.length === 0) {
+          return {
+            kind: "unsupported",
+            reason: proposal.mine ? "none_owned" : "no_target",
+            query: null,
+            utterance,
+            source,
+          }
+        }
+        const targets: EntityRef[] = projects.map((p) => ({ kind: "project", id: p.id }))
         return { kind: "complete_target", targets, utterance, source }
       }
       const targets: EntityRef[] = []
@@ -86,7 +111,14 @@ export function ground(
         if (resolved.status === "resolved") targets.push(resolved.ref)
         else if (resolved.status === "ambiguous")
           return { kind: "ambiguous", query, candidates: resolved.candidates, utterance, source }
-        else return { kind: "unsupported", reason: "target_not_found", query, utterance, source }
+        else
+          return {
+            kind: "unsupported",
+            reason: asksForUnsupportedScope(utterance) ? "unsupported_scope" : "target_not_found",
+            query,
+            utterance,
+            source,
+          }
       }
       if (
         targets.length === 0 &&
@@ -97,6 +129,13 @@ export function ground(
       return { kind: proposal.kind, targets, utterance, source }
     }
   }
+}
+
+/** Assignee and date scoping are in the product's domain but not built; the reply must say so. */
+function asksForUnsupportedScope(utterance: string): boolean {
+  return /\b(?:assigned\s+to|assignee|owned\s+by|before\s+(?:the\s+)?end\s+of|by\s+(?:end\s+of\s+)?(?:day|week|month|friday|monday|tuesday|wednesday|thursday|saturday|sunday|tomorrow)|this\s+week|next\s+week|overdue|due\s+(?:this|next|by|before))\b/i.test(
+    utterance,
+  )
 }
 
 /** "why is it blocked?" — a pronoun is a reference to the current mission, never a name to look up. */
