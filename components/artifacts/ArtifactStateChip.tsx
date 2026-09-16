@@ -37,7 +37,17 @@ const SESSION_TONE: Record<AgentSessionState, Tone> = {
   CANCELLED: "paused",
 }
 
-/** Neutral chip, coloured dot: state reads from the dot and the word, never from a tinted field. */
+/** A round filled dot plus a softly tinted field, both from the state; text stays ink. */
+const FIELD_CLASS: Record<Tone, string> = {
+  ready: "bg-muted",
+  working: "bg-muted",
+  waiting: "bg-status-warning-soft",
+  blocked: "bg-status-error-soft",
+  paused: "bg-status-warning-soft",
+  error: "bg-status-error-soft",
+  completed: "bg-status-success-soft",
+}
+
 const DOT_CLASS: Record<Tone, string> = {
   ready: "bg-state-ready",
   working: "bg-state-working",
@@ -64,7 +74,8 @@ export function ArtifactStateChip({
   return (
     <span
       className={cn(
-        "bg-muted text-foreground/80 inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium tabular-nums transition-colors duration-[var(--motion-normal)]",
+        "text-foreground/80 inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium tabular-nums transition-colors duration-[var(--motion-normal)]",
+        FIELD_CLASS[tone],
         className,
       )}
     >

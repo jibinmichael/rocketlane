@@ -1,3 +1,4 @@
+import { LinearIcon } from "@/components/shared/LinearIcon"
 import type { PathNode } from "@/core/agent/conversation/blocks"
 import { cn } from "@/lib/utils"
 
@@ -18,19 +19,30 @@ export function MissionPathList({ path }: { path: readonly PathNode[] }) {
             {!last && (
               <span
                 aria-hidden
-                className="bg-border absolute top-[22px] left-[5px] h-[calc(100%-14px)] w-px"
+                className="bg-border absolute top-[22px] left-[6px] h-[calc(100%-14px)] w-px"
               />
             )}
             <span
               aria-hidden
-              className={cn(
-                "relative z-10 size-[11px] shrink-0 rounded-full border-[1.5px]",
-                node.state === "complete" && "border-state-completed bg-state-completed",
-                node.state === "actionable" && "border-state-waiting bg-status-warning-soft",
-                node.state === "open" && "border-border bg-background",
-                node.state === "target" && "border-foreground bg-background",
-              )}
-            />
+              className="bg-background relative z-10 flex size-[13px] shrink-0 items-center justify-center"
+            >
+              <LinearIcon
+                name={
+                  node.state === "complete"
+                    ? "check"
+                    : node.state === "actionable"
+                      ? "status-1"
+                      : "circle"
+                }
+                className={cn(
+                  "size-[13px]",
+                  node.state === "complete" && "text-state-completed/80",
+                  node.state === "actionable" && "text-state-waiting/90",
+                  node.state === "open" && "text-muted-foreground/50",
+                  node.state === "target" && "text-foreground/80",
+                )}
+              />
+            </span>
             <span
               className={cn(
                 "text-[13px]",

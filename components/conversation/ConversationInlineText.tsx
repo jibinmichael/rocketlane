@@ -7,7 +7,7 @@ import type { Inline } from "@/core/agent/conversation/blocks"
 import { cn } from "@/lib/utils"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
-const MS_PER_CHAR = 18
+const MS_PER_CHAR = 28
 
 const KIND_ICON: Record<string, LinearIconName> = {
   project: "layers",

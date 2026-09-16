@@ -19,6 +19,7 @@ import { isTerminal, type MissionState } from "@/core/mission/mission"
 import { usePacedReveal } from "@/hooks/use-paced-reveal"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
 import type { AgentSessionState } from "@/lib/runtime"
+import { springEnter } from "@/lib/motion"
 import { SESSION_LABEL, WORKING_STATES } from "@/lib/session-label"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
@@ -221,141 +222,157 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   const pill = mission ? { state: mission.state, session } : null
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-6 pt-8 pb-4">
-          {thread.map((entry, i) =>
-            entry.kind === "user" ? (
-              <UserTurn
-                key={`u-${i}`}
-                name={actor?.name ?? "You"}
-                avatar={avatar}
-                text={entry.text}
-                at={entry.at}
-              />
-            ) : (
+    <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-6 pt-8 pb-4">
+            {thread.map((entry, i) =>
+              entry.kind === "user" ? (
+                <UserTurn
+                  key={`u-${i}`}
+                  name={actor?.name ?? "You"}
+                  avatar={avatar}
+                  text={entry.text}
+                  at={entry.at}
+                />
+              ) : (
+                <AgentTurn
+                  key={`a-${i}`}
+                  at={entry.at}
+                  state={settled ? "idle" : "working"}
+                  pill={!showLive && i === thread.length - 1 ? pill : null}
+                >
+                  <ul className="flex flex-col">
+                    {entry.blocks.map((block, j) => (
+                      <ConversationBlockItem
+                        key={block.id}
+                        block={block}
+                        index={j}
+                        frozen
+                        actionTaken={entry.actionTaken}
+                        isLast={j === entry.blocks.length - 1}
+                        decidedAt={entry.at}
+                        onAction={onAction}
+                        personAvatar={avatar}
+                      />
+                    ))}
+                  </ul>
+                  {i === thread.length - 1 && live.length === 0 && feedbackText && (
+                    <ConversationFeedbackRow text={feedbackText} />
+                  )}
+                </AgentTurn>
+              ),
+            )}
+
+            {showLive && (
               <AgentTurn
-                key={`a-${i}`}
-                at={entry.at}
-                state={settled ? "idle" : "working"}
-                pill={!showLive && i === thread.length - 1 ? pill : null}
+                at={null}
+                state={working || revealing ? "working" : "idle"}
+                live
+                pill={working || revealing ? null : pill}
               >
-                <ul className="flex flex-col">
-                  {entry.blocks.map((block, j) => (
+                {/* Live region: new agent blocks are announced; frozen history is not re-read. */}
+                <ul className="flex flex-col" aria-live="polite" aria-relevant="additions">
+                  {pacedLive.map((block) => (
                     <ConversationBlockItem
                       key={block.id}
                       block={block}
-                      index={j}
-                      frozen
-                      actionTaken={entry.actionTaken}
-                      isLast={j === entry.blocks.length - 1}
-                      decidedAt={entry.at}
+                      index={0}
+                      frozen={false}
+                      actionTaken={null}
                       onAction={onAction}
                       personAvatar={avatar}
                     />
                   ))}
                 </ul>
-                {i === thread.length - 1 && live.length === 0 && feedbackText && (
-                  <ConversationFeedbackRow text={feedbackText} />
-                )}
+                <AnimatePresence initial={false}>
+                  {(working || revealing) && (
+                    <motion.div
+                      key="working"
+                      initial={{ opacity: 0, y: -2 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.18 }}
+                      className="relative flex items-center py-1"
+                      aria-live="polite"
+                    >
+                      <span className="absolute top-1/2 -left-[29px] flex w-5 -translate-y-1/2 justify-center">
+                        <AgentPresenceStreaming />
+                      </span>
+                      <AnimatePresence mode="popLayout" initial={false}>
+                        <motion.span
+                          key={workingLabel}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          transition={{ duration: 0.22 }}
+                          className="text-shimmer text-[13px] leading-[22px]"
+                        >
+                          {workingLabel}
+                        </motion.span>
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                {settled && feedbackText && <ConversationFeedbackRow text={feedbackText} />}
               </AgentTurn>
-            ),
-          )}
+            )}
 
-          {showLive && (
-            <AgentTurn
-              at={null}
-              state={working || revealing ? "working" : "idle"}
-              live
-              pill={working || revealing ? null : pill}
-            >
-              {/* Live region: new agent blocks are announced; frozen history is not re-read. */}
-              <ul className="flex flex-col" aria-live="polite" aria-relevant="additions">
-                {pacedLive.map((block) => (
-                  <ConversationBlockItem
-                    key={block.id}
-                    block={block}
-                    index={0}
-                    frozen={false}
-                    actionTaken={null}
-                    onAction={onAction}
-                    personAvatar={avatar}
-                  />
-                ))}
-              </ul>
-              <AnimatePresence initial={false}>
-                {(working || revealing) && (
-                  <motion.div
-                    key="working"
-                    initial={{ opacity: 0, y: -2 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.18 }}
-                    className="flex items-center gap-2.5 py-1"
-                    aria-live="polite"
+            {followUps.length > 0 && (
+              <div className="flex flex-wrap gap-2 pl-10">
+                {followUps.map((f) => (
+                  <button
+                    key={f.label}
+                    type="button"
+                    onClick={f.run}
+                    className="border-border text-foreground hover:bg-muted h-8 rounded-full border px-3.5 text-[13px] transition-colors duration-[var(--motion-fast)]"
                   >
-                    <AgentPresenceStreaming />
-                    <AnimatePresence mode="popLayout" initial={false}>
-                      <motion.span
-                        key={workingLabel}
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.22 }}
-                        className="text-shimmer text-[13px]"
-                      >
-                        {workingLabel}
-                      </motion.span>
-                    </AnimatePresence>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              {settled && feedbackText && <ConversationFeedbackRow text={feedbackText} />}
-            </AgentTurn>
-          )}
-
-          {followUps.length > 0 && (
-            <div className="flex flex-wrap gap-2 pl-10">
-              {followUps.map((f) => (
-                <button
-                  key={f.label}
-                  type="button"
-                  onClick={f.run}
-                  className="border-border text-foreground hover:bg-muted h-8 rounded-full border px-3.5 text-[13px] transition-colors duration-[var(--motion-fast)]"
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          )}
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-      <div className="shrink-0 px-6 pt-2 pb-5">
-        <div className="mx-auto flex w-full max-w-[680px] flex-col gap-3">
-          <ConversationComposer
-            onSend={(t) => void onSend(t)}
-            onPause={() => onAction({ kind: "pause", label: "Pause" })}
-            onResume={() => onAction({ kind: "continue", label: "Resume" })}
-            onAttach={() => setDataOpen(true)}
-            executing={executing || revealing}
-            paused={paused}
-            focusKey={mission?.pending?.kind === "input" ? mission.pending.stepId : null}
-            placeholder={
-              mission?.pending?.kind === "input"
-                ? "Reply with the hours, e.g. 2 hours"
-                : paused
-                  ? "Resume, or state a new outcome"
-                  : "Reply, or state a new outcome"
-            }
-          />
+        <div className="shrink-0 px-6 pt-2 pb-5">
+          <div className="mx-auto flex w-full max-w-[680px] flex-col gap-3">
+            <ConversationComposer
+              onSend={(t) => void onSend(t)}
+              onPause={() => onAction({ kind: "pause", label: "Pause" })}
+              onResume={() => onAction({ kind: "continue", label: "Resume" })}
+              onAttach={() => setDataOpen(true)}
+              executing={executing || revealing}
+              paused={paused}
+              focusKey={mission?.pending?.kind === "input" ? mission.pending.stepId : null}
+              placeholder={
+                mission?.pending?.kind === "input"
+                  ? "Reply with the hours, e.g. 2 hours"
+                  : paused
+                    ? "Resume, or state a new outcome"
+                    : "Reply, or state a new outcome"
+              }
+            />
+          </div>
         </div>
+        <AgentDataDialog open={dataOpen} onClose={() => setDataOpen(false)} />
       </div>
-      <AgentDataDialog open={dataOpen} onClose={() => setDataOpen(false)} />
-      <MissionActivityPanel
-        mission={mission}
-        open={activityOpen}
-        onClose={() => setActivityOpen(false)}
-      />
+      <AnimatePresence initial={false}>
+        {activityOpen && mission && (
+          <motion.div
+            key="activity-column"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 440, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{
+              width: springEnter,
+              opacity: { duration: 0.22, ease: [0.32, 0.72, 0, 1] },
+            }}
+            className="h-full shrink-0 overflow-hidden"
+          >
+            <MissionActivityPanel mission={mission} onClose={() => setActivityOpen(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

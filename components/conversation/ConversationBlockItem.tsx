@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { motion } from "motion/react"
+import { AnimatePresence, motion } from "motion/react"
 
 import { ConversationIcon } from "@/components/conversation/ConversationIcon"
 import {
@@ -80,7 +80,9 @@ export function ConversationBlockItem({
         <Fold open={expanded} onToggle={() => setOpen(!expanded)} strong={live}>
           {label}
         </Fold>
-        {expanded && <StepSpine items={items} live={live} />}
+        <Reveal open={expanded}>
+          <StepSpine items={items} live={live} />
+        </Reveal>
       </motion.li>
     )
   }
@@ -122,7 +124,7 @@ export function ConversationBlockItem({
               typing={!frozen}
               startDelayMs={visibleLines
                 .slice(0, i)
-                .reduce((ms, prev) => ms + lineTypingMs(prev) + 220, 0)}
+                .reduce((ms, prev) => ms + lineTypingMs(prev) + 320, 0)}
               className={cn(
                 isLanding && i === 0 && "font-medium",
                 isEvaluation && "text-muted-foreground text-[13px] leading-[20px]",
@@ -136,16 +138,16 @@ export function ConversationBlockItem({
             <Fold open={expanded} onToggle={() => setOpen(!expanded)}>
               {expanded ? "Hide why" : "Show why"}
             </Fold>
-            {expanded && (
+            <Reveal open={expanded}>
               <ul className="flex flex-col gap-0.5">
                 {restLines.map((line, i) => (
                   <li key={i}>
-                    <ConversationInlineText line={line} className="text-[13px]" />
+                    <ConversationInlineText line={line} className="text-[13px] leading-[20px]" />
                   </li>
                 ))}
               </ul>
-            )}
-            {expanded && block.path && <MissionPathList path={block.path} />}
+              {block.path && <MissionPathList path={block.path} />}
+            </Reveal>
           </>
         )}
 
@@ -156,7 +158,9 @@ export function ConversationBlockItem({
                 ? "Hide the updates"
                 : `Show the ${block.activity.length} ${block.activity.length === 1 ? "update" : "updates"}`}
             </Fold>
-            {expanded && <StepSpine items={block.activity} live={false} compact pill="Completed" />}
+            <Reveal open={expanded}>
+              <StepSpine items={block.activity} live={false} compact pill="Completed" />
+            </Reveal>
           </>
         )}
 
@@ -165,19 +169,21 @@ export function ConversationBlockItem({
             <Fold open={expanded} onToggle={() => setOpen(!expanded)}>
               {expanded ? "Hide evidence" : "View evidence"}
             </Fold>
-            {expanded && <StepSpine items={block.activity} live={false} compact />}
-            {expanded && block.detail && (
-              <ul className="flex flex-col gap-0.5">
-                {block.detail.map((line, i) => (
-                  <li key={i}>
-                    <ConversationInlineText
-                      line={line}
-                      className="text-muted-foreground text-[12px]"
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
+            <Reveal open={expanded}>
+              <StepSpine items={block.activity} live={false} compact />
+              {block.detail && (
+                <ul className="flex flex-col gap-0.5">
+                  {block.detail.map((line, i) => (
+                    <li key={i}>
+                      <ConversationInlineText
+                        line={line}
+                        className="text-muted-foreground text-[12px]"
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Reveal>
           </>
         )}
 
@@ -186,19 +192,21 @@ export function ConversationBlockItem({
             <Fold open={expanded} onToggle={() => setOpen(!expanded)}>
               {expanded ? "Hide detail" : block.path ? "Show full path" : "Show detail"}
             </Fold>
-            {expanded && block.path && <MissionPathList path={block.path} />}
-            {expanded && block.detail && (
-              <ul className="mt-1 flex flex-col gap-0.5">
-                {block.detail.map((line, i) => (
-                  <li key={i}>
-                    <ConversationInlineText
-                      line={line}
-                      className="text-muted-foreground text-[12px]"
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
+            <Reveal open={expanded}>
+              {block.path && <MissionPathList path={block.path} />}
+              {block.detail && (
+                <ul className="mt-1 flex flex-col gap-0.5">
+                  {block.detail.map((line, i) => (
+                    <li key={i}>
+                      <ConversationInlineText
+                        line={line}
+                        className="text-muted-foreground text-[12px]"
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Reveal>
           </>
         )}
 
@@ -226,7 +234,7 @@ export function ConversationBlockItem({
         )}
         {frozen && actionTaken && isLast && (
           <span className="text-muted-foreground mt-1 inline-flex items-center gap-1.5 text-[12px]">
-            <span aria-hidden className="bg-state-completed size-1.5 rounded-[1px]" />
+            <span aria-hidden className="bg-state-completed/70 size-1.5 rounded-full" />
             {actionTaken}
             {decidedAt !== null && (
               <span className="tabular-nums"> · {timeFormat.format(new Date(decidedAt))}</span>
@@ -310,12 +318,12 @@ function StepSpine({
                 className={cn(
                   "size-[13px]",
                   failed
-                    ? "text-state-error"
+                    ? "text-state-error/80"
                     : done
-                      ? "text-state-completed"
+                      ? "text-state-completed/80"
                       : current
-                        ? "text-foreground"
-                        : "text-muted-foreground/70",
+                        ? "text-foreground/80"
+                        : "text-muted-foreground/60",
                 )}
               />
             </span>
@@ -327,8 +335,8 @@ function StepSpine({
                 className={cn(
                   "inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium",
                   failed
-                    ? "bg-status-error-soft text-state-error"
-                    : "bg-status-success-soft text-state-completed",
+                    ? "bg-status-error-soft text-state-error/90"
+                    : "bg-status-success-soft text-state-completed/90",
                 )}
               >
                 {failed ? "Failed" : pill}
@@ -384,5 +392,28 @@ function EvidenceHover({
         ))}
       </span>
     </span>
+  )
+}
+
+/** Opens and closes with height and fade on the product's ease; nothing appears or vanishes cut. */
+function Reveal({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return (
+    <AnimatePresence initial={false}>
+      {open && (
+        <motion.div
+          key="reveal"
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{
+            height: { duration: 0.26, ease: [0.32, 0.72, 0, 1] },
+            opacity: { duration: 0.2, ease: [0.32, 0.72, 0, 1] },
+          }}
+          className="flex flex-col gap-1 overflow-hidden"
+        >
+          {children}
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

@@ -87,6 +87,7 @@ function itemFor(
           icon: "project",
           label: `Checking ${mission.targets.length} ${plural(mission.targets.length, "project")}`,
           detail: null,
+          evidence: mission.targets.map((t) => labelOf(t, graph)),
         }
       }
       return target
@@ -111,8 +112,6 @@ function itemFor(
     }
     case "POLICY_CHECKED": {
       if (event.detail["phase"] === "plan") {
-        // One line per phase, however many targets were consulted.
-        if (soFar.some((i) => i.icon === "policy")) return null
         const checked = typeof event.detail["checked"] === "number" ? event.detail["checked"] : null
         const policies =
           typeof event.detail["policies"] === "string"
@@ -122,6 +121,18 @@ function itemFor(
                 .filter(Boolean)
                 .map((p) => POLICY_EVIDENCE[p] ?? p)
             : []
+        // One line per phase, however many targets were consulted: later checks fold their
+        // policies into the same line so the evidence is complete.
+        const existing = soFar.find((i) => i.icon === "policy")
+        if (existing) {
+          const merged = Array.from(new Set([...(existing.evidence ?? []), ...policies]))
+          const total = merged.length
+          Object.assign(existing, {
+            evidence: merged,
+            detail: [text(`${total} ${plural(total, "policy", "policies")} checked`)],
+          })
+          return null
+        }
         return {
           icon: "policy",
           label: "Checking governance",
