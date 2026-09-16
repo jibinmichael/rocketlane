@@ -4,7 +4,7 @@ A project governance agent: a reliable action-taking system whose primary interf
 
 > Make the complexity disappear. Never make the consequences disappear.
 
-Built in one day against [the spec](docs/spec/ROCKETLANE_AGENT_BUILD_SPEC.md). Status per step: [build ledger](docs/agent-context/05-build-ledger.md). Interview walkthrough: [demo script](docs/demo-script.md).
+Built in one day against [the spec](docs/spec/ROCKETLANE_AGENT_BUILD_SPEC.md). What exists, where, and what is next: [state of the build](docs/state-of-the-build.md). Status per step: [build ledger](docs/agent-context/05-build-ledger.md). Interview walkthrough: [demo script](docs/demo-script.md). Independent testing: [QA handoff prompt](docs/qa-handoff-prompt.md).
 
 ## Operating model
 
