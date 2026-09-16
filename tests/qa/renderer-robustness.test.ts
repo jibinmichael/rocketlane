@@ -395,7 +395,7 @@ describe("renderer — intent replies", () => {
       { kind: "explain_blocker", targets: [], ...base },
       { kind: "show_path", targets: [], ...base },
       { kind: "create_routine", targets: [], ...base },
-      { kind: "log_time", target: null, hours: 2, ...base },
+      { kind: "log_time", target: null, hours: 2, each: false, ...base },
       { kind: "change_scope", exclude: t, ...base },
       { kind: "show_status", ...base },
       { kind: "cancel", ...base },

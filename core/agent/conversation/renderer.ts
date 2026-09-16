@@ -491,6 +491,9 @@ function renderBlockerChain(ctx: Ctx, current: Blocker): Block[] {
   ).length
   const first = firstActionLabel(current, graph)
   if (remaining === 0) return blocks
+  const needHours = mission.plan.filter(
+    (s) => s.transition === "TIME_LOGGED" && s.status !== "succeeded" && s.status !== "skipped",
+  ).length
   blocks.push(
     block("resolution_path", "neutral", [
       [
@@ -500,6 +503,9 @@ function renderBlockerChain(ctx: Ctx, current: Blocker): Block[] {
         text(". First: "),
         ...first,
         text("."),
+        ...(needHours > 1
+          ? [text(" "), count(needHours), text(" of them need hours from you.")]
+          : []),
       ],
       [text("I'll take it from here, starting with "), ...first, text(".")],
     ]),
@@ -825,6 +831,21 @@ function renderPending(ctx: Ctx, target: EntityRef): Block[] {
         ]),
       ]
     }
+    const needInput = mission.plan.filter(
+      (s) =>
+        s.transition === "TIME_LOGGED" && (s.status === "pending" || s.status === "waiting_input"),
+    ).length
+    const batchHint: Inline[][] =
+      needInput > 1
+        ? [
+            [
+              count(needInput),
+              text(
+                ` tasks in this chain have no time logged. Answer for this one, or say "2 ${input.field} each" and I'll use the same for all of them, one verified update at a time.`,
+              ),
+            ],
+          ]
+        : []
     return [
       block("action_request.input", "waiting", [
         [
@@ -835,6 +856,7 @@ function renderPending(ctx: Ctx, target: EntityRef): Block[] {
         ],
         inputQuestion(input, step),
         [text(attribution)],
+        ...batchHint,
       ]),
     ]
   }

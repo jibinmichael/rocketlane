@@ -108,6 +108,8 @@ export class Runtime {
   private threads: Record<string, ThreadEntry[]> = {}
   private channel: TabChannel | null = null
   private missionCounter = 0
+  /** Missions where the person said "N hours each": answered per ask, never batched into one write. */
+  private readonly standingHours = new Map<string, number>()
   private disposers: Array<() => void> = []
   private readonly pendingWork = new Map<string, () => void>()
 
@@ -264,11 +266,20 @@ export class Runtime {
     this.channel?.close()
     this.channel = new TabChannel((message) => this.onBroadcast(message))
 
-    const actors = sor.current().actors
+    const graph = sor.current()
+    const actors = graph.actors
+    // Default to someone whose project has real governance to exercise: the owner of the first
+    // project with milestones on record, so the suggested outcome traces an actual chain.
+    const ownerWithMilestones = graph.projects.find(
+      (p) => p.ownerId !== null && graph.milestonesOf(p.id).length > 0,
+    )?.ownerId
     const preferredActor =
       this.snapshot.actorId && actors.some((a) => a.id === this.snapshot.actorId)
         ? this.snapshot.actorId
-        : (actors.find((a) => a.role === "owner")?.id ?? actors[0]?.id ?? null)
+        : (ownerWithMilestones ??
+          actors.find((a) => a.role === "owner")?.id ??
+          actors[0]?.id ??
+          null)
     this.publish({
       status: "ready",
       error: null,
@@ -521,8 +532,13 @@ export class Runtime {
     const proposal = await this.interpret(utterance, ctx)
     const remote =
       proposal.source === "model" ? ground(proposal, utterance, graph, groundingScope) : null
-    const intent = reconcile(remote, local)
-    if (remote && intent !== remote) this.publish({ lastInterpretedBy: "local-fallback" })
+    const reconciled = reconcile(remote, local)
+    // "each" is grammar, not interpretation: the model's reading of the value never drops it.
+    const intent: Intent =
+      reconciled.kind === "log_time" && local.kind === "log_time" && local.each
+        ? { ...reconciled, each: true }
+        : reconciled
+    if (remote && reconciled !== remote) this.publish({ lastInterpretedBy: "local-fallback" })
     const interpretedBy = intent.source === "model" ? "model" : "deterministic"
 
     // One conductor maps the grounded intent to exactly one engine command (shared with the Lab).
@@ -572,6 +588,10 @@ export class Runtime {
         ) {
           this.insertBeforeLastUser(missionId, decision, receipt)
         }
+        if (missionId && intent.kind === "log_time" && intent.each) {
+          this.standingHours.set(missionId, intent.hours)
+          await this.applyStandingHours(missionId)
+        }
         return missionId
       }
       case "reply": {
@@ -583,6 +603,50 @@ export class Runtime {
         return scratchId
       }
     }
+  }
+
+  /**
+   * "2 hours each": the person answered once for every task that still needs hours. Each ask is
+   * still answered through the engine one at a time (validated, permission-checked, verified), and
+   * each answered ask keeps its receipt in the thread.
+   */
+  private async applyStandingHours(missionId: string): Promise<void> {
+    const hours = this.standingHours.get(missionId)
+    if (hours === undefined || !this.engine) return
+    const who = this.actor()?.name ?? "you"
+    for (let guard = 0; guard < 100; guard += 1) {
+      const mission = this.mission(missionId)
+      if (!mission || mission.pending?.kind !== "input" || mission.pending.input.field !== "hours")
+        return
+      const decision = this.liveBlocks(missionId).filter(carriesDecision)
+      const stepId = mission.pending.stepId
+      this.setBusy(missionId, "EXECUTING")
+      try {
+        await this.engine.provideInput(missionId, stepId, hours)
+      } finally {
+        this.setBusy(missionId, null)
+      }
+      const after = this.mission(missionId)
+      if (after?.pending?.kind === "input" && after.pending.stepId === stepId) return
+      this.pushAgentReceipt(
+        missionId,
+        decision,
+        `Logged ${hours} ${hours === 1 ? "hour" : "hours"} by ${who} · same for each`,
+      )
+    }
+  }
+
+  private pushAgentReceipt(missionId: string, blocks: readonly Block[], actionTaken: string): void {
+    if (blocks.length === 0) return
+    const entries = this.threads[missionId] ?? []
+    entries.push({
+      kind: "agent",
+      blocksJson: JSON.stringify(blocks),
+      at: this.clock.now(),
+      actionTaken,
+    })
+    this.threads[missionId] = entries
+    threadPersistence.save(this.threads)
   }
 
   /** Inline block actions (buttons). */
@@ -728,7 +792,7 @@ function resolvedPending(before: Mission["pending"], after: Mission["pending"]):
 function receiptFor(intent: Intent, who: string): string | null {
   switch (intent.kind) {
     case "log_time":
-      return `Logged ${intent.hours} ${intent.hours === 1 ? "hour" : "hours"} by ${who}`
+      return `Logged ${intent.hours} ${intent.hours === 1 ? "hour" : "hours"} by ${who}${intent.each ? " · same for each" : ""}`
     case "approve":
       return `Confirmed by ${who}`
     case "decline":

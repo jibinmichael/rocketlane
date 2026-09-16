@@ -63,12 +63,13 @@ export function ground(
       if (hours === null || !Number.isFinite(hours) || hours <= 0) {
         return { kind: "unsupported", reason: "no_target", query: null, utterance, source }
       }
+      const each = proposal.all
       const span = proposal.targetSpans[0]
-      if (!span) return { kind: "log_time", target: null, hours, utterance, source }
+      if (!span) return { kind: "log_time", target: null, hours, each, utterance, source }
       const query = spanText(utterance, span)
       const resolved = resolveTask(query, graph, scope)
       if (resolved.status === "resolved")
-        return { kind: "log_time", target: resolved.ref, hours, utterance, source }
+        return { kind: "log_time", target: resolved.ref, hours, each, utterance, source }
       if (resolved.status === "ambiguous")
         return { kind: "ambiguous", query, candidates: resolved.candidates, utterance, source }
       return { kind: "unsupported", reason: "target_not_found", query, utterance, source }

@@ -87,6 +87,19 @@ const RULES: readonly Rule[] = [
     build: () => noTarget("decline"),
   },
   {
+    // "2 hours each" while the mission is asking: the same hours for every task that still needs
+    // them, each still validated, permission-checked and verified on its own.
+    pattern:
+      /^\s*(?:log|add|record|book)?\s*(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)?\s+(?:each|apiece|for\s+(?:all|each|every)\b.*|on\s+(?:all|each|every)\b.*|to\s+(?:all|each|every)\b.*|all\s+of\s+them|all)\s*[.!]?\s*$/i,
+    build: (m) => ({
+      kind: "log_time",
+      targetSpans: [],
+      hours: Number.parseFloat(m[1]!),
+      all: true,
+      mine: false,
+    }),
+  },
+  {
     pattern:
       /(?:log|add|record|book)\s+(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\s+(?:on|to|for|against)\s+(.+)$/i,
     build: (m, u) => ({

@@ -77,6 +77,8 @@ export type Intent =
       readonly kind: "log_time"
       readonly target: EntityRef | null
       readonly hours: number
+      /** "2 hours each": a standing answer for every task in this mission that still needs hours. */
+      readonly each: boolean
       readonly utterance: string
       readonly source: IntentProposal["source"]
     }
