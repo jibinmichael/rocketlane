@@ -359,17 +359,21 @@ describe("renderer — robustness across every reachable mission state", () => {
     }
   })
 
-  it("a landed single-target mission renders exactly one landing block, after all verified results", async () => {
+  it("a landed single-target mission renders exactly one landing block, followed only by the evaluation", async () => {
     for (const s of await reachable()) {
       if (s.mission.state !== "COMPLETED" || s.mission.targets.length !== 1) continue
       const blocks = render(s)
       const landing = blocks.filter((b) => b.type === "landing")
-      const verified = blocks.filter((b) => b.type === "result.verified")
       if (landing.length === 0) continue // "already complete" path renders no landing
       expect(landing, s.name).toHaveLength(1)
-      const lastVerified = blocks.map((b) => b.type).lastIndexOf("result.verified")
-      expect(blocks.map((b) => b.type).indexOf("landing"), s.name).toBeGreaterThan(lastVerified)
-      void verified
+      const types = blocks.map((b) => b.type)
+      expect(types[types.length - 1], s.name).toBe("evaluation")
+      expect(types[types.length - 2], s.name).toBe("landing")
+      // Every phase of observable work is folded once the mission has landed.
+      expect(
+        blocks.filter((b) => b.type === "activity").every((b) => b.collapsed),
+        s.name,
+      ).toBe(true)
     }
   })
 })

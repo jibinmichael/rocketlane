@@ -36,13 +36,26 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
     )
     const blocks = renderMission(mission, h.sor.current(), h.events.forMission(mission.id))
     expect(types(blocks)).toEqual([
+      "acknowledgement",
+      "activity",
       "outcome.blocked",
       "blocker",
       "resolution_path",
       "action_request.input",
     ])
-    expect(flat(blocks[0]!.lines)).toBe("I can't complete [Acme Implementation] yet.")
-    expect(flat(blocks[1]!.lines)).toBe(
+    expect(flat(blocks[0]!.lines)).toBe(
+      "Got it. I'll get [Acme Implementation] to completed.\nI'll check its governance requirements and resolve anything blocking it.",
+    )
+    expect(blocks[1]!.collapsed).toBe(false)
+    expect(blocks[1]!.activity?.map((i) => i.label)).toEqual([
+      "Checking project",
+      "Checking milestones",
+      "Checking governance",
+      "Tracing dependencies",
+    ])
+    const [, , outcome, chain, path, ask] = blocks
+    expect(flat(outcome!.lines)).toBe("I can't complete [Acme Implementation] yet.")
+    expect(flat(chain!.lines)).toBe(
       [
         "[Acme Implementation] can't complete: milestone [Go-Live] is incomplete. (Policy 1)",
         "[Go-Live] can't complete: predecessor [Deploy API] is incomplete. (Policy 3)",
@@ -50,16 +63,16 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
         "[QA Complete] can't complete: no time is logged. (Policy 4)",
       ].join("\n"),
     )
-    expect(blocks[1]!.path?.map((n) => `${n.label}:${n.state}`)).toEqual([
+    expect(chain!.path?.map((n) => `${n.label}:${n.state}`)).toEqual([
       "Acme Implementation:target",
       "Go-Live:open",
       "Deploy API:open",
       "QA Complete:actionable",
     ])
-    expect(flat(blocks[2]!.lines)).toBe(
+    expect(flat(path!.lines)).toBe(
       "6 updates to complete [Acme Implementation]. First: log time on [QA Complete].",
     )
-    expect(flat(blocks[3]!.lines)).toBe(
+    expect(flat(ask!.lines)).toBe(
       [
         "[QA Complete] has no logged time. Policy 4 requires hours before completion.",
         "How many hours should I log for [QA Complete]?",
@@ -67,7 +80,7 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
       ].join("\n"),
     )
     // The composer is the input: the ask carries no form and no button.
-    expect(blocks[3]!.actions).toEqual([])
+    expect(ask!.actions).toEqual([])
     // No banned words anywhere.
     const all = blocks.map((b) => flat(b.lines)).join(" ")
     expect(all).not.toMatch(/thinking|oops|great news|snag|AI\b/i)
@@ -82,8 +95,11 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
     mission = await h.engine.provideHours(mission.id, mission.plan[0]!.id, 2)
     const blocks = renderMission(mission, h.sor.current(), h.events.forMission(mission.id))
     const t = types(blocks)
-    expect(t[0]).toBe("outcome.blocked")
-    expect(t.filter((x) => x === "result.verified")).toHaveLength(6)
+    expect(t[0]).toBe("acknowledgement")
+    // Verified updates are observable work in the current phase, not one block each.
+    const work = blocks.filter((b) => b.type === "activity")
+    expect(work).toHaveLength(2)
+    expect(work[1]!.activity?.filter((i) => i.icon === "check")).toHaveLength(6)
     expect(t[t.length - 1]).toBe("action_request.confirm")
     const confirm = blocks[blocks.length - 1]!
     expect(flat(confirm.lines)).toBe(
@@ -123,10 +139,13 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
     const blocks = renderMission(mission, h.sor.current(), h.events.forMission(mission.id))
     const t = types(blocks)
     expect(t).toContain("timeout_reconciled")
-    expect(t[t.length - 1]).toBe("landing")
-    expect(flat(blocks[blocks.length - 1]!.lines)).toMatch(
-      /^\[Acme Implementation\] completed\. Verified at \{time\}\.$/,
+    expect(t[t.length - 2]).toBe("landing")
+    expect(t[t.length - 1]).toBe("evaluation")
+    const landing = blocks[blocks.length - 2]!
+    expect(flat(landing.lines)).toBe(
+      "[Acme Implementation] completed.\nAll required updates were completed and verified. Final state verified at {time}.",
     )
+    expect(landing.activity?.map((i) => i.label)).toContain("Deploy API")
     expect(flat(blocks.find((b) => b.type === "timeout_reconciled")!.lines)).toBe(
       "The write to [Deploy API] timed out. I re-read it: it had applied.",
     )
@@ -171,14 +190,21 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
       ),
       { datasetId: "x" },
     )
-    let blocks = renderMission(mission, h.sor.current())
-    expect(types(blocks)).toEqual(["action_request.batch_confirm"])
+    let blocks = renderMission(mission, h.sor.current(), h.events.forMission(mission.id))
+    expect(types(blocks)).toEqual(["acknowledgement", "activity", "action_request.batch_confirm"])
     mission = await h.engine.approve(mission.id, null)
-    blocks = renderMission(mission, h.sor.current())
-    expect(types(blocks)).toEqual(["partial_summary"])
-    const summary = flat(blocks[0]!.lines)
+    blocks = renderMission(mission, h.sor.current(), h.events.forMission(mission.id))
+    expect(types(blocks)).toEqual([
+      // Erin Warner owns one blocked project; the rest are not hers. No write, so no second phase.
+      "acknowledgement",
+      "activity",
+      "partial_summary",
+      "evaluation",
+    ])
+    const result = blocks.find((b) => b.type === "partial_summary")!
+    const summary = flat(result.lines)
     expect(summary).toMatch(/not permitted\./)
     expect(summary).not.toMatch(/\b0 /)
-    expect(blocks[0]!.detail).toHaveLength(31)
+    expect(result.detail).toHaveLength(31)
   })
 })

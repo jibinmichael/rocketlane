@@ -34,6 +34,8 @@ describe("Runtime — the conversation surface end to end, headless", () => {
     expect(id).toMatch(/^m-/)
     let live = rt.liveBlocks(id)
     expect(live.map((b) => b.type)).toEqual([
+      "acknowledgement",
+      "activity",
       "outcome.blocked",
       "blocker",
       "resolution_path",
@@ -50,13 +52,15 @@ describe("Runtime — the conversation surface end to end, headless", () => {
     expect(frozen.length).toBeGreaterThanOrEqual(1)
     expect(rt.mission(id)?.pending?.kind).toBe("confirm_step")
     live = rt.liveBlocks(id)
-    expect(live.map((b) => b.type).filter((t) => t === "result.verified")).toHaveLength(6)
+    const work = live.find((b) => b.type === "activity" && !b.collapsed)!
+    expect(work.activity?.filter((i) => i.icon === "check")).toHaveLength(6)
     expect(live[live.length - 1]!.type).toBe("action_request.confirm")
 
     const confirm = live[live.length - 1]!
     await rt.act(id, confirm.actions[0]!)
     live = rt.liveBlocks(id)
-    expect(live[live.length - 1]!.type).toBe("landing")
+    expect(live[live.length - 2]!.type).toBe("landing")
+    expect(live[live.length - 1]!.type).toBe("evaluation")
     expect(rt.mission(id)?.state).toBe("COMPLETED")
     expect(rt.session(id)).toBe("COMPLETED")
   })

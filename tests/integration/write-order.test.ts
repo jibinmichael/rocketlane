@@ -20,7 +20,9 @@ function indexOf(events: readonly AgentEvent[], type: AgentEvent["type"], refId:
       e.type === type &&
       e.refs.some((r) => r.id === refId) &&
       e.detail["command"] !== "add_time_entry" &&
-      e.detail["result"] !== "add_time_entry",
+      e.detail["result"] !== "add_time_entry" &&
+      // Plan-time governance is observable work; the invariant is about the check before the write.
+      e.detail["phase"] !== "plan",
   )
 }
 
