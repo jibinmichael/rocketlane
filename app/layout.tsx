@@ -3,11 +3,11 @@ import "./globals.css"
 
 import { loadFixture } from "@/app/actions/fixtures"
 import { interpretUtterance, modelInterpreterAvailable } from "@/app/actions/interpret"
-import { AppShellNav } from "@/components/shared/AppShellNav"
+import { AppHeader } from "@/components/shared/AppHeader"
 import { RuntimeProvider } from "@/components/shared/RuntimeProvider"
 
 export const metadata: Metadata = {
-  title: "Rocketlane Governance Agent",
+  title: "Acme · Governance Agent",
   description: "A project governance agent: state an outcome, the system owns the complexity.",
 }
 
@@ -25,10 +25,8 @@ export default async function RootLayout({
           interpret={interpretUtterance}
           modelAvailable={modelAvailable}
         >
-          <div className="flex min-h-0 flex-1">
-            <AppShellNav />
-            <main className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</main>
-          </div>
+          <AppHeader loadFixture={loadFixture} />
+          <main className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</main>
         </RuntimeProvider>
       </body>
     </html>

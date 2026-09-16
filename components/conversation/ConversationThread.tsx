@@ -74,7 +74,8 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   if (snapshot.status === "error") {
     return (
       <Body className="text-state-error p-6">
-        The workspace could not load: {snapshot.error}. Open Test Lab, Dataset, Reset to original.
+        The workspace could not load: {snapshot.error}. Use the workspace menu to reset the project
+        data.
       </Body>
     )
   }
