@@ -30,8 +30,8 @@ export function RuntimeProvider({
     () =>
       new Runtime({
         loadFixture,
-        // The brief's real export is the default workspace; the demo dataset stays a choice.
-        defaultFixture: "rocketlane-export",
+        // The demo workspace (Acme Implementation, Priya Raman) is the default: the brief's hero journey.
+        defaultFixture: "cascading-conflicts",
         ...(modelAvailable ? { remoteInterpreter: interpret } : {}),
       }),
   )
