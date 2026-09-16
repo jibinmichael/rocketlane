@@ -4,7 +4,7 @@ A project governance agent: a reliable action-taking system whose primary interf
 
 > Make the complexity disappear. Never make the consequences disappear.
 
-Built in one day against [the spec](docs/spec/ROCKETLANE_AGENT_BUILD_SPEC.md). What exists, where, and what is next: [state of the build](docs/state-of-the-build.md). Status per step: [build ledger](docs/agent-context/05-build-ledger.md). Interview walkthrough: [demo script](docs/demo-script.md). Independent testing: [QA handoff prompt](docs/qa-handoff-prompt.md).
+Built in one day against [the spec](docs/spec/ROCKETLANE_AGENT_BUILD_SPEC.md). What exists, where, and what is next: [state of the build](docs/state-of-the-build.md). Status per step: [build ledger](docs/agent-context/05-build-ledger.md). Interview walkthrough: [demo script](docs/demo-script.md). Independent testing: [QA handoff prompt](docs/qa-handoff-prompt.md). Product-shell audit: [docs/audit](docs/audit/2026-09-16-product-shell-audit.md).
 
 ## Operating model
 
@@ -46,11 +46,11 @@ Results and the failures found along the way: [docs/test-results](docs/test-resu
 
 ## Load a dataset
 
-**Test Lab → Dataset.** Load the demo workspace, the real masked Rocketlane export (`fixtures/rocketlane-export`), or upload your own two-file export (`projects.csv` + `tasks.csv`). Files are parsed in the browser; nothing leaves your machine. The ingestion report lists every rejected row, warning and finding. Name-based predecessors are resolved by longest match and fail closed.
+On the home, **Test with project data** uploads your own two-file export (`projects.csv` + `tasks.csv`); the workspace menu (top right) loads the demo workspace or the real masked Rocketlane export (`fixtures/rocketlane-export`). Files are parsed in the browser; nothing leaves your machine. The panel says what loaded and lists every rejected row, warning and finding. Name-based predecessors are resolved by longest match and fail closed. Then state an outcome: the same agent runs against whatever is loaded.
 
 ## Run the evaluation
 
-**Test Lab → Scenarios.** Eleven built-in scenarios run through an isolated engine (fresh system of record, virtual clock) that is the same core the conversation uses. Assertions are machine-checkable: no policy violation, no unauthorized write, no unverified completion, no scope expansion, no stale plan executed, final states, outcome. Weaken any policy in the engine and the evaluator, which judges every write against the reference policies, flags it and produces a regression record. **Play** runs a scenario through the live conversation; `/lab?run=<scenarioId>` does the same by URL.
+Every finished mission ends with an **Evaluation** block: governance, authorization, verification, scope and final state, judged from the mission's audit log and a fresh read of the system, with exact execution buckets. Twelve deterministic scenarios (`pnpm exec vitest run tests/scenarios`) run through an isolated engine that is the same core the conversation uses, including a weakened-policy run the evaluator catches; committed regression records replay under `pnpm test`.
 
 ## Where the logic lives
 
@@ -73,7 +73,7 @@ Results and the failures found along the way: [docs/test-results](docs/test-resu
 - **Permissions** are an abstract role boundary (owner / member / viewer), ours, not Rocketlane's.
 - **Ingestion** accepts the two-file Rocketlane export. The brief's five-file shape is designed, not built.
 - **Model interpreter** verified live with Claude Haiku 4.5: eleven natural phrasings classified correctly (including adversarial and out-of-scope), 0.7–3 s per call. Its character spans are approximate; grounding snaps them to word boundaries and tolerates leading noise words, and everything downstream is deterministic. Organization-level keys need `ANTHROPIC_WORKSPACE_ID` in `.env.local`.
-- **Test Lab is deliberately small:** upload project data, pick the acting user, simulate the outside world, read each mission's evaluation. Scenarios run in the test suite, not in the product.
+- **No Test Lab, no module navigation.** The agent is the product: one header with the Acme workspace and the acting user (whose menu also loads project data and simulates outside changes), the composer, "Test with project data", and previous missions. Every finished mission ends with its evaluation. Scenarios run in the test suite.
 - **Not built:** replay cassettes for model answers, scenario authoring UI, dark-mode review. (The scale generator exists at `fixtures/stress/scale/generate.mjs`; committed regression records live in `tests/regression/` and replay under `pnpm test`.)
 - **QA'd adversarially:** 395 tests across 26 files, including ten synthetic exports that stress every shape the real export can take (`fixtures/stress`) and 216 adversarial engine tests (`tests/qa`). Behaviour decisions taken during QA are listed in `docs/agent-context/03-decisions-locked.md` (Q-01..Q-08).
 
