@@ -75,7 +75,9 @@ export function resolveClosure(
   const entityIds = new Set<string>()
   const visited = new Set<TaskId>()
 
-  const visitTask = (task: Task, path: readonly EntityRef[]): void => {
+  // `frozen`: somewhere above this node the data is flagged, so nothing below it is planned as a
+  // write (fail closed); the walk still records what the target depends on.
+  const visitTask = (task: Task, path: readonly EntityRef[], frozen = false): void => {
     if (visited.has(task.id)) return
     // A user exclusion ("leave Go-Live open") prunes that node and everything that exists only for it.
     if (excluded.has(`task:${task.id}`)) return
@@ -84,7 +86,10 @@ export function resolveClosure(
     const here: EntityRef = { kind: "task", id: task.id }
     const pathHere = [...path, here]
     if (isTaskComplete(task.status)) return
+    // A-01: below the target, a status the interpretation treats as closed (NA by default) needs nothing.
+    if (path.length > 0 && !isTaskOpen(task.status, config.interpretation)) return
 
+    // Flagged data fails closed: the task is non-completable until the data is fixed (contract 07).
     for (const flag of task.flags) {
       blockers.push({
         target: path[0] ?? here,
@@ -96,29 +101,27 @@ export function resolveClosure(
         systemCanAct: false,
       })
     }
+    const frozenHere = frozen || task.flags.length > 0
 
     // Predecessors first (policy 3), then subtasks of milestones (policy 2), then time (policy 4).
     if (rules.predecessors) {
-      for (const predecessor of graph.predecessorsOf(task.id)) visitTask(predecessor, pathHere)
+      for (const predecessor of graph.predecessorsOf(task.id)) {
+        visitTask(predecessor, pathHere, frozenHere)
+      }
     }
     if (task.isMilestone && rules.subtasks) {
       for (const subtask of graph.subtasksOf(task.id)) {
-        if (isTaskOpen(subtask.status, config.interpretation)) visitTask(subtask, pathHere)
+        if (isTaskOpen(subtask.status, config.interpretation)) {
+          visitTask(subtask, pathHere, frozenHere)
+        }
       }
     }
+    if (task.status === "BLOCKED") {
+      blockers.push(humanBlockedBlocker(path[0] ?? here, here, pathHere))
+    }
+    if (frozenHere) return
     if (rules.timeLogged && hoursTracked(task) <= config.minimumHours) {
       required.push({ ref: here, to: "TIME_LOGGED" })
-    }
-    if (task.status === "BLOCKED") {
-      blockers.push({
-        target: path[0] ?? here,
-        policyId: "DATA",
-        reasonCode: "DATA_FLAGGED",
-        actionable: here,
-        dependencyPath: pathHere,
-        requiredChange: { kind: "unblock_task", taskId: task.id },
-        systemCanAct: false,
-      })
     }
     required.push({ ref: here, to: "COMPLETED" })
   }
@@ -170,21 +173,40 @@ export function traceCurrentBlockers(
 
   const walk = (ref: EntityRef, path: readonly EntityRef[]): void => {
     const key = `${ref.kind}:${ref.id}`
+    const pathHere = [...path, ref]
+    // A predecessor loop the importer did not flag (hand-built graphs): name it instead of going quiet.
+    if (ref.kind === "task" && path.some((p) => p.kind === ref.kind && p.id === ref.id)) {
+      result.push({
+        target: path[0] ?? ref,
+        policyId: "DATA",
+        reasonCode: "DATA_FLAGGED",
+        actionable: ref,
+        dependencyPath: pathHere,
+        requiredChange: { kind: "fix_data", taskId: ref.id, flag: "CYCLE" },
+        systemCanAct: false,
+      })
+      return
+    }
     if (seen.has(key)) return
     seen.add(key)
-    const pathHere = [...path, ref]
     if (ref.kind === "task") {
       const task = graph.task(ref.id)
       if (!task || isTaskComplete(task.status)) return
+      // A human marked it BLOCKED: only a human clears that. Never reported as completable.
+      if (task.status === "BLOCKED") {
+        result.push(humanBlockedBlocker(path[0] ?? ref, ref, pathHere))
+        return
+      }
     }
     const decision = evaluateGovernance(graph, { target: ref, to: "COMPLETED" }, { config })
     if (decision.allowed) {
       if (ref.kind === "task" && path.length > 0) {
         // Reached an actionable, completable node below the target.
+        const policyId = blockingPolicyFor(path, graph, config)
         result.push({
           target: path[0]!,
-          policyId: blockingPolicyFor(path, graph, config),
-          reasonCode: "PREDECESSORS_INCOMPLETE",
+          policyId,
+          reasonCode: reasonFor(policyId),
           actionable: ref,
           dependencyPath: pathHere,
           requiredChange: { kind: "complete_task", taskId: ref.id },
@@ -224,6 +246,36 @@ export function traceCurrentBlockers(
 
   walk(target, [])
   return dedupe(result)
+}
+
+/** The blocker a task in status BLOCKED contributes: outside the system's authority (spec §8D). */
+export function humanBlockedBlocker(
+  target: EntityRef,
+  task: EntityRef & { readonly kind: "task" },
+  dependencyPath: readonly EntityRef[],
+): Blocker {
+  return {
+    target,
+    policyId: "DATA",
+    reasonCode: "DATA_FLAGGED",
+    actionable: task,
+    dependencyPath,
+    requiredChange: { kind: "unblock_task", taskId: task.id },
+    systemCanAct: false,
+  }
+}
+
+function reasonFor(policyId: PolicyId): ReasonCode {
+  switch (policyId) {
+    case "P1_PROJECT_MILESTONES":
+      return "MILESTONES_INCOMPLETE"
+    case "P2_MILESTONE_SUBTASKS":
+      return "SUBTASKS_OPEN"
+    case "P4_TASK_TIME":
+      return "NO_TIME_LOGGED"
+    case "P3_TASK_PREDECESSORS":
+      return "PREDECESSORS_INCOMPLETE"
+  }
 }
 
 function blockingPolicyFor(

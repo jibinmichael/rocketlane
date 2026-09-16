@@ -1,7 +1,7 @@
 import { hoursTracked } from "@/core/domain/entities"
 import type { Task } from "@/core/domain/entities"
 import type { EntityRef } from "@/core/domain/ids"
-import { isTaskComplete, isTaskOpen } from "@/core/domain/status"
+import { isTaskOpen } from "@/core/domain/status"
 import type { Evidence, EvaluationContext, Policy } from "@/core/governance/policy"
 
 /**
@@ -33,7 +33,7 @@ export const P1_PROJECT_MILESTONES: Policy = {
         if (target.kind !== "project") return { passed: true, evidence: [] }
         const incomplete = ctx.graph
           .milestonesOf(target.id)
-          .filter((m) => !isTaskComplete(m.status))
+          .filter((m) => isTaskOpen(m.status, ctx.config.interpretation))
         const evidence: Evidence[] = incomplete.map((m) => ({
           ref: taskRef(m),
           label: m.name,
@@ -95,7 +95,7 @@ export const P3_TASK_PREDECESSORS: Policy = {
         if (!task) return { passed: true, evidence: [] }
         const incomplete = ctx.graph
           .predecessorsOf(task.id)
-          .filter((p) => !isTaskComplete(p.status))
+          .filter((p) => isTaskOpen(p.status, ctx.config.interpretation))
         const evidence: Evidence[] = incomplete.map((p) => ({
           ref: taskRef(p),
           label: p.name,

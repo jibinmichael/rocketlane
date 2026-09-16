@@ -96,8 +96,8 @@ export function scoreName(query: string, name: string): number {
   if (query === name) return 1
   const q = normalize(query)
   const n = normalize(name)
-  if (q === n) return 0.98
   if (q.length === 0 || n.length === 0) return 0
+  if (q === n) return 0.98
   if (n.startsWith(q)) return 0.9 + 0.05 * (q.length / n.length)
   if (q.startsWith(n)) return 0.85
   const qt = new Set(q.split(" "))
@@ -116,7 +116,7 @@ export function scoreName(query: string, name: string): number {
 function normalize(s: string): string {
   return s
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim()
 }
 
