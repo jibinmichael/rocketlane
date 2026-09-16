@@ -17,6 +17,7 @@ export const INTENT_KINDS = [
   "show_path",
   "show_status",
   "cancel",
+  "pause",
   "continue",
   "change_scope",
   "approve",
@@ -86,7 +87,7 @@ export type Intent =
       readonly source: IntentProposal["source"]
     }
   | {
-      readonly kind: "show_status" | "cancel" | "continue" | "approve" | "decline"
+      readonly kind: "show_status" | "cancel" | "pause" | "continue" | "approve" | "decline"
       readonly utterance: string
       readonly source: IntentProposal["source"]
     }

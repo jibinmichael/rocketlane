@@ -26,6 +26,7 @@ const BARE_DECISIONS: ReadonlySet<Intent["kind"]> = new Set([
   "approve",
   "decline",
   "continue",
+  "pause",
   "cancel",
   "show_status",
 ])

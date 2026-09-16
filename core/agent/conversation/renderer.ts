@@ -174,6 +174,31 @@ export function renderMission(
     }
   }
 
+  // Pause and resume, as they happened.
+  events.forEach((e, i) => {
+    if (e.type === "PAUSE_REQUESTED" && e.detail["inFlight"] === true) {
+      add(
+        i,
+        5,
+        block("pause_requested", "paused", [
+          [text("Pause requested.")],
+          [
+            text(
+              "I'm finishing the update already in progress, then I'll pause. I won't start the next update.",
+            ),
+          ],
+        ]),
+      )
+    }
+    if (e.type === "MISSION_PAUSED" && e.detail["reason"] === "USER") {
+      const isCurrent =
+        mission.state === "PAUSED" &&
+        !events.some((later, j) => j > i && later.type === "MISSION_PAUSED")
+      add(i, 7, renderPaused(ctx, e, i, isCurrent))
+    }
+    if (e.type === "MISSION_RESUMED") add(i, 0, renderResumed(e))
+  })
+
   // The one thing the agent needs from a person, where it asked.
   const requested = events
     .map((e, i) => (e.type === "ACTION_REQUESTED" ? i : -1))
@@ -274,6 +299,81 @@ function evaluationBlock(
     ],
     collapsed: true,
   }
+}
+
+/** Pause assurance: what happened, where we stopped, what did not happen, what resume will do. */
+function renderPaused(ctx: Ctx, event: AgentEvent, index: number, isCurrent: boolean): Block {
+  const { mission, events, graph } = ctx
+  const reconciled = [...events]
+    .slice(0, index)
+    .reverse()
+    .find((e) => e.type === "ACTION_RECONCILED")
+  const inFlight = event.detail["inFlight"] === true && reconciled !== undefined
+  const lastVerifiedLabel =
+    typeof event.detail["lastVerified"] === "string" ? event.detail["lastVerified"] : null
+  const lastVerified = lastVerifiedLabel
+    ? mission.plan.find((s) => s.label === lastVerifiedLabel && s.status === "succeeded")
+    : undefined
+  const lines: Inline[][] = [[text("Got it. I've paused the mission.")]]
+  if (inFlight && reconciled) {
+    const ref = reconciled.refs[0]
+    const verified = reconciled.detail["verified"] === true
+    lines.push([
+      text("The update to "),
+      ...(ref ? [entity(ref, labelOf(ref, graph))] : [text("the current item")]),
+      text(
+        verified
+          ? " was already in progress; it completed before the pause took effect and was verified."
+          : " was already in progress; it did not verify, so it is not marked complete and the state was reconciled.",
+      ),
+    ])
+  } else {
+    lines.push([text("I stopped before starting the next update.")])
+  }
+  lines.push(
+    lastVerified
+      ? [
+          text("The last verified update was "),
+          entity(lastVerified.ref, lastVerified.label),
+          text("."),
+        ]
+      : [text("No updates had been made yet.")],
+  )
+  lines.push([
+    text(
+      "No further updates were started. Nothing else will change until you resume; I'll recheck the current state first.",
+    ),
+  ])
+  return block(
+    "paused",
+    "paused",
+    lines,
+    isCurrent
+      ? [
+          { kind: "continue", label: "Resume" },
+          { kind: "cancel", label: "Stop" },
+        ]
+      : [],
+  )
+}
+
+function renderResumed(event: AgentEvent): Block {
+  if (event.detail["withdrawn"] === true) {
+    return block("resumed", "neutral", [
+      [text("Got it. The pause was withdrawn before it took effect; I'm continuing.")],
+    ])
+  }
+  const changed = event.detail["changed"] === true
+  return block("resumed", "neutral", [
+    [text("Got it. I'll recheck the current state before continuing.")],
+    [
+      text(
+        changed
+          ? "Resuming requires a course correction. The project changed while this mission was paused; I rechecked the current state and updated the plan before continuing."
+          : "Resuming from the current verified state.",
+      ),
+    ],
+  ])
 }
 
 function renderStateChange(
@@ -665,19 +765,35 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
       const written = mission.plan.filter(
         (s) => s.status === "succeeded" && s.transition === "COMPLETED",
       ).length
-      if (written === 0)
-        return [block("cancelled", "paused", [[text("Stopped. Nothing was written.")]])]
-      return [
-        block("cancelled", "paused", [
-          [
-            text("Stopped. "),
-            count(written),
-            text(
-              ` ${plural(written, "update")} completed before you cancelled; nothing further was written.`,
-            ),
-          ],
-        ]),
+      const cancelledAt = ctx.events.findIndex((e) => e.type === "MISSION_CANCELLED")
+      const reconciled = ctx.events.find(
+        (e, i) => i > cancelledAt && cancelledAt >= 0 && e.type === "ACTION_RECONCILED",
+      )
+      const lines: Inline[][] = [
+        [text("Got it. I've stopped the mission. Completed and verified work remains unchanged.")],
       ]
+      if (reconciled?.refs[0]) {
+        lines.push([
+          text("The update to "),
+          entity(reconciled.refs[0], labelOf(reconciled.refs[0], graph)),
+          text(
+            reconciled.detail["verified"] === true
+              ? " was already in progress; it completed and was verified."
+              : " was already in progress; it did not verify and is not marked complete.",
+          ),
+        ])
+      }
+      lines.push(
+        written === 0
+          ? [text("Nothing was written.")]
+          : [
+              count(written),
+              text(
+                ` ${plural(written, "update")} completed and verified before you stopped; nothing further was started.`,
+              ),
+            ],
+      )
+      return [block("cancelled", "paused", lines)]
     }
     case "FAILED": {
       const failed = mission.plan.find((s) => s.status === "failed")
@@ -1006,7 +1122,7 @@ export function renderIntentReply(
       ]
     }
     case "cancel":
-      return []
+    case "pause":
     case "continue":
       return []
     case "create_routine":
@@ -1085,6 +1201,9 @@ const ICON_BY_TYPE: Record<Block["type"], SemanticIcon | null> = {
   timeout_reconciled: "refresh",
   state_change: "change",
   course_correction: "course",
+  pause_requested: "pause",
+  paused: "pause",
+  resumed: "refresh",
   stale_on_resume: "change",
   scope_change: "change",
   cancelled: "cancel",

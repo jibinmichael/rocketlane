@@ -33,6 +33,8 @@ const BOUNDARY: ReadonlySet<AgentEventType> = new Set([
   "ACTION_APPROVED",
   "ACTION_DECLINED",
   "MISSION_REPLANNED",
+  "MISSION_PAUSED",
+  "MISSION_RESUMED",
 ])
 
 export function activityPhases(

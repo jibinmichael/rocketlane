@@ -43,6 +43,7 @@ export function ground(
 
   switch (proposal.kind) {
     case "cancel":
+    case "pause":
     case "continue":
     case "approve":
     case "decline":

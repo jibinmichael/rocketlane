@@ -115,6 +115,7 @@ export const MissionSchema = z.object({
     "WAITING",
     "EXECUTING",
     "VERIFYING",
+    "PAUSED",
     "COMPLETED",
     "BLOCKED",
     "FAILED",
@@ -157,6 +158,7 @@ export const MissionSchema = z.object({
       z.object({ kind: z.literal("confirm_plan") }),
     ])
     .nullable(),
+  pauseRequested: z.boolean(),
   planConfirmed: z.boolean(),
   currentStepId: z.string().nullable(),
   blockers: z.array(BlockerSchema),
@@ -165,7 +167,7 @@ export const MissionSchema = z.object({
     z.object({
       at: z.number(),
       stepId: z.string().nullable(),
-      kind: z.enum(["approve", "decline", "input", "cancel", "change_scope", "continue"]),
+      kind: z.enum(["approve", "decline", "input", "cancel", "pause", "change_scope", "continue"]),
       detail: z.string(),
     }),
   ),

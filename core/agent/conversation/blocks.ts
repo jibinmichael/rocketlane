@@ -23,6 +23,7 @@ export type BlockAction =
     }
   | { readonly kind: "decline"; readonly stepId: string | null; readonly label: string }
   | { readonly kind: "continue"; readonly label: string }
+  | { readonly kind: "pause"; readonly label: string }
   | { readonly kind: "cancel"; readonly label: string }
   | { readonly kind: "view_activity"; readonly label: string }
   | { readonly kind: "pick_candidate"; readonly ref: EntityRef; readonly label: string }
@@ -77,6 +78,9 @@ export type BlockType =
   | "timeout_reconciled"
   | "state_change"
   | "course_correction"
+  | "pause_requested"
+  | "paused"
+  | "resumed"
   | "stale_on_resume"
   | "scope_change"
   | "cancelled"
@@ -92,7 +96,8 @@ export function carriesDecision(block: Pick<Block, "type">): boolean {
   return (
     block.type.startsWith("action_request") ||
     block.type === "notification.blocked" ||
-    block.type === "clarification"
+    block.type === "clarification" ||
+    block.type === "paused"
   )
 }
 

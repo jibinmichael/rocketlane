@@ -104,6 +104,7 @@ export class MissionEngine {
       state: "ACTIVE",
       plan: [],
       pending: null,
+      pauseRequested: false,
       planConfirmed: false,
       currentStepId: null,
       blockers: [],
@@ -262,6 +263,62 @@ export class MissionEngine {
     return mission
   }
 
+  /**
+   * The user asks to stop scheduling. Nothing new starts. An update already in flight is finished
+   * and verified first, then the mission is PAUSED; nothing is rolled back. Resumable.
+   */
+  pause(missionId: string): Mission {
+    let mission = this.require(missionId)
+    if (isTerminal(mission) || mission.state === "PAUSED" || mission.pauseRequested) return mission
+    const inFlightStep =
+      mission.state === "EXECUTING" && this.running.has(missionId) && mission.currentStepId
+        ? (mission.plan.find((s) => s.id === mission.currentStepId) ?? null)
+        : null
+    mission = this.decide(mission, "pause", null, "paused by user")
+    this.emit(mission, "PAUSE_REQUESTED", mission.targets, { inFlight: inFlightStep !== null })
+    if (inFlightStep) {
+      this.emit(mission, "ACTION_RECONCILIATION_STARTED", [inFlightStep.ref], {
+        step: inFlightStep.label,
+      })
+      mission = { ...mission, pauseRequested: true }
+      this.commit(mission)
+      return mission
+    }
+    mission = this.pauseNow(mission, null)
+    this.commit(mission)
+    return mission
+  }
+
+  /** The pause boundary: after the reconciled in-flight step (if any), before anything else. */
+  private pauseNow(mission: Mission, reconciled: PlanStep | null): Mission {
+    if (reconciled) {
+      this.emit(mission, "ACTION_RECONCILED", [reconciled.ref], {
+        step: reconciled.label,
+        status: reconciled.status,
+        verified: reconciled.verification === "VERIFIED",
+        retries: reconciled.retries,
+      })
+    }
+    const lastVerified = [...mission.plan].reverse().find((s) => s.status === "succeeded")
+    this.emit(mission, "MISSION_PAUSED", mission.targets, {
+      reason: "USER",
+      inFlight: reconciled !== null,
+      lastVerified: lastVerified?.label ?? null,
+    })
+    return {
+      ...mission,
+      state: "PAUSED",
+      pending: null,
+      pauseRequested: false,
+      currentStepId: null,
+      plan: mission.plan.map((s) =>
+        s.status === "waiting_input" || s.status === "waiting_confirm"
+          ? { ...s, status: "pending" as const }
+          : s,
+      ),
+    }
+  }
+
   /** Scope reduction (spec §11): stop, replan with the exclusion, continue only with the new scope. */
   async changeScope(missionId: string, exclude: EntityRef): Promise<Mission> {
     let mission = this.require(missionId)
@@ -274,13 +331,29 @@ export class MissionEngine {
     return this.run(missionId)
   }
 
-  /** Continue a paused (STALE) or waiting mission after revalidation. */
+  /**
+   * Continue a paused (PAUSED or STALE) or waiting mission. Never from the old plan: the current
+   * state is re-read, permissions, governance and dependencies are revalidated by the replan, and
+   * whether the world moved while paused is recorded so the conversation can say so.
+   */
   async resume(missionId: string): Promise<Mission> {
     let mission = this.require(missionId)
     if (isTerminal(mission)) return mission
+    // A pause asked for but not yet taken (an update is still in flight): withdraw it; the loop goes on.
+    if (mission.pauseRequested && this.running.has(missionId)) {
+      mission = { ...this.decide(mission, "continue", null, "continue"), pauseRequested: false }
+      this.emit(mission, "MISSION_RESUMED", mission.targets, { changed: false, withdrawn: true })
+      this.commit(mission)
+      return mission
+    }
+    const from = mission.state
     mission = this.decide(mission, "continue", null, "continue")
     const graph = await this.deps.sor.snapshot()
-    mission = this.replan(mission, graph, "resume")
+    // The world moved if a state change was recorded while paused, or if anything still planned
+    // carries a version other than the one the plan observed.
+    const changed = from === "STALE" || driftedSincePlanned(mission, graph)
+    mission = this.replan({ ...mission, pauseRequested: false }, graph, "resume")
+    this.emit(mission, "MISSION_RESUMED", mission.targets, { changed, from, withdrawn: false })
     this.commit(mission)
     return this.run(missionId)
   }
@@ -436,17 +509,41 @@ export class MissionEngine {
     this.running.add(missionId)
     try {
       let mission = this.require(missionId)
-      while (!isTerminal(mission) && mission.pending === null && mission.state !== "STALE") {
+      while (
+        !isTerminal(mission) &&
+        mission.pending === null &&
+        mission.state !== "STALE" &&
+        mission.state !== "PAUSED"
+      ) {
         const step = nextStep(mission)
         if (!step) {
           mission = this.finish(mission, null)
           break
         }
         const result = await this.execute(mission, step)
-        // The world may have paused, or the user cancelled, while the step was in flight (§10, §11).
+        // The world may have paused, or the user paused or cancelled, while the step was in flight.
         const latest = this.require(missionId)
-        mission =
-          latest.state === "STALE" || isTerminal(latest) ? mergeStepResults(latest, result) : result
+        const reconciled = stepResult(result, step)
+        if (latest.pauseRequested) {
+          // Pause asked for mid-step: keep the step's real result, then stop scheduling (§11).
+          const merged = { ...result, decisions: latest.decisions, pauseRequested: false }
+          mission =
+            isTerminal(merged) || merged.state === "STALE"
+              ? merged
+              : this.pauseNow(merged, reconciled)
+        } else if (latest.state === "STALE" || latest.state === "PAUSED" || isTerminal(latest)) {
+          if (reconciled && isTerminal(latest)) {
+            this.emit(latest, "ACTION_RECONCILED", [reconciled.ref], {
+              step: reconciled.label,
+              status: reconciled.status,
+              verified: reconciled.verification === "VERIFIED",
+              retries: reconciled.retries,
+            })
+          }
+          mission = mergeStepResults(latest, result)
+        } else {
+          mission = result
+        }
         this.commit(mission)
         mission = this.require(missionId)
       }
@@ -461,7 +558,7 @@ export class MissionEngine {
     const graph = await this.deps.sor.snapshot()
     // The user may have cancelled while the read was in flight: nothing starts after a stop (§11).
     const stored = this.require(mission.id)
-    if (isTerminal(stored)) return stored
+    if (isTerminal(stored) || stored.state === "PAUSED") return stored
     mission = { ...mission, currentStepId: step.id }
 
     // Already satisfied? (world may have done it, or an earlier replan)
@@ -583,7 +680,8 @@ export class MissionEngine {
       step.ref.kind === "project"
         ? { kind: "complete_project", projectId: step.ref.id }
         : { kind: "complete_task", taskId: step.ref.id }
-    if (isTerminal(this.require(mission.id))) return this.require(mission.id)
+    const before = this.require(mission.id)
+    if (isTerminal(before) || before.state === "PAUSED") return before
     mission = this.setStep(mission, step.id, { status: "running" }, "EXECUTING")
     this.commit(mission)
     return this.write(
@@ -642,7 +740,7 @@ export class MissionEngine {
           failureClass = "conflict"
           this.emit(mission, "ACTION_FAILED", [step.ref], { step: step.label, reason: "conflict" })
           const graph = await this.deps.sor.snapshot()
-          return this.pause(
+          return this.pauseForChange(
             this.setStep(mission, step.id, { status: "pending", failureClass, retries }, "STALE"),
             graph,
             {
@@ -731,7 +829,7 @@ export class MissionEngine {
         by: change.actorId,
         cause: change.cause,
       })
-      const paused = this.pause(fresh, graph, {
+      const paused = this.pauseForChange(fresh, graph, {
         ref: change.ref,
         summary: change.summary,
         actorId: change.actorId,
@@ -754,7 +852,7 @@ export class MissionEngine {
     return false
   }
 
-  private pause(
+  private pauseForChange(
     mission: Mission,
     graph: WorkspaceGraph,
     change: { ref: EntityRef; summary: string; actorId: ActorId | null },
@@ -954,6 +1052,22 @@ function mergeStepResults(latest: Mission, result: Mission): Mission {
         : s
     }),
   }
+}
+
+/** The in-flight step as the run left it, or null when it never started. */
+function stepResult(result: Mission, step: PlanStep): PlanStep | null {
+  const done = result.plan.find((s) => s.id === step.id)
+  return done && done.status !== "pending" && done.status !== "running" ? done : null
+}
+
+/** Did anything the plan still depends on change since it was planned? Versions, not guesses. */
+function driftedSincePlanned(mission: Mission, graph: WorkspaceGraph): boolean {
+  return mission.plan.some((s) => {
+    if (s.status !== "pending" && s.status !== "waiting_input" && s.status !== "waiting_confirm")
+      return false
+    const now = versionOf(s.ref, graph)
+    return s.observedVersion !== null && now !== null && now !== s.observedVersion
+  })
 }
 
 function nextStep(mission: Mission): PlanStep | null {

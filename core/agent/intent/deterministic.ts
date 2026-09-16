@@ -65,6 +65,7 @@ const COURTESY = "(?:please|thanks|thank\\s+you)"
 
 const RULES: readonly Rule[] = [
   { pattern: /^\s*(stop|cancel|abort|never\s?mind|halt)\b/i, build: () => noTarget("cancel") },
+  { pattern: /^\s*(pause|hold\s+on|hold|wait)\b/i, build: () => noTarget("pause") },
   {
     pattern: /^\s*(continue|resume|go\s+on|proceed|carry\s+on|keep\s+going)\b/i,
     build: () => noTarget("continue"),

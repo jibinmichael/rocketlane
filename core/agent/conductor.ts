@@ -26,6 +26,7 @@ export type MissionCommands = {
   approve(missionId: string, stepId: string | null): Promise<Mission>
   decline(missionId: string, stepId: string | null): Promise<Mission>
   cancel(missionId: string): Mission
+  pause(missionId: string): Mission
   resume(missionId: string): Promise<Mission>
   changeScope(missionId: string, exclude: EntityRef): Promise<Mission>
 }
@@ -112,6 +113,10 @@ export async function conduct(
     case "cancel":
       before(null)
       engine.cancel(current.id)
+      return { kind: "applied", session: null }
+    case "pause":
+      before(null)
+      engine.pause(current.id)
       return { kind: "applied", session: null }
     case "continue":
       before("RECHECKING")

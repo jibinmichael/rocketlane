@@ -13,6 +13,8 @@ export type MissionState =
   | "WAITING"
   | "EXECUTING"
   | "VERIFYING"
+  /** The user asked to stop scheduling; resumable, nothing rolled back. */
+  | "PAUSED"
   | "COMPLETED"
   | "BLOCKED"
   | "FAILED"
@@ -74,7 +76,7 @@ export type PlanStep = {
 export type Decision = {
   readonly at: number
   readonly stepId: string | null
-  readonly kind: "approve" | "decline" | "input" | "cancel" | "change_scope" | "continue"
+  readonly kind: "approve" | "decline" | "input" | "cancel" | "pause" | "change_scope" | "continue"
   readonly detail: string
 }
 
@@ -149,6 +151,8 @@ export type Mission = {
   readonly state: MissionState
   readonly plan: readonly PlanStep[]
   readonly pending: PendingDecision
+  /** A pause was asked for while an update was in flight; it takes effect once that update is reconciled. */
+  readonly pauseRequested: boolean
   readonly planConfirmed: boolean
   readonly currentStepId: string | null
   readonly blockers: readonly Blocker[]
