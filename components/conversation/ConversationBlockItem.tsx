@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from "react"
 
-import { placementClass, useCardPlacement } from "@/hooks/use-card-placement"
+import { placementClass, useHoverCard } from "@/hooks/use-card-placement"
 import Image from "next/image"
 import { AnimatePresence, motion } from "motion/react"
 
@@ -398,14 +398,10 @@ function EvidenceHover({
   children: React.ReactNode
 }) {
   const tipId = useId()
-  const { placement, place } = useCardPlacement(360, 220)
+  const { open: cardOpen, placement, handlers } = useHoverCard(360, 220)
   if (!evidence || evidence.length === 0) return <>{children}</>
   return (
-    <span
-      className="group/evidence relative inline-flex"
-      onMouseEnter={(e) => place(e.currentTarget)}
-      onFocus={(e) => place(e.currentTarget)}
-    >
+    <span className="relative inline-flex" {...handlers}>
       <span
         tabIndex={0}
         aria-describedby={tipId}
@@ -417,7 +413,8 @@ function EvidenceHover({
         id={tipId}
         role="tooltip"
         className={cn(
-          "bg-card text-card-foreground border-border pointer-events-none absolute z-30 hidden w-max max-w-[360px] flex-col gap-1 rounded-lg border px-3 py-2 text-[12px] shadow-[var(--shadow-lg)] group-focus-within/evidence:flex group-hover/evidence:flex",
+          "bg-card text-card-foreground border-border pointer-events-none absolute z-30 w-max max-w-[360px] flex-col gap-1 rounded-lg border px-3 py-2 text-[12px] shadow-[var(--shadow-lg)]",
+          cardOpen ? "flex" : "hidden",
           placementClass(placement),
         )}
       >
