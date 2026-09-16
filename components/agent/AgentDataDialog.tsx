@@ -2,9 +2,9 @@
 
 import { useEffect, useId, useRef } from "react"
 import { AnimatePresence, motion } from "motion/react"
-import { X } from "lucide-react"
 
 import { AgentDataPanel } from "@/components/agent/AgentDataPanel"
+import { LinearIcon } from "@/components/shared/LinearIcon"
 import { settle } from "@/lib/motion"
 
 /**
@@ -68,7 +68,7 @@ export function AgentDataDialog({ open, onClose }: { open: boolean; onClose: () 
                 aria-label="Close"
                 className="text-muted-foreground hover:text-foreground hover:bg-muted flex size-7 items-center justify-center rounded-full transition-colors duration-[var(--motion-fast)]"
               >
-                <X aria-hidden className="size-3.5" strokeWidth={2} />
+                <LinearIcon name="close" className="size-3.5" />
               </button>
             </div>
             <AgentDataPanel onLoaded={onClose} />

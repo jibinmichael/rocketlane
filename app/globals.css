@@ -123,22 +123,22 @@
 
 :root {
   --background: oklch(0.988 0 0);
-  --foreground: oklch(0.145 0 0);
+  --foreground: #26273b;
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: #26273b;
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --muted: #eeeffc;
+  --muted-foreground: #4c4f6b;
+  --accent: #eeeffc;
+  --accent-foreground: #26273b;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: #e0e1ec;
+  --input: #e0e1ec;
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
@@ -190,6 +190,14 @@
     var(--vibe-2) 45%,
     var(--vibe-3) 75%,
     var(--vibe-4)
+  );
+  /* Active Send: the same four stops lifted toward white, so the arrow stays dark and the button quiet. */
+  --vibe-gradient-soft: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--vibe-1) 42%, white),
+    color-mix(in oklch, var(--vibe-2) 38%, white) 45%,
+    color-mix(in oklch, var(--vibe-3) 42%, white) 75%,
+    color-mix(in oklch, var(--vibe-4) 42%, white)
   );
   --vibe-halo: conic-gradient(
     from 0deg,

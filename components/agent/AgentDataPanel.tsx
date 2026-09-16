@@ -1,8 +1,8 @@
 "use client"
 
 import { useId, useRef, useState, type DragEvent } from "react"
-import { FileSpreadsheet, TriangleAlert, Upload, X } from "lucide-react"
 
+import { LinearIcon } from "@/components/shared/LinearIcon"
 import { Button } from "@/components/ui/button"
 import type { IngestionReport } from "@/core/ingestion/report"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
@@ -79,7 +79,7 @@ export function AgentDataPanel({ onLoaded }: { onLoaded?: () => void }) {
           over ? "border-vibe-1 bg-vibe-1/5" : "border-border hover:bg-muted/60",
         )}
       >
-        <Upload aria-hidden className="text-muted-foreground size-4" strokeWidth={1.75} />
+        <LinearIcon name="upload" className="text-muted-foreground size-4" />
         <span className="text-foreground text-[13px]">
           Drop projects.csv and tasks.csv here, or{" "}
           <span className="text-vibe-1 font-medium">browse</span>
@@ -118,11 +118,7 @@ export function AgentDataPanel({ onLoaded }: { onLoaded?: () => void }) {
             )}
           >
             {attention > 0 && (
-              <TriangleAlert
-                aria-hidden
-                className="text-state-waiting mt-[3px] size-3.5 shrink-0"
-                strokeWidth={1.75}
-              />
+              <LinearIcon name="alert" className="text-state-waiting mt-[3px] size-3.5 shrink-0" />
             )}
             <span>
               {attention > 0
@@ -192,10 +188,9 @@ function FileRow({
 }) {
   return (
     <li className="flex h-11 items-center gap-3 px-3 text-[13px]">
-      <FileSpreadsheet
-        aria-hidden
+      <LinearIcon
+        name="document"
         className={cn("size-4 shrink-0", file ? "text-foreground" : "text-muted-foreground/60")}
-        strokeWidth={1.75}
       />
       <span className="flex min-w-0 flex-1 flex-col leading-tight">
         <span className={cn("truncate", file ? "text-foreground" : "text-muted-foreground")}>
@@ -212,7 +207,7 @@ function FileRow({
           aria-label={`Remove ${file.name}`}
           className="text-muted-foreground hover:text-foreground hover:bg-muted flex size-6 items-center justify-center rounded-full transition-colors duration-[var(--motion-fast)]"
         >
-          <X aria-hidden className="size-3" strokeWidth={2} />
+          <LinearIcon name="close" className="size-3" />
         </button>
       )}
     </li>

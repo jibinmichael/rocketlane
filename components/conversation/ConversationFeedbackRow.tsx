@@ -1,20 +1,20 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Check, Copy, ThumbsDown, ThumbsUp } from "lucide-react"
 
+import { LinearIcon } from "@/components/shared/LinearIcon"
 import { cn } from "@/lib/utils"
 
 /**
  * Under a finished answer (ClickUp Brain, Fin): thumbs and copy. Feedback is local to the session;
- * it never changes what the agent did. Adapted from the Wati "vibe" feedback artifact.
+ * it never changes what the agent did. Once rated, it thanks briefly and leaves the block clean
+ * (adapted from the Wati "vibe" feedback artifact).
  */
 export function ConversationFeedbackRow({ text }: { text: string }) {
   const [vote, setVote] = useState<"up" | "down" | null>(null)
   const [copied, setCopied] = useState(false)
   const [gone, setGone] = useState(false)
 
-  // Once rated, say thanks briefly, then leave the block clean (Wati feedback artifact).
   useEffect(() => {
     if (!vote) return
     const t = window.setTimeout(() => setGone(true), 2200)
@@ -40,28 +40,23 @@ export function ConversationFeedbackRow({ text }: { text: string }) {
           className="text-muted-foreground inline-flex items-center gap-1.5 text-[12px]"
           aria-live="polite"
         >
-          <Check className="size-3.5" strokeWidth={2} aria-hidden />
+          <LinearIcon name="check" className="size-3.5" />
           {vote === "up" ? "Thanks for the feedback" : "Noted. Tell me what was off."}
         </span>
       ) : (
         <>
-          <IconButton label="Helpful" pressed={false} onClick={() => setVote("up")}>
-            <ThumbsUp className="size-3.5" strokeWidth={1.75} />
+          <IconButton label="Helpful" onClick={() => setVote("up")}>
+            <LinearIcon name="thumbs-up" className="size-3.5" />
           </IconButton>
-          <IconButton label="Not helpful" pressed={false} onClick={() => setVote("down")}>
-            <ThumbsDown className="size-3.5" strokeWidth={1.75} />
+          <IconButton label="Not helpful" onClick={() => setVote("down")}>
+            <LinearIcon name="thumbs-down" className="size-3.5" />
           </IconButton>
           <span aria-hidden className="bg-border mx-1 h-3.5 w-px" />
-          <IconButton
-            label={copied ? "Copied" : "Copy"}
-            pressed={false}
-            onClick={() => void copy()}
-          >
-            {copied ? (
-              <Check className="text-state-completed size-3.5" strokeWidth={2} />
-            ) : (
-              <Copy className="size-3.5" strokeWidth={1.75} />
-            )}
+          <IconButton label={copied ? "Copied" : "Copy"} onClick={() => void copy()}>
+            <LinearIcon
+              name={copied ? "check" : "clipboard"}
+              className={cn("size-3.5", copied && "text-state-completed")}
+            />
           </IconButton>
         </>
       )}
@@ -71,12 +66,10 @@ export function ConversationFeedbackRow({ text }: { text: string }) {
 
 function IconButton({
   label,
-  pressed,
   onClick,
   children,
 }: {
   label: string
-  pressed: boolean
   onClick: () => void
   children: React.ReactNode
 }) {
@@ -85,14 +78,8 @@ function IconButton({
       type="button"
       aria-label={label}
       title={label}
-      aria-pressed={pressed}
       onClick={onClick}
-      className={cn(
-        "flex size-7 items-center justify-center rounded-full transition-colors duration-[var(--motion-fast)]",
-        pressed
-          ? "bg-muted text-foreground"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-      )}
+      className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-7 items-center justify-center rounded-full transition-colors duration-[var(--motion-fast)]"
     >
       {children}
     </button>

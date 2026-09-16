@@ -1,14 +1,13 @@
-import { Flag, FolderKanban, ListChecks, type LucideIcon } from "lucide-react"
-
+import { LinearIcon, type LinearIconName } from "@/components/shared/LinearIcon"
 import type { Inline } from "@/core/agent/conversation/blocks"
 import { cn } from "@/lib/utils"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
 
-const KIND_ICON: Record<string, LucideIcon> = {
-  project: FolderKanban,
-  phase: Flag,
-  task: ListChecks,
+const KIND_ICON: Record<string, LinearIconName> = {
+  project: "layers",
+  phase: "two-flags",
+  task: "issues",
 }
 
 /**
@@ -30,7 +29,7 @@ export function ConversationInlineText({
           case "text":
             return <span key={i}>{part.text}</span>
           case "entity": {
-            const Icon = KIND_ICON[part.ref.kind] ?? ListChecks
+            const icon = KIND_ICON[part.ref.kind] ?? "issues"
             return (
               <span
                 key={i}
@@ -38,7 +37,7 @@ export function ConversationInlineText({
                 title={part.label}
                 data-entity={`${part.ref.kind}:${part.ref.id}`}
               >
-                <Icon aria-hidden className="text-muted-foreground size-3" strokeWidth={1.75} />
+                <LinearIcon name={icon} className="text-muted-foreground size-3" />
                 {part.label}
               </span>
             )

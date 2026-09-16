@@ -1,51 +1,30 @@
-import {
-  Activity,
-  Ban,
-  Check,
-  CircleCheckBig,
-  CircleX,
-  Clock,
-  Flag,
-  FolderKanban,
-  GitBranch,
-  ListChecks,
-  type LucideIcon,
-  Pause,
-  Play,
-  RefreshCw,
-  Route,
-  ShieldCheck,
-  TriangleAlert,
-  UserRound,
-  Waypoints,
-} from "lucide-react"
-
 import type { Block, SemanticIcon } from "@/core/agent/conversation/blocks"
+import { LinearIcon, type LinearIconName } from "@/components/shared/LinearIcon"
 import { cn } from "@/lib/utils"
 
 /**
  * One icon per kind of work (spec §26). Deterministic mapping from the block contract's
- * `SemanticIcon`; the glyph answers "what is happening", never decorates.
+ * `SemanticIcon` to the Linear icon set; the glyph answers "what is happening", never decorates.
  */
-const ICON: Record<SemanticIcon, LucideIcon> = {
-  project: FolderKanban,
-  milestone: Flag,
-  task: ListChecks,
-  time: Clock,
-  dependency: GitBranch,
-  policy: ShieldCheck,
-  blocker: TriangleAlert,
-  person: UserRound,
-  action: Play,
-  execution: Activity,
-  check: Check,
-  refresh: RefreshCw,
-  change: Waypoints,
-  course: Route,
-  pause: Pause,
-  error: CircleX,
-  cancel: Ban,
-  landing: CircleCheckBig,
+const ICON: Record<SemanticIcon, { name: LinearIconName; rotate?: number }> = {
+  project: { name: "layers" },
+  milestone: { name: "two-flags" },
+  task: { name: "issues" },
+  time: { name: "clock" },
+  dependency: { name: "branch" },
+  policy: { name: "shield-star" },
+  blocker: { name: "warning-circle" },
+  person: { name: "user-circle" },
+  action: { name: "arrow-right" },
+  execution: { name: "timeline" },
+  check: { name: "check" },
+  refresh: { name: "loader" },
+  change: { name: "steps" },
+  course: { name: "compass" },
+  pause: { name: "three-dots" },
+  error: { name: "close" },
+  cancel: { name: "close" },
+  landing: { name: "rocket" },
 }
 
 const TONE_COLOR: Record<Block["tone"], string> = {
@@ -66,12 +45,12 @@ export function ConversationIcon({
   tone?: Block["tone"]
   className?: string
 }) {
-  const Icon = ICON[name]
+  const icon = ICON[name]
   return (
-    <Icon
-      aria-hidden
-      strokeWidth={1.75}
-      className={cn("h-3.5 w-3.5 shrink-0", TONE_COLOR[tone], className)}
+    <LinearIcon
+      name={icon.name}
+      rotate={icon.rotate ?? 0}
+      className={cn("size-3.5", TONE_COLOR[tone], className)}
     />
   )
 }

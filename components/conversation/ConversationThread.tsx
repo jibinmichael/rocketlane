@@ -35,7 +35,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   const mission = snapshot.status === "ready" ? runtime.mission(missionId) : null
   const thread = snapshot.status === "ready" ? runtime.thread(missionId) : []
   const live = snapshot.status === "ready" ? runtime.liveBlocks(missionId) : []
-  const pacedLive = usePacedReveal(live)
+  const { shown: pacedLive, revealing, skip } = usePacedReveal(live)
   const session = runtime.session(missionId)
   const actorIndex = snapshot.actors.findIndex((a) => a.id === snapshot.actorId)
   const actor = actorIndex >= 0 ? snapshot.actors[actorIndex] : undefined
@@ -46,7 +46,6 @@ export function ConversationThread({ missionId }: { missionId: string }) {
     session === "RECHECKING" ||
     session === "PAUSING"
   const working = WORKING_STATES.has(session)
-  const revealing = pacedLive.length < live.length
   const paused =
     !working && (mission?.state === "PAUSED" || mission?.state === "STALE" || session === "PAUSED")
   const settled =
@@ -73,6 +72,10 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   }
 
   const onAction = (action: BlockAction) => {
+    if (action.kind === "pause" && revealing && !executing) {
+      skip()
+      return
+    }
     if (action.kind === "view_activity") {
       router.push(`/activity?mission=${missionId}`)
       return
@@ -89,14 +92,14 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   // Esc pauses the mission from anywhere in the thread while it is executing (spec §11). Pause
   // controls future execution; it never cancels.
   useEffect(() => {
-    if (!executing) return
+    if (!executing && !revealing) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onAction({ kind: "pause", label: "Pause" })
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [executing, missionId])
+  }, [executing, revealing, missionId])
 
   if (snapshot.status === "error") {
     return (
@@ -299,7 +302,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
             onPause={() => onAction({ kind: "pause", label: "Pause" })}
             onResume={() => onAction({ kind: "continue", label: "Resume" })}
             onAttach={() => setDataOpen(true)}
-            executing={executing}
+            executing={executing || revealing}
             paused={paused}
             focusKey={mission?.pending?.kind === "input" ? mission.pending.stepId : null}
             placeholder={

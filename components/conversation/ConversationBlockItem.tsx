@@ -2,11 +2,11 @@
 
 import { useState } from "react"
 import { motion } from "motion/react"
-import { ChevronRight } from "lucide-react"
 
 import { ConversationIcon } from "@/components/conversation/ConversationIcon"
 import { ConversationInlineText } from "@/components/conversation/ConversationInlineText"
 import { MissionPathList } from "@/components/mission/MissionPathList"
+import { LinearIcon } from "@/components/shared/LinearIcon"
 import { Button } from "@/components/ui/button"
 import type { ActivityItem, Block, BlockAction } from "@/core/agent/conversation/blocks"
 import { revealDelay, settle } from "@/lib/motion"
@@ -87,12 +87,14 @@ export function ConversationBlockItem({
       initial={{ opacity: 0, y: isLanding ? 2 : -2 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...settle, delay: frozen ? 0 : revealDelay(index) }}
-      className={cn("relative flex gap-2.5", speech ? "py-1.5" : "py-1")}
+      className={cn("relative flex", speech ? "py-1.5" : "py-1")}
       data-block-type={block.type}
     >
-      <span className="mt-[4px] flex w-4 shrink-0 justify-center">
-        {block.icon && <ConversationIcon name={block.icon} tone={block.tone} />}
-      </span>
+      {block.icon && (
+        <span className="absolute top-[9px] -left-[26px] flex w-4 justify-center">
+          <ConversationIcon name={block.icon} tone={block.tone} />
+        </span>
+      )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div id={`${block.id}-text`} className="flex flex-col gap-0.5">
           {visibleLines.map((line, i) => (
@@ -236,13 +238,10 @@ function Fold({
         strong ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground",
       )}
     >
-      <ChevronRight
-        aria-hidden
-        className={cn(
-          "size-3.5 shrink-0 transition-transform duration-[var(--motion-fast)]",
-          open && "rotate-90",
-        )}
-        strokeWidth={2}
+      <LinearIcon
+        name="chevron-down"
+        rotate={open ? 0 : -90}
+        className="size-3 shrink-0 transition-transform duration-[var(--motion-fast)]"
       />
       <span>{children}</span>
     </button>

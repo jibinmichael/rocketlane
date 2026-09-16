@@ -3,9 +3,9 @@
 import { useEffect, useId, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { ChevronDown, Plus } from "lucide-react"
 
 import { ConversationIcon } from "@/components/conversation/ConversationIcon"
+import { LinearIcon } from "@/components/shared/LinearIcon"
 import type { Block, SemanticIcon } from "@/core/agent/conversation/blocks"
 import type { Mission } from "@/core/mission/mission"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
@@ -72,11 +72,7 @@ export function MissionHistoryMenu() {
         className="text-foreground hover:bg-muted flex h-8 max-w-[420px] min-w-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors duration-[var(--motion-fast)]"
       >
         <span className="truncate">{current ? current.goalText : "Missions"}</span>
-        <ChevronDown
-          aria-hidden
-          className="text-muted-foreground size-3.5 shrink-0"
-          strokeWidth={2}
-        />
+        <LinearIcon name="chevron-down" className="text-muted-foreground size-3 shrink-0" />
       </button>
       {open && (
         <div
@@ -94,7 +90,7 @@ export function MissionHistoryMenu() {
             }}
             className="text-foreground hover:bg-muted flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors duration-[var(--motion-fast)]"
           >
-            <Plus aria-hidden className="text-muted-foreground size-3.5" strokeWidth={2} />
+            <LinearIcon name="plus" className="text-muted-foreground size-3.5" />
             New mission
           </button>
           {groups.length === 0 ? (

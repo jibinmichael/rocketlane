@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useId, useRef, useState } from "react"
-import { ChevronDown } from "lucide-react"
 
+import { LinearIcon } from "@/components/shared/LinearIcon"
 import type { FixtureLoader } from "@/components/shared/RuntimeProvider"
 import { Button } from "@/components/ui/button"
 import {
@@ -60,7 +60,7 @@ export function WorkspaceMenu({ loadFixture }: { loadFixture: FixtureLoader }) {
         <span className="text-muted-foreground hidden text-[12px] sm:inline">
           · {snapshot.datasetLabel || "loading"}
         </span>
-        <ChevronDown aria-hidden className="size-3.5" strokeWidth={1.75} />
+        <LinearIcon name="chevron-down" className="size-3" />
       </button>
       {open && (
         <div

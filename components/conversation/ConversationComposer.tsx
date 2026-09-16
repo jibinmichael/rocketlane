@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react"
 import { AnimatePresence, motion } from "motion/react"
-import { ArrowUp, Pause, Play, Sparkles } from "lucide-react"
+import { Pause } from "lucide-react"
 
+import { LinearIcon } from "@/components/shared/LinearIcon"
 import { springEnter } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
@@ -184,7 +185,7 @@ export function ConversationComposer({
               onClick={onAttach}
               className="text-muted-foreground hover:text-foreground hover:bg-muted flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-medium transition-colors duration-[var(--motion-fast)]"
             >
-              <Sparkles aria-hidden className="text-vibe-1 size-3.5" strokeWidth={1.75} />
+              <LinearIcon name="bolt" className="text-vibe-1 size-3.5" />
               Test any project files
             </button>
           )}
@@ -228,7 +229,7 @@ export function ConversationComposer({
                 transition={springEnter}
                 className="bg-foreground text-background flex h-8 items-center gap-1.5 rounded-full pr-3 pl-2.5 text-[13px] font-medium transition-opacity duration-[var(--motion-fast)] hover:opacity-90"
               >
-                <Play aria-hidden className="size-3.5" strokeWidth={2} />
+                <LinearIcon name="triangle" rotate={90} className="size-3" />
                 Resume
               </motion.button>
             ) : (
@@ -244,11 +245,13 @@ export function ConversationComposer({
                 transition={springEnter}
                 className={cn(
                   "flex size-8 shrink-0 items-center justify-center rounded-full transition-[background,color,transform] duration-[var(--motion-normal)]",
-                  hasText && !disabled ? "text-background" : "bg-muted text-muted-foreground",
+                  hasText && !disabled ? "text-foreground" : "bg-muted text-muted-foreground",
                 )}
-                {...(hasText && !disabled ? { style: { background: "var(--vibe-gradient)" } } : {})}
+                {...(hasText && !disabled
+                  ? { style: { background: "var(--vibe-gradient-soft)" } }
+                  : {})}
               >
-                <ArrowUp aria-hidden className="size-4" strokeWidth={2.25} />
+                <LinearIcon name="arrow-right" className="size-4" />
               </motion.button>
             )}
           </AnimatePresence>
