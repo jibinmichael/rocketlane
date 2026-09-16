@@ -53,15 +53,14 @@ export function MissionPathList({ path }: { path: readonly PathNode[] }) {
             >
               {node.label}
             </span>
-            <span className="text-muted-foreground ml-auto text-[11px] tabular-nums">
-              {node.state === "target"
-                ? "goal"
-                : node.state === "actionable"
-                  ? "act here"
-                  : node.state === "complete"
-                    ? "complete"
-                    : ""}
-            </span>
+            {node.state === "actionable" && (
+              <span className="bg-status-warning-soft text-state-waiting/90 ml-auto inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium">
+                Start here
+              </span>
+            )}
+            {node.state === "complete" && (
+              <span className="text-muted-foreground ml-auto text-[11px]">complete</span>
+            )}
           </li>
         )
       })}

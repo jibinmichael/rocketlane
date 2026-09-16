@@ -76,6 +76,7 @@ export function WorkspaceMenu({ loadFixture }: { loadFixture: FixtureLoader }) {
                 className="text-muted-foreground text-[12px] font-medium"
               >
                 Acting as
+                <Help text="The agent only does what this person may do. Roles are owner, member and viewer." />
               </label>
               <select
                 id={`${panelId}-actor`}
@@ -89,15 +90,12 @@ export function WorkspaceMenu({ loadFixture }: { loadFixture: FixtureLoader }) {
                   </option>
                 ))}
               </select>
-              <p className="text-muted-foreground text-[12px]">
-                The agent only does what this person may do. Permissions are an abstract role
-                boundary (owner, member, viewer).
-              </p>
             </section>
 
             <section className="flex flex-col gap-1.5">
               <span className="text-muted-foreground text-[12px] font-medium">
                 Project data · {snapshot.datasetLabel || "—"}
+                <Help text="Which export the agent works against. The brief's Rocketlane export is the default; the demo workspace holds the deliberate four-level cascade." />
               </span>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -190,6 +188,7 @@ function OutsideWorld() {
     <section className="flex flex-col gap-2">
       <span className="text-muted-foreground text-[12px] font-medium">
         Simulate the outside world
+        <Help text="Change a task as someone else, or arm a fault on the next write. A live mission that depends on it pauses, explains the change and replans." />
       </span>
       <div className="grid grid-cols-2 gap-2">
         <select
@@ -266,9 +265,28 @@ function OutsideWorld() {
           Arm on next write
         </Button>
       </div>
-      <p className="text-muted-foreground text-[12px]">
-        {last ?? "A live mission that depends on the task pauses, explains the change and replans."}
-      </p>
+      {last && <p className="text-muted-foreground text-[12px]">{last}</p>}
     </section>
+  )
+}
+
+/** A quiet question mark with the explanation on hover or focus. */
+function Help({ text }: { text: string }) {
+  return (
+    <span className="group/help relative ml-1 inline-flex align-middle">
+      <span
+        tabIndex={0}
+        aria-label={text}
+        className="text-muted-foreground/70 hover:text-foreground focus-visible:ring-ring/50 inline-flex size-4 items-center justify-center rounded-full outline-none focus-visible:ring-2"
+      >
+        <LinearIcon name="information" className="size-3.5" />
+      </span>
+      <span
+        role="tooltip"
+        className="bg-card text-foreground border-border pointer-events-none absolute top-full left-0 z-40 mt-1.5 hidden w-[260px] rounded-lg border px-3 py-2 text-[12px] leading-[1.45] font-normal shadow-[var(--shadow-lg)] group-focus-within/help:block group-hover/help:block"
+      >
+        {text}
+      </span>
+    </span>
   )
 }

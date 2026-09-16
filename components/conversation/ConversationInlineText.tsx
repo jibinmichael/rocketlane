@@ -10,7 +10,7 @@ const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute:
 const MS_PER_CHAR = 28
 
 const KIND_ICON: Record<string, LinearIconName> = {
-  project: "layers",
+  project: "board",
   phase: "two-flags",
   task: "issues",
 }
@@ -79,11 +79,14 @@ export function ConversationInlineText({
             return (
               <span
                 key={i}
-                className="bg-muted text-foreground mx-px inline-flex h-[20px] items-center gap-1 rounded-[5px] px-1.5 align-[-5px] text-[13px] leading-none font-medium"
+                className="bg-muted text-foreground mx-px inline-block rounded-[5px] px-1.5 align-baseline text-[13px] leading-[20px] font-medium whitespace-nowrap"
                 title={part.label}
                 data-entity={`${part.ref.kind}:${part.ref.id}`}
               >
-                <LinearIcon name={icon} className="text-muted-foreground size-3" />
+                <LinearIcon
+                  name={icon}
+                  className="text-muted-foreground mr-1 inline size-3 align-[-1.5px]"
+                />
                 {part.label}
               </span>
             )

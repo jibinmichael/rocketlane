@@ -18,7 +18,7 @@ export type QuickAction = {
 export function quickActionsFor(projectName: string | null): QuickAction[] {
   const name = projectName ?? "a project"
   return [
-    { id: "complete", icon: "check-2", title: `Complete ${name}`, fill: `Complete ${name}` },
+    { id: "complete", icon: "board", title: `Complete ${name}`, fill: `Complete ${name}` },
     {
       id: "blocking",
       icon: "search",

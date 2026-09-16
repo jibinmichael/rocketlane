@@ -12,8 +12,10 @@ import { useCallback, useEffect, useState } from "react"
 export function usePacedReveal<T>(
   items: readonly T[],
   delayFor: (next: T, index: number) => number = () => 480,
+  instant = false,
 ): { shown: readonly T[]; revealing: boolean; skip: () => void } {
-  const [count, setCount] = useState(0)
+  // `instant` is read once, at mount: history renders whole, a fresh turn is paced.
+  const [count, setCount] = useState(() => (instant ? items.length : 0))
   const target = items.length
   // A shorter list means a new turn: reset during render, not in an effect.
   if (count > target) setCount(target)

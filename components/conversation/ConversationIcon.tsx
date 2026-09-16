@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
  * `SemanticIcon` to the Linear icon set; the glyph answers "what is happening", never decorates.
  */
 const ICON: Record<SemanticIcon, { name: LinearIconName; rotate?: number }> = {
-  project: { name: "layers" },
+  project: { name: "board" },
   milestone: { name: "two-flags" },
   task: { name: "issues" },
   time: { name: "clock" },

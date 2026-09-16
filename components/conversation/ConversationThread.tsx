@@ -10,6 +10,7 @@ import { AgentPresence, AgentPresenceStreaming } from "@/components/agent/AgentP
 import { ArtifactStateChip } from "@/components/artifacts/ArtifactStateChip"
 import { ConversationBlockItem } from "@/components/conversation/ConversationBlockItem"
 import { ConversationComposer } from "@/components/conversation/ConversationComposer"
+import { lineTypingMs } from "@/components/conversation/ConversationInlineText"
 import { ConversationFeedbackRow } from "@/components/conversation/ConversationFeedbackRow"
 import { MissionActivityPanel } from "@/components/mission/MissionActivityPanel"
 import { Body } from "@/components/shared/Typography"
@@ -26,12 +27,22 @@ const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute:
 const AGENT_NAME = "Governance Agent"
 const AVATARS = 8
 
-/** How long the agent visibly works before a block appears: steps are walked one by one. */
-function delayForBlock(block: Block, index: number): number {
+/** How long a block takes to finish on screen: its lines typing, or its steps landing. */
+function durationOf(block: Block): number {
+  if (block.type === "activity") return 450 * (block.activity?.length ?? 0) + 300
+  return block.lines.reduce((ms, line) => ms + lineTypingMs(line) + 320, 0)
+}
+
+/**
+ * When the next block may start: only after the previous one has finished, plus a beat in which
+ * the agent is visibly working (longer before a phase of steps, and before the landing).
+ */
+function delayForBlock(block: Block, index: number, previous: Block | undefined): number {
+  const settle = previous ? durationOf(previous) : 0
   if (index === 0) return 1100
-  if (block.type === "activity") return 700 + 650 * (block.activity?.length ?? 0)
-  if (block.type === "landing" || block.type === "evaluation") return 1200
-  return 800
+  if (block.type === "activity") return settle + 900
+  if (block.type === "landing" || block.type === "evaluation") return settle + 1100
+  return settle + 700
 }
 
 /** Walks a list of labels on a fixed beat; null when the list is empty. */
@@ -63,7 +74,13 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   const mission = snapshot.status === "ready" ? runtime.mission(missionId) : null
   const thread = snapshot.status === "ready" ? runtime.thread(missionId) : []
   const live = snapshot.status === "ready" ? runtime.liveBlocks(missionId) : []
-  const { shown: pacedLive, revealing, skip } = usePacedReveal(live, delayForBlock)
+  // A mission opened from history is history: no pacing, no typing. A fresh one is paced.
+  const [fresh] = useState(() => Date.now() - (mission?.updatedAt ?? 0) < 8000)
+  const {
+    shown: pacedLive,
+    revealing,
+    skip,
+  } = usePacedReveal(live, (next, i) => delayForBlock(next, i, live[i - 1]), !fresh)
   const nextBlock = live[pacedLive.length]
   const nextSteps =
     nextBlock?.type === "activity" && nextBlock.activity
@@ -172,7 +189,10 @@ export function ConversationThread({ missionId }: { missionId: string }) {
 
   // Follow-ups are real capabilities, never generated prose (final brief: the conversation never
   // ends in a dead end). Offered once the agent has settled; nothing already asked is repeated.
-  const firstProject = snapshot.graph?.projects[0]?.name ?? null
+  const firstProject =
+    snapshot.graph?.projects.find((p) => p.ownerId === snapshot.actorId)?.name ??
+    snapshot.graph?.projects[0]?.name ??
+    null
   const asked = thread
     .filter((e) => e.kind === "user")
     .map((e) => (e.kind === "user" ? e.text.trim().toLowerCase() : ""))
@@ -282,6 +302,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                       actionTaken={null}
                       onAction={onAction}
                       personAvatar={avatar}
+                      animate={fresh}
                     />
                   ))}
                 </ul>

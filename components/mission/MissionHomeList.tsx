@@ -48,7 +48,11 @@ export function MissionHomeList() {
     }
   }
 
-  const firstProject = snapshot.graph?.projects[0]?.name ?? null
+  const graph = snapshot.graph
+  const firstProject =
+    graph?.projects.find((p) => p.ownerId === snapshot.actorId)?.name ??
+    graph?.projects[0]?.name ??
+    null
   const actions = quickActionsFor(firstProject)
   const pick = (a: (typeof actions)[number]) => {
     if (a.fill === null) setDataOpen(true)

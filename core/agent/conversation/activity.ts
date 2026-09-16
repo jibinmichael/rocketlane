@@ -22,11 +22,37 @@ import type { AgentEvent, AgentEventType } from "@/core/telemetry/events"
 
 /** The supplied policies, as a person would read them. */
 const POLICY_EVIDENCE: Record<string, string> = {
-  P1_PROJECT_MILESTONES: "Policy 1 · a project completes only when its milestones are complete",
-  P2_MILESTONE_SUBTASKS: "Policy 2 · a milestone completes only when its subtasks are complete",
-  P3_TASK_PREDECESSORS: "Policy 3 · a task completes only when its predecessors are complete",
-  P4_TASK_TIME: "Policy 4 · a task completes only with time logged",
+  P1_PROJECT_MILESTONES:
+    "Policy 1 · a project cannot be marked completed unless all its milestone tasks are completed",
+  P2_MILESTONE_SUBTASKS:
+    "Policy 2 · a milestone task cannot be marked completed if it has open subtasks",
+  P3_TASK_PREDECESSORS:
+    "Policy 3 · a task cannot be marked completed if a predecessor is not yet completed",
+  P4_TASK_TIME:
+    "Policy 4 · a task cannot be marked completed if no time has been logged against it",
 }
+const POLICY_ORDER = [
+  "P1_PROJECT_MILESTONES",
+  "P2_MILESTONE_SUBTASKS",
+  "P3_TASK_PREDECESSORS",
+  "P4_TASK_TIME",
+] as const
+
+/** One evidence line per policy in the brief: what it says and how it came out for this target. */
+function policyEvidence(matched: ReadonlySet<string>, failed: ReadonlySet<string>): string[] {
+  return POLICY_ORDER.map((id) => {
+    const rule = POLICY_EVIDENCE[id] ?? id
+    if (failed.has(id)) return `${rule} · not passed`
+    if (matched.has(id)) return `${rule} · passed`
+    return `${rule} · not triggered by this action`
+  })
+}
+const MATCHED = "__matched"
+const FAILED = "__failed"
+const matchedOf = (item: ActivityItem): ReadonlySet<string> =>
+  new Set((item as { [MATCHED]?: readonly string[] })[MATCHED] ?? [])
+const failedOf = (item: ActivityItem): ReadonlySet<string> =>
+  new Set((item as { [FAILED]?: readonly string[] })[FAILED] ?? [])
 
 export type ActivityPhase = {
   readonly index: number
@@ -112,36 +138,33 @@ function itemFor(
     }
     case "POLICY_CHECKED": {
       if (event.detail["phase"] === "plan") {
-        const checked = typeof event.detail["checked"] === "number" ? event.detail["checked"] : null
+        const checked = typeof event.detail["checked"] === "number" ? event.detail["checked"] : 4
         const policies =
           typeof event.detail["policies"] === "string"
             ? event.detail["policies"]
                 .split(",")
                 .map((p) => p.trim())
                 .filter(Boolean)
-                .map((p) => POLICY_EVIDENCE[p] ?? p)
             : []
-        // One line per phase, however many targets were consulted: later checks fold their
-        // policies into the same line so the evidence is complete.
+        // One line per phase, however many targets were consulted: later checks fold into the
+        // same line so the evidence stays complete (all four policies, each with its result).
         const existing = soFar.find((i) => i.icon === "policy")
         if (existing) {
-          const merged = Array.from(new Set([...(existing.evidence ?? []), ...policies]))
-          const total = merged.length
+          const matched = new Set([...matchedOf(existing), ...policies])
           Object.assign(existing, {
-            evidence: merged,
-            detail: [text(`${total} ${plural(total, "policy", "policies")} checked`)],
+            [MATCHED]: [...matched],
+            evidence: policyEvidence(matched, failedOf(existing)),
           })
           return null
         }
+        const matched = new Set(policies)
         return {
           icon: "policy",
           label: "Checking governance",
-          detail:
-            checked !== null
-              ? [text(`${checked} ${plural(checked, "policy", "policies")} checked`)]
-              : null,
-          ...(policies.length > 0 ? { evidence: policies } : {}),
-        }
+          detail: [text(`${checked} ${plural(checked, "policy", "policies")} checked`)],
+          evidence: policyEvidence(matched, new Set()),
+          [MATCHED]: [...matched],
+        } as ActivityItem
       }
       // Execution-time checks after a human boundary: the plan is being revalidated.
       if (phaseIndex > 0 && !soFar.some((i) => i.icon === "refresh")) {
@@ -150,6 +173,17 @@ function itemFor(
       return null
     }
     case "DEPENDENCY_FOUND": {
+      // The policy that produced a blocker did not pass: reflect it on the governance line.
+      const policyItem = soFar.find((i) => i.icon === "policy")
+      const failedPolicy =
+        typeof event.detail["policy"] === "string" ? event.detail["policy"] : null
+      if (policyItem && failedPolicy && failedPolicy !== "DATA") {
+        const failed = new Set([...failedOf(policyItem), failedPolicy])
+        Object.assign(policyItem, {
+          [FAILED]: [...failed],
+          evidence: policyEvidence(matchedOf(policyItem), failed),
+        })
+      }
       // One line per phase: the deepest path, target excluded.
       const path = event.refs.slice(1)
       if (path.length === 0) return null

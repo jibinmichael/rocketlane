@@ -33,6 +33,7 @@ export function ConversationBlockItem({
   decidedAt = null,
   onAction,
   personAvatar = null,
+  animate = true,
 }: {
   block: Block
   index: number
@@ -43,6 +44,8 @@ export function ConversationBlockItem({
   onAction: (action: BlockAction) => void
   /** The acting user's photo, shown in place of the person glyph. */
   personAvatar?: string | null
+  /** False when the turn is already history: no typing, no stagger. */
+  animate?: boolean
 }) {
   const [open, setOpen] = useState<boolean | null>(null)
   const isActivity = block.type === "activity"
@@ -73,7 +76,7 @@ export function ConversationBlockItem({
       <motion.li
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ ...settle, delay: frozen ? 0 : revealDelay(index) }}
+        transition={{ ...settle, delay: frozen || !animate ? 0 : revealDelay(index) }}
         className="flex flex-col gap-1 py-1"
         data-block-type={block.type}
       >
@@ -81,7 +84,7 @@ export function ConversationBlockItem({
           {label}
         </Fold>
         <Reveal open={expanded}>
-          <StepSpine items={items} live={live} />
+          <StepSpine items={items} live={live && animate} />
         </Reveal>
       </motion.li>
     )
@@ -121,7 +124,7 @@ export function ConversationBlockItem({
             <ConversationInlineText
               key={i}
               line={line}
-              typing={!frozen}
+              typing={!frozen && animate}
               startDelayMs={visibleLines
                 .slice(0, i)
                 .reduce((ms, prev) => ms + lineTypingMs(prev) + 320, 0)}
@@ -397,19 +400,23 @@ function EvidenceHover({
 
 /** Opens and closes with height and fade on the product's ease; nothing appears or vanishes cut. */
 function Reveal({ open, children }: { open: boolean; children: React.ReactNode }) {
+  // Mounted open (no entry animation) counts as settled, so hover cards are never clipped.
+  const [settled, setSettled] = useState(open)
   return (
-    <AnimatePresence initial={false}>
+    <AnimatePresence initial={false} onExitComplete={() => setSettled(false)}>
       {open && (
         <motion.div
           key="reveal"
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: "auto", opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
+          onAnimationStart={() => setSettled(false)}
+          onAnimationComplete={() => setSettled(true)}
           transition={{
             height: { duration: 0.26, ease: [0.32, 0.72, 0, 1] },
             opacity: { duration: 0.2, ease: [0.32, 0.72, 0, 1] },
           }}
-          className="flex flex-col gap-1 overflow-hidden"
+          className={cn("flex flex-col gap-1", settled ? "overflow-visible" : "overflow-hidden")}
         >
           {children}
         </motion.div>

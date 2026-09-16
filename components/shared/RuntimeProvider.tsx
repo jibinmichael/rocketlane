@@ -27,7 +27,13 @@ export function RuntimeProvider({
   modelAvailable: boolean
 }) {
   const [runtime] = useState(
-    () => new Runtime({ loadFixture, ...(modelAvailable ? { remoteInterpreter: interpret } : {}) }),
+    () =>
+      new Runtime({
+        loadFixture,
+        // The brief's real export is the default workspace; the demo dataset stays a choice.
+        defaultFixture: "rocketlane-export",
+        ...(modelAvailable ? { remoteInterpreter: interpret } : {}),
+      }),
   )
 
   useEffect(() => {
