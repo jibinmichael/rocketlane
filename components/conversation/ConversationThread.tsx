@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 
@@ -10,26 +11,18 @@ import { ArtifactStateChip } from "@/components/artifacts/ArtifactStateChip"
 import { ConversationBlockItem } from "@/components/conversation/ConversationBlockItem"
 import { ConversationComposer } from "@/components/conversation/ConversationComposer"
 import { ConversationFeedbackRow } from "@/components/conversation/ConversationFeedbackRow"
-import { MissionBand, SESSION_LABEL } from "@/components/mission/MissionBand"
 import { Body } from "@/components/shared/Typography"
 import { Button } from "@/components/ui/button"
 import type { Block, BlockAction } from "@/core/agent/conversation/blocks"
-import { isTerminal } from "@/core/mission/mission"
+import { isTerminal, type MissionState } from "@/core/mission/mission"
+import { usePacedReveal } from "@/hooks/use-paced-reveal"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
 import type { AgentSessionState } from "@/lib/runtime"
+import { SESSION_LABEL, WORKING_STATES } from "@/lib/session-label"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
 const AGENT_NAME = "Governance Agent"
-
-const WORKING: ReadonlySet<AgentSessionState> = new Set([
-  "UNDERSTANDING",
-  "PLANNING",
-  "CHECKING",
-  "EXECUTING",
-  "VERIFYING",
-  "RECHECKING",
-  "PAUSING",
-])
+const AVATARS = 8
 
 export function ConversationThread({ missionId }: { missionId: string }) {
   const runtime = useRuntime()
@@ -42,25 +35,31 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   const mission = snapshot.status === "ready" ? runtime.mission(missionId) : null
   const thread = snapshot.status === "ready" ? runtime.thread(missionId) : []
   const live = snapshot.status === "ready" ? runtime.liveBlocks(missionId) : []
+  const pacedLive = usePacedReveal(live)
   const session = runtime.session(missionId)
-  const actor = snapshot.actors.find((a) => a.id === snapshot.actorId)
+  const actorIndex = snapshot.actors.findIndex((a) => a.id === snapshot.actorId)
+  const actor = actorIndex >= 0 ? snapshot.actors[actorIndex] : undefined
+  const avatar = `/avatars/a${(Math.max(0, actorIndex) % AVATARS) + 1}.jpg`
   const executing =
     session === "EXECUTING" ||
     session === "VERIFYING" ||
     session === "RECHECKING" ||
     session === "PAUSING"
-  const working = WORKING.has(session)
+  const working = WORKING_STATES.has(session)
+  const revealing = pacedLive.length < live.length
   const paused =
     !working && (mission?.state === "PAUSED" || mission?.state === "STALE" || session === "PAUSED")
   const settled =
-    !working && (mission === null || isTerminal(mission) || mission.state === "BLOCKED")
+    !working &&
+    !revealing &&
+    (mission === null || isTerminal(mission) || mission.state === "BLOCKED")
 
   // Scroll rule: stick to bottom only when the user is already near it (spec §26 / UX contract).
   useEffect(() => {
     const el = scrollRef.current
     if (!el || !pinned) return
     el.scrollTop = el.scrollHeight
-  }, [snapshot.revision, pinned])
+  }, [snapshot.revision, pinned, pacedLive.length])
 
   const onScroll = () => {
     const el = scrollRef.current
@@ -125,23 +124,17 @@ export function ConversationThread({ missionId }: { missionId: string }) {
     )
   }
 
-  const interpretedNote =
-    snapshot.lastInterpretedBy === "local-fallback"
-      ? "Interpreted locally"
-      : snapshot.lastInterpretedBy === "model"
-        ? "Interpreted by model"
-        : null
-
   const currentStep = mission?.currentStepId
     ? mission.plan.find((s) => s.id === mission.currentStepId)
     : null
-  const workingLabel =
-    session === "EXECUTING" && currentStep
+  const workingLabel = revealing
+    ? "Writing"
+    : session === "EXECUTING" && currentStep
       ? `Updating ${currentStep.label}`
       : SESSION_LABEL[session]
 
   // Follow-ups are real capabilities, never generated prose (final brief: the conversation never
-  // ends in a dead end). Offered once the agent has settled.
+  // ends in a dead end). Offered once the agent has settled; nothing already asked is repeated.
   const firstProject = snapshot.graph?.projects[0]?.name ?? null
   const asked = thread
     .filter((e) => e.kind === "user")
@@ -187,39 +180,30 @@ export function ConversationThread({ missionId }: { missionId: string }) {
         : null
     : null
 
+  // The mission state lives in the stream, on the latest agent turn, as a muted pill.
+  const showLive = live.length > 0 || working
+  const pill = mission ? { state: mission.state, session } : null
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {mission ? (
-        <MissionBand
-          mission={mission}
-          session={session}
-          interpretedNote={interpretedNote}
-          pinned={pinned}
-          onJump={() => {
-            setPinned(true)
-            const el = scrollRef.current
-            if (el) el.scrollTop = el.scrollHeight
-          }}
-        />
-      ) : (
-        <header className="border-border/70 bg-background/90 sticky top-0 z-10 border-b backdrop-blur">
-          <div className="mx-auto flex h-10 w-full max-w-[680px] items-center justify-end gap-4 px-6">
-            <ArtifactStateChip state="READY" />
-          </div>
-        </header>
-      )}
       <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-6 pt-6 pb-4">
+        <div className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-6 pt-8 pb-4">
           {thread.map((entry, i) =>
             entry.kind === "user" ? (
               <UserTurn
                 key={`u-${i}`}
                 name={actor?.name ?? "You"}
+                avatar={avatar}
                 text={entry.text}
                 at={entry.at}
               />
             ) : (
-              <AgentTurn key={`a-${i}`} at={entry.at} state={settled ? "idle" : "working"}>
+              <AgentTurn
+                key={`a-${i}`}
+                at={entry.at}
+                state={settled ? "idle" : "working"}
+                pill={!showLive && i === thread.length - 1 ? pill : null}
+              >
                 <ul className="flex flex-col">
                   {entry.blocks.map((block, j) => (
                     <ConversationBlockItem
@@ -241,15 +225,20 @@ export function ConversationThread({ missionId }: { missionId: string }) {
             ),
           )}
 
-          {(live.length > 0 || working) && (
-            <AgentTurn at={null} state={working ? "working" : "idle"} live>
+          {showLive && (
+            <AgentTurn
+              at={null}
+              state={working || revealing ? "working" : "idle"}
+              live
+              pill={working || revealing ? null : pill}
+            >
               {/* Live region: new agent blocks are announced; frozen history is not re-read. */}
               <ul className="flex flex-col" aria-live="polite" aria-relevant="additions">
-                {live.map((block, j) => (
+                {pacedLive.map((block) => (
                   <ConversationBlockItem
                     key={block.id}
                     block={block}
-                    index={j}
+                    index={0}
                     frozen={false}
                     actionTaken={null}
                     onAction={onAction}
@@ -257,14 +246,14 @@ export function ConversationThread({ missionId }: { missionId: string }) {
                 ))}
               </ul>
               <AnimatePresence initial={false}>
-                {working && (
+                {(working || revealing) && (
                   <motion.div
                     key="working"
                     initial={{ opacity: 0, y: -2 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.18 }}
-                    className="flex items-center gap-2 py-1"
+                    className="flex items-center gap-2.5 py-1"
                     aria-live="polite"
                   >
                     <AgentPresenceStreaming />
@@ -328,16 +317,27 @@ export function ConversationThread({ missionId }: { missionId: string }) {
   )
 }
 
-/** The user's turn (ClickUp Brain rows): initials, name, time, then the text under the name. */
-function UserTurn({ name, text, at }: { name: string; text: string; at: number }) {
+/** The user's turn (ClickUp Brain rows): photo, name, time, then the text under the name. */
+function UserTurn({
+  name,
+  avatar,
+  text,
+  at,
+}: {
+  name: string
+  avatar: string
+  text: string
+  at: number
+}) {
   return (
     <div className="flex gap-3">
-      <span
-        aria-hidden
-        className="bg-foreground text-background mt-px flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
-      >
-        {initials(name)}
-      </span>
+      <Image
+        src={avatar}
+        alt=""
+        width={28}
+        height={28}
+        className="mt-px size-7 shrink-0 rounded-full object-cover"
+      />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-baseline gap-2">
           <span className="text-foreground text-[13px] font-semibold">{name}</span>
@@ -351,41 +351,39 @@ function UserTurn({ name, text, at }: { name: string; text: string; at: number }
   )
 }
 
-/** The agent's turn: presence as the avatar, name, time, then the blocks under the name. */
+/** The agent's turn: the rocket as the avatar, name, time, the state pill, then the blocks. */
 function AgentTurn({
   at,
   state,
   live = false,
+  pill,
   children,
 }: {
   at: number | null
   state: "idle" | "working"
   live?: boolean
+  pill: { state: MissionState; session: AgentSessionState } | null
   children: React.ReactNode
 }) {
   return (
     <div className="flex gap-3">
-      <AgentPresence state={state} size={28} className="mt-px" />
+      <span className="flex w-7 shrink-0 justify-center pt-px">
+        <AgentPresence state={state} size={26} />
+      </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-center gap-2">
           <span className="text-foreground text-[13px] font-semibold">{AGENT_NAME}</span>
           <span className="text-muted-foreground text-[11px] tabular-nums">
             {at === null ? (live ? "Now" : "") : timeFormat.format(new Date(at))}
           </span>
+          {pill && (
+            <ArtifactStateChip state={pill.state} session={pill.session} className="h-5 px-2" />
+          )}
         </div>
         {children}
       </div>
     </div>
   )
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? "")
-    .join("")
 }
 
 /** A copyable plain-text rendering of an agent turn, for the feedback row's copy action. */

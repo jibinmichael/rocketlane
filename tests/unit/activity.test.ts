@@ -120,7 +120,9 @@ describe("activity: observable work from real events", () => {
     expect(types[types.length - 2]).toBe("landing")
     expect(types[types.length - 1]).toBe("evaluation")
     const landing = blocks[types.length - 2]!
-    expect(flat(landing.lines[0]!)).toBe("Acme Implementation completed.")
+    expect(flat(landing.lines[0]!)).toBe(
+      "All set, Priya Raman. Acme Implementation is complete and verified.",
+    )
     expect(landing.activity?.map((i) => i.label)).toEqual([
       "QA Complete",
       "Deploy API",

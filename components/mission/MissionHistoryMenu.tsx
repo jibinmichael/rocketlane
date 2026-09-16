@@ -105,7 +105,7 @@ export function MissionHistoryMenu() {
             <div className="max-h-[60vh] overflow-y-auto">
               {groups.map((g) => (
                 <div key={g.label} className="pt-1.5">
-                  <span className="text-muted-foreground block px-2.5 pb-1 text-[11px] font-medium tracking-[0.04em] uppercase">
+                  <span className="text-muted-foreground block px-2.5 pb-1 text-[12px] font-medium">
                     {g.label}
                   </span>
                   {g.items.map((m) => {

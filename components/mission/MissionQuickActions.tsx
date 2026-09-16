@@ -48,9 +48,7 @@ export function MissionQuickActions({
 }) {
   return (
     <div className={cn("flex flex-col gap-1", className)}>
-      <span className="text-muted-foreground px-2.5 text-[11px] font-medium tracking-[0.04em] uppercase">
-        Suggested
-      </span>
+      <span className="text-muted-foreground px-2.5 text-[12px] font-medium">Suggested</span>
       <ul className="flex flex-col">
         {actions.map((action) => {
           const Icon = action.icon

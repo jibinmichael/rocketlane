@@ -276,8 +276,8 @@ function evaluationBlock(
   const failed = evaluation.checks.filter((c) => !c.passed).length
   const verdict =
     failed === 0
-      ? "Governance held, every write was authorized and verified, scope was kept, and the final state matches."
-      : `${failed} ${plural(failed, "check")} failed.`
+      ? "Evaluation passed: governance held, every write was authorized and verified, scope was kept, and the final state matches."
+      : `Evaluation: ${failed} ${plural(failed, "check")} failed.`
   const versions = evaluation.versions
   return {
     ...block("evaluation", failed === 0 ? "neutral" : "error", [
@@ -855,17 +855,18 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
             "landing",
             "success",
             [
-              [entity(target, targetLabel), text(" completed.")],
               [
-                text(`All required updates were completed and verified. Final state verified at `),
-                time(mission.landedAt ?? mission.updatedAt),
-                text("."),
+                text(`All set, ${actorName(graph, mission.actorId)}. `),
+                entity(target, targetLabel),
+                text(" is complete and verified."),
               ],
               [
                 count(evidence.length),
-                text(` ${plural(evidence.length, "update")} completed · `),
+                text(` ${plural(evidence.length, "update")} landed clean, `),
                 count(mission.plan.filter((s) => s.status === "failed").length),
-                text(" failed"),
+                text(" failed. Final state checked at "),
+                time(mission.landedAt ?? mission.updatedAt),
+                text("."),
               ],
             ],
             [{ kind: "view_activity", label: "View activity" }],

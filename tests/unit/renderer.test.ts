@@ -144,9 +144,8 @@ describe("renderMission — copy from state, in progressive-disclosure order", (
     const landing = blocks[blocks.length - 2]!
     expect(flat(landing.lines)).toBe(
       [
-        "[Acme Implementation] completed.",
-        "All required updates were completed and verified. Final state verified at {time}.",
-        "5 updates completed · 0 failed",
+        "All set, Priya Raman. [Acme Implementation] is complete and verified.",
+        "5 updates landed clean, 0 failed. Final state checked at {time}.",
       ].join("\n"),
     )
     expect(landing.activity?.map((i) => i.label)).toContain("Deploy API")

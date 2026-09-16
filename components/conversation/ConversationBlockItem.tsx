@@ -15,10 +15,10 @@ import { cn } from "@/lib/utils"
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
 
 /**
- * One block of the conversation. Durable blocks read as the agent speaking; `activity` blocks are
- * observable work: while live they read as the current step with the step list open, once done
- * they fold to "Finished in N steps" with the list a click away (ClickUp Brain pattern). Icons
- * come from the block contract, never from the component.
+ * One block of the conversation, with complexity on demand (rule one): the first line reads as
+ * the agent speaking; hop-by-hop reasons, step lists, evidence and versions sit one click away.
+ * `activity` blocks read as the current step while live with the step list open, then fold to
+ * "Finished in N steps". Icons come from the block contract, never from the component.
  */
 export function ConversationBlockItem({
   block,
@@ -41,10 +41,11 @@ export function ConversationBlockItem({
   const isActivity = block.type === "activity"
   const isEvaluation = block.type === "evaluation"
   const isLanding = block.type === "landing"
+  const isBlocker = block.type === "blocker"
   const defaultOpen = isActivity && !block.collapsed && !frozen
   const expanded = open ?? defaultOpen
-  const hasDetail =
-    (block.detail && block.detail.length > 0) || (block.path && block.path.length > 0)
+  const hasPath = Boolean(block.path && block.path.length > 0)
+  const hasDetail = Boolean(block.detail && block.detail.length > 0)
   // Suggestions ("did you mean", "yes, complete it") stay clickable after the turn freezes as
   // long as nothing was chosen; decisions do not.
   const showActions =
@@ -68,29 +69,18 @@ export function ConversationBlockItem({
         className="flex flex-col gap-1 py-1"
         data-block-type={block.type}
       >
-        <button
-          type="button"
-          onClick={() => setOpen(!expanded)}
-          aria-expanded={expanded}
-          className={cn(
-            "hover:bg-muted -ml-1.5 flex h-7 w-fit items-center gap-1 rounded-lg pr-2.5 pl-1.5 text-[13px] transition-colors duration-[var(--motion-fast)]",
-            live ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <ChevronRight
-            aria-hidden
-            className={cn(
-              "size-3.5 shrink-0 transition-transform duration-[var(--motion-fast)]",
-              expanded && "rotate-90",
-            )}
-            strokeWidth={2}
-          />
-          <span className={cn(live && "font-medium")}>{label}</span>
-        </button>
+        <Fold open={expanded} onToggle={() => setOpen(!expanded)} strong={live}>
+          {label}
+        </Fold>
         {expanded && <StepSpine items={items} live={live} />}
       </motion.li>
     )
   }
+
+  // A blocker reads as one sentence; the hop-by-hop chain and the path open on demand.
+  const headLines = isBlocker && block.lines.length > 1 ? block.lines.slice(0, 1) : block.lines
+  const restLines = isBlocker && block.lines.length > 1 ? block.lines.slice(1) : []
+  const visibleLines = isEvaluation ? block.lines.slice(1, 2) : headLines
 
   return (
     <motion.li
@@ -105,57 +95,87 @@ export function ConversationBlockItem({
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div id={`${block.id}-text`} className="flex flex-col gap-0.5">
-          {block.lines.map((line, i) => (
+          {visibleLines.map((line, i) => (
             <ConversationInlineText
               key={i}
               line={line}
               className={cn(
                 isLanding && i === 0 && "font-medium",
-                isEvaluation &&
-                  i === 0 &&
-                  "text-muted-foreground text-[11px] font-medium tracking-[0.04em] uppercase",
+                isEvaluation && "text-muted-foreground text-[13px]",
               )}
             />
           ))}
         </div>
 
+        {isBlocker && (restLines.length > 0 || hasPath) && (
+          <>
+            <Fold open={expanded} onToggle={() => setOpen(!expanded)}>
+              {expanded ? "Hide why" : "Show why"}
+            </Fold>
+            {expanded && (
+              <ul className="flex flex-col gap-0.5">
+                {restLines.map((line, i) => (
+                  <li key={i}>
+                    <ConversationInlineText line={line} className="text-[13px]" />
+                  </li>
+                ))}
+              </ul>
+            )}
+            {expanded && block.path && <MissionPathList path={block.path} />}
+          </>
+        )}
+
         {isLanding && block.activity && block.activity.length > 0 && (
-          <StepSpine items={block.activity} live={false} compact />
+          <>
+            <Fold open={expanded} onToggle={() => setOpen(!expanded)}>
+              {expanded
+                ? "Hide the updates"
+                : `Show the ${block.activity.length} ${block.activity.length === 1 ? "update" : "updates"}`}
+            </Fold>
+            {expanded && <StepSpine items={block.activity} live={false} compact pill="Completed" />}
+          </>
         )}
 
         {isEvaluation && block.activity && block.activity.length > 0 && (
           <>
-            <button
-              type="button"
-              onClick={() => setOpen(!expanded)}
-              aria-expanded={expanded}
-              className="text-muted-foreground hover:text-foreground w-fit text-[12px] font-medium transition-colors duration-[var(--motion-fast)]"
-            >
-              {expanded ? "Hide evidence" : "View evaluation evidence"}
-            </button>
+            <Fold open={expanded} onToggle={() => setOpen(!expanded)}>
+              {expanded ? "Hide evidence" : "View evidence"}
+            </Fold>
             {expanded && <StepSpine items={block.activity} live={false} compact />}
+            {expanded && block.detail && (
+              <ul className="flex flex-col gap-0.5">
+                {block.detail.map((line, i) => (
+                  <li key={i}>
+                    <ConversationInlineText
+                      line={line}
+                      className="text-muted-foreground text-[12px]"
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
           </>
         )}
 
-        {hasDetail && !isEvaluation && (
-          <button
-            type="button"
-            onClick={() => setOpen(!expanded)}
-            aria-expanded={expanded}
-            className="text-muted-foreground hover:text-foreground w-fit text-[12px] font-medium transition-colors duration-[var(--motion-fast)]"
-          >
-            {expanded ? "Hide detail" : block.path ? "Show full path" : "Show detail"}
-          </button>
-        )}
-        {expanded && block.path && <MissionPathList path={block.path} />}
-        {expanded && block.detail && (
-          <ul className="mt-1 flex flex-col gap-0.5">
-            {block.detail.map((line, i) => (
-              <li key={i}>
-                <ConversationInlineText line={line} className="text-muted-foreground text-[12px]" />
-              </li>
-            ))}
-          </ul>
+        {!isBlocker && !isEvaluation && (hasDetail || hasPath) && (
+          <>
+            <Fold open={expanded} onToggle={() => setOpen(!expanded)}>
+              {expanded ? "Hide detail" : block.path ? "Show full path" : "Show detail"}
+            </Fold>
+            {expanded && block.path && <MissionPathList path={block.path} />}
+            {expanded && block.detail && (
+              <ul className="mt-1 flex flex-col gap-0.5">
+                {block.detail.map((line, i) => (
+                  <li key={i}>
+                    <ConversationInlineText
+                      line={line}
+                      className="text-muted-foreground text-[12px]"
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
 
         {showActions && (
@@ -182,7 +202,7 @@ export function ConversationBlockItem({
         )}
         {frozen && actionTaken && isLast && (
           <span className="text-muted-foreground mt-1 inline-flex items-center gap-1.5 text-[12px]">
-            <span aria-hidden className="bg-state-completed h-1.5 w-1.5 rounded-full" />
+            <span aria-hidden className="bg-state-completed size-1.5 rounded-[1px]" />
             {actionTaken}
             {decidedAt !== null && (
               <span className="tabular-nums"> · {timeFormat.format(new Date(decidedAt))}</span>
@@ -194,18 +214,56 @@ export function ConversationBlockItem({
   )
 }
 
+/** The disclosure control: a chevron and a short label, the same everywhere. */
+function Fold({
+  open,
+  onToggle,
+  strong = false,
+  children,
+}: {
+  open: boolean
+  onToggle: () => void
+  strong?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className={cn(
+        "hover:bg-muted -ml-1.5 flex h-7 w-fit items-center gap-1 rounded-lg pr-2.5 pl-1.5 text-[13px] transition-colors duration-[var(--motion-fast)]",
+        strong ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      <ChevronRight
+        aria-hidden
+        className={cn(
+          "size-3.5 shrink-0 transition-transform duration-[var(--motion-fast)]",
+          open && "rotate-90",
+        )}
+        strokeWidth={2}
+      />
+      <span>{children}</span>
+    </button>
+  )
+}
+
 /**
- * Observable work as a dot spine (ClickUp Brain): a hairline down the left, one dot per step, the
- * current step's dot solid. Rows enter as their events arrive.
+ * Observable work as a brick spine (ClickUp Brain, in our pixel grammar): a hairline down the
+ * left, one square per step, the current step's square solid. Rows enter as their events arrive.
+ * `pill` labels every row with a muted state pill (the landing list).
  */
 function StepSpine({
   items,
   live,
   compact = false,
+  pill,
 }: {
   items: readonly ActivityItem[]
   live: boolean
   compact?: boolean
+  pill?: string
 }) {
   return (
     <ul className={cn("relative ml-[7px] flex flex-col", compact ? "mt-0.5" : "mt-1")}>
@@ -220,12 +278,12 @@ function StepSpine({
             initial={{ opacity: 0, y: -2 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...settle, delay: live ? revealDelay(i) : 0 }}
-            className={cn("relative flex items-baseline gap-3 pl-5", compact ? "py-[3px]" : "py-1")}
+            className={cn("relative flex items-center gap-2.5 pl-5", compact ? "py-[3px]" : "py-1")}
           >
             <span
               aria-hidden
               className={cn(
-                "absolute top-1/2 left-0 size-[7px] -translate-y-1/2 rounded-full border",
+                "absolute top-1/2 left-0 size-[7px] -translate-y-1/2 rounded-[1.5px] border",
                 failed
                   ? "border-state-error bg-state-error"
                   : done
@@ -238,6 +296,18 @@ function StepSpine({
             <span className={cn("text-[13px]", current ? "text-foreground" : "text-foreground/85")}>
               {item.label}
             </span>
+            {pill && (
+              <span
+                className={cn(
+                  "inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium",
+                  failed
+                    ? "bg-status-error-soft text-state-error"
+                    : "bg-status-success-soft text-state-completed",
+                )}
+              >
+                {failed ? "Failed" : pill}
+              </span>
+            )}
             {item.detail && (
               <ConversationInlineText
                 line={item.detail}

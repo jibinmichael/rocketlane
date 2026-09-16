@@ -1,11 +1,20 @@
+import { Flag, FolderKanban, ListChecks, type LucideIcon } from "lucide-react"
+
 import type { Inline } from "@/core/agent/conversation/blocks"
 import { cn } from "@/lib/utils"
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" })
 
+const KIND_ICON: Record<string, LucideIcon> = {
+  project: FolderKanban,
+  phase: Flag,
+  task: ListChecks,
+}
+
 /**
- * Renders a template line. Entity slots become chips so project content is visibly data, never
- * agent prose (spec §17). No markdown parsing anywhere.
+ * Renders a template line. Entity slots become grey chips with a kind glyph (ClickUp Brain's
+ * inline object token) so project content is visibly data, never agent prose (spec §17). No
+ * markdown parsing anywhere.
  */
 export function ConversationInlineText({
   line,
@@ -20,17 +29,20 @@ export function ConversationInlineText({
         switch (part.kind) {
           case "text":
             return <span key={i}>{part.text}</span>
-          case "entity":
+          case "entity": {
+            const Icon = KIND_ICON[part.ref.kind] ?? ListChecks
             return (
               <span
                 key={i}
-                className="bg-muted/55 text-foreground inline rounded-[4px] px-1 py-px text-[13px] font-medium"
+                className="bg-muted text-foreground mx-px inline-flex items-center gap-1 rounded-[5px] px-1.5 py-px align-baseline text-[13px] font-medium"
                 title={part.label}
                 data-entity={`${part.ref.kind}:${part.ref.id}`}
               >
+                <Icon aria-hidden className="text-muted-foreground size-3" strokeWidth={1.75} />
                 {part.label}
               </span>
             )
+          }
           case "policy":
             return (
               <span

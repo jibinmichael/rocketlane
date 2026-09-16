@@ -73,7 +73,7 @@ export function WorkspaceMenu({ loadFixture }: { loadFixture: FixtureLoader }) {
             <section className="flex flex-col gap-1.5">
               <label
                 htmlFor={`${panelId}-actor`}
-                className="text-muted-foreground text-[11px] font-medium tracking-[0.005em] uppercase"
+                className="text-muted-foreground text-[12px] font-medium"
               >
                 Acting as
               </label>
@@ -96,7 +96,7 @@ export function WorkspaceMenu({ loadFixture }: { loadFixture: FixtureLoader }) {
             </section>
 
             <section className="flex flex-col gap-1.5">
-              <span className="text-muted-foreground text-[11px] font-medium tracking-[0.005em] uppercase">
+              <span className="text-muted-foreground text-[12px] font-medium">
                 Project data · {snapshot.datasetLabel || "—"}
               </span>
               <div className="flex flex-wrap gap-2">
@@ -188,7 +188,7 @@ function OutsideWorld() {
 
   return (
     <section className="flex flex-col gap-2">
-      <span className="text-muted-foreground text-[11px] font-medium tracking-[0.005em] uppercase">
+      <span className="text-muted-foreground text-[12px] font-medium">
         Simulate the outside world
       </span>
       <div className="grid grid-cols-2 gap-2">

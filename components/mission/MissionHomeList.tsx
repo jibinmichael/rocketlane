@@ -142,9 +142,7 @@ export function MissionHomeList() {
                   }}
                 />
                 <section className="flex flex-col gap-1">
-                  <h2 className="text-muted-foreground px-2.5 text-[11px] font-medium tracking-[0.04em] uppercase">
-                    Recent
-                  </h2>
+                  <h2 className="text-muted-foreground px-2.5 text-[12px] font-medium">Recent</h2>
                   {snapshot.status === "error" ? (
                     <Body className="text-state-error px-2.5 text-[13px]">
                       The workspace could not load: {snapshot.error}. Use the workspace menu to
