@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Check, Copy, ThumbsDown, ThumbsUp } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -12,6 +12,16 @@ import { cn } from "@/lib/utils"
 export function ConversationFeedbackRow({ text }: { text: string }) {
   const [vote, setVote] = useState<"up" | "down" | null>(null)
   const [copied, setCopied] = useState(false)
+  const [gone, setGone] = useState(false)
+
+  // Once rated, say thanks briefly, then leave the block clean (Wati feedback artifact).
+  useEffect(() => {
+    if (!vote) return
+    const t = window.setTimeout(() => setGone(true), 2200)
+    return () => window.clearTimeout(t)
+  }, [vote])
+
+  if (gone) return null
 
   const copy = async () => {
     try {
@@ -25,35 +35,36 @@ export function ConversationFeedbackRow({ text }: { text: string }) {
 
   return (
     <div className="flex items-center gap-0.5 pt-1" role="group" aria-label="Rate this result">
-      <IconButton
-        label="Helpful"
-        pressed={vote === "up"}
-        onClick={() => setVote(vote === "up" ? null : "up")}
-      >
-        <ThumbsUp className="size-3.5" strokeWidth={1.75} />
-      </IconButton>
-      <IconButton
-        label="Not helpful"
-        pressed={vote === "down"}
-        onClick={() => setVote(vote === "down" ? null : "down")}
-      >
-        <ThumbsDown className="size-3.5" strokeWidth={1.75} />
-      </IconButton>
-      <span aria-hidden className="bg-border mx-1 h-3.5 w-px" />
-      <IconButton label={copied ? "Copied" : "Copy"} pressed={false} onClick={() => void copy()}>
-        {copied ? (
-          <Check className="text-state-completed size-3.5" strokeWidth={2} />
-        ) : (
-          <Copy className="size-3.5" strokeWidth={1.75} />
-        )}
-      </IconButton>
-      <span className="text-muted-foreground pl-1 text-[12px]" aria-live="polite">
-        {vote === "up"
-          ? "Thanks for the feedback"
-          : vote === "down"
-            ? "Noted. Tell me what was off and I'll take it from there."
-            : ""}
-      </span>
+      {vote ? (
+        <span
+          className="text-muted-foreground inline-flex items-center gap-1.5 text-[12px]"
+          aria-live="polite"
+        >
+          <Check className="size-3.5" strokeWidth={2} aria-hidden />
+          {vote === "up" ? "Thanks for the feedback" : "Noted. Tell me what was off."}
+        </span>
+      ) : (
+        <>
+          <IconButton label="Helpful" pressed={false} onClick={() => setVote("up")}>
+            <ThumbsUp className="size-3.5" strokeWidth={1.75} />
+          </IconButton>
+          <IconButton label="Not helpful" pressed={false} onClick={() => setVote("down")}>
+            <ThumbsDown className="size-3.5" strokeWidth={1.75} />
+          </IconButton>
+          <span aria-hidden className="bg-border mx-1 h-3.5 w-px" />
+          <IconButton
+            label={copied ? "Copied" : "Copy"}
+            pressed={false}
+            onClick={() => void copy()}
+          >
+            {copied ? (
+              <Check className="text-state-completed size-3.5" strokeWidth={2} />
+            ) : (
+              <Copy className="size-3.5" strokeWidth={1.75} />
+            )}
+          </IconButton>
+        </>
+      )}
     </div>
   )
 }
