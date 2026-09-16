@@ -27,7 +27,41 @@ export type BlockAction =
   | { readonly kind: "view_activity"; readonly label: string }
   | { readonly kind: "pick_candidate"; readonly ref: EntityRef; readonly label: string }
 
+/**
+ * Semantic icons: each answers "what kind of work is this?" (spec §26). Names, not glyphs; the UI
+ * maps them to one icon library. Never decorative, never emoji.
+ */
+export type SemanticIcon =
+  | "project"
+  | "milestone"
+  | "task"
+  | "time"
+  | "dependency"
+  | "policy"
+  | "blocker"
+  | "person"
+  | "action"
+  | "execution"
+  | "check"
+  | "refresh"
+  | "change"
+  | "course"
+  | "pause"
+  | "error"
+  | "cancel"
+  | "landing"
+
+/** One line of observable work: icon + short label + optional context. */
+export type ActivityItem = {
+  readonly icon: SemanticIcon
+  readonly label: string
+  readonly detail: readonly Inline[] | null
+}
+
 export type BlockType =
+  | "acknowledgement"
+  | "activity"
+  | "evaluation"
   | "outcome.blocked"
   | "outcome.ready"
   | "already_complete"
@@ -39,11 +73,10 @@ export type BlockType =
   | "notification.blocked"
   | "declined"
   | "consequence"
-  | "result.verified"
   | "result.mismatch"
   | "timeout_reconciled"
   | "state_change"
-  | "replanned"
+  | "course_correction"
   | "stale_on_resume"
   | "scope_change"
   | "cancelled"
@@ -78,6 +111,12 @@ export type Block = {
   readonly detail: readonly (readonly Inline[])[] | null
   readonly path: readonly PathNode[] | null
   readonly tone: "neutral" | "blocked" | "waiting" | "success" | "paused" | "error"
+  /** What kind of work this block represents; null for plain agent speech. */
+  readonly icon: SemanticIcon | null
+  /** Observable work items (activity timeline, landing evidence, evaluation checks). */
+  readonly activity: readonly ActivityItem[] | null
+  /** A finished phase reads as one sentence; its items open on demand. */
+  readonly collapsed: boolean
 }
 
 export const text = (t: string): Inline => ({ kind: "text", text: t })

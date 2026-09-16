@@ -168,10 +168,9 @@ export type Mission = {
 export type MissionSummary = Pick<
   Mission,
   "id" | "goalText" | "state" | "targetLabels" | "updatedAt" | "createdAt" | "pending" | "landedAt"
-> & { readonly progress: { readonly done: number; readonly total: number } }
+>
 
 export function summarize(mission: Mission): MissionSummary {
-  const writes = mission.plan.filter((s) => s.transition === "COMPLETED")
   return {
     id: mission.id,
     goalText: mission.goalText,
@@ -181,11 +180,6 @@ export function summarize(mission: Mission): MissionSummary {
     createdAt: mission.createdAt,
     pending: mission.pending,
     landedAt: mission.landedAt,
-    progress: {
-      done: writes.filter((s) => s.status === "succeeded" || s.status === "already_complete")
-        .length,
-      total: writes.length,
-    },
   }
 }
 

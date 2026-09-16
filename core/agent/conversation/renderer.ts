@@ -1,4 +1,5 @@
 import {
+  type ActivityItem,
   type Block,
   type BlockAction,
   count,
@@ -7,6 +8,7 @@ import {
   type PathNode,
   plural,
   policy,
+  type SemanticIcon,
   text,
   time,
 } from "@/core/agent/conversation/blocks"
@@ -15,12 +17,20 @@ import type { WorkspaceGraph } from "@/core/domain/graph"
 import type { ActorId, EntityRef } from "@/core/domain/ids"
 import { isTaskComplete } from "@/core/domain/status"
 import type { PolicyId, ReasonCode } from "@/core/governance/policy"
-import type { Mission, PlanStep, TargetOutcome, RequiredInput } from "@/core/mission/mission"
+import {
+  isTerminal,
+  type Mission,
+  type PlanStep,
+  type TargetOutcome,
+  type RequiredInput,
+} from "@/core/mission/mission"
+import { activityPhases } from "@/core/agent/conversation/activity"
+import { type EvaluationCheckId, evaluateMission } from "@/core/evaluation/mission-evaluation"
 import { type Blocker, nextActionable } from "@/core/resolver/blockers"
 import { labelOf } from "@/core/resolver/target"
 import { fnv1a } from "@/core/ingestion/hash"
 import { MISSION_LABEL } from "@/core/mission/labels"
-import type { AgentEvent } from "@/core/telemetry/events"
+import type { AgentEvent, AgentEventType } from "@/core/telemetry/events"
 
 /**
  * Mission state → blocks (D-11). No free-form prose; every sentence is a template over structured
@@ -47,138 +57,296 @@ const REASON_PHRASE: Record<ReasonCode, string> = {
 
 type Ctx = { mission: Mission; graph: WorkspaceGraph; events: readonly AgentEvent[] }
 
+type Anchored = { readonly at: number; readonly order: number; readonly block: Block }
+
+/**
+ * The mission as a conversation, in the order things happened (spec §7, §14). Anchors are indices
+ * into the audit log, so the order is the system's, not the clock's. Durable blocks (speech,
+ * blockers, asks, decisions, changes, results) stay readable; observable work is one `activity`
+ * block per phase that collapses to a sentence once the phase is over.
+ */
 export function renderMission(
   mission: Mission,
   graph: WorkspaceGraph,
   events: readonly AgentEvent[] = [],
 ): Block[] {
   const ctx: Ctx = { mission, graph, events }
-  const blocks: Block[] = []
-  const isBatch = mission.targets.length > 1
-
-  if (isBatch) {
-    blocks.push(...renderBatch(ctx))
-    return blocks
-  }
+  if (mission.targets.length > 1) return renderBatch(ctx)
 
   const target = mission.targets[0]
-  if (!target) return blocks
+  if (!target) return []
   const targetLabel = mission.targetLabels[0] ?? labelOf(target, graph)
   const writes = mission.plan.filter((s) => s.transition === "COMPLETED")
-
-  // Permission is the first and only blocker when the actor may not act at all.
-  if (mission.state === "PERMISSION_DENIED") return renderTerminal(ctx, target, targetLabel)
-
-  // 1. Outcome
-  if (mission.state === "FAILED" && mission.plan.length === 0) {
-    blocks.push(block("boundary", "error", [[text("I couldn't act on that target.")]]))
-    return blocks
+  // Over for now: terminal, or blocked until the world changes. Either way the evidence is in.
+  const terminal = isTerminal(mission) || mission.state === "BLOCKED"
+  const last = events.length
+  const timeline: Anchored[] = []
+  const add = (at: number, order: number, ...blocks: readonly Block[]) => {
+    for (const b of blocks) timeline.push({ at: Math.max(at, 0), order, block: b })
   }
-  if (writes.length === 0 && mission.state === "COMPLETED") {
-    blocks.push(
+  const indexOf = (type: AgentEventType, from = 0) =>
+    events.findIndex((e, i) => i >= from && e.type === type)
+
+  if (mission.state === "FAILED" && mission.plan.length === 0) {
+    return [block("boundary", "error", [[text("I couldn't act on that target.")]])]
+  }
+
+  // A person asked; the agent says what it understood and what it will do. A routine asked nobody.
+  if (mission.origin === "user") add(0, 0, acknowledgeGoal(target, targetLabel))
+
+  // Observable work, one block per phase; only the current phase stays open.
+  const phases = activityPhases(mission, graph, events)
+  for (const phase of phases) {
+    const current = !terminal && phase.index === phases[phases.length - 1]?.index
+    add(phase.startIndex, 1, activityBlock(phase.index, phase.items, phase.summary, !current))
+  }
+
+  // Already complete: nothing to do, said once.
+  if (mission.state === "COMPLETED" && writes.every((s) => s.status === "already_complete")) {
+    add(
+      last,
+      8,
       block("already_complete", "neutral", [
         [entity(target, targetLabel), text(" is already complete. Nothing to do.")],
       ]),
     )
-    return blocks
+    return finish(timeline)
   }
+
+  // Outcome and the shortest useful path, anchored where the agent stopped.
+  const stops = [indexOf("MISSION_BLOCKED"), indexOf("ACTION_REQUESTED")].filter((i) => i >= 0)
+  const stopAt = stops.length > 0 ? Math.min(...stops) : Math.max(indexOf("PLAN_CREATED"), 0)
   const initialBlocked =
     mission.state === "BLOCKED" ||
     mission.plan.some((s) => s.transition === "TIME_LOGGED") ||
     mission.blockers.length > 0
-  if (initialBlocked && !mission.landedAt) {
-    blocks.push(
-      block("outcome.blocked", "blocked", [
-        [text("I can't complete "), entity(target, targetLabel), text(" yet.")],
-      ]),
-    )
-  } else if (!mission.landedAt) {
-    blocks.push(
-      block("outcome.ready", "neutral", [
-        [
-          entity(target, targetLabel),
-          text(` can be completed. `),
-          count(writes.length),
-          text(` ${plural(writes.length, "update")} required.`),
-        ],
-      ]),
+  if (!mission.landedAt) {
+    add(
+      stopAt,
+      2,
+      initialBlocked
+        ? block("outcome.blocked", "blocked", [
+            [text("I can't complete "), entity(target, targetLabel), text(" yet.")],
+          ])
+        : block("outcome.ready", "neutral", [
+            [
+              entity(target, targetLabel),
+              text(` can be completed. `),
+              count(writes.length),
+              text(` ${plural(writes.length, "update")} required.`),
+            ],
+          ]),
     )
   }
-
-  // 2–4. Current blocker, why, shortest path (only while something is still open)
   const current = nextActionable(mission.blockers)
   if (current && !mission.landedAt && mission.state !== "CANCELLED") {
-    blocks.push(...renderBlockerChain(ctx, current))
+    add(stopAt, 3, ...renderBlockerChain(ctx, current))
   }
 
-  // 5. Results so far (verified writes, reconciliations, mismatches), in plan order
-  for (const step of mission.plan) blocks.push(...renderStepResult(ctx, step))
+  // Every accepted answer is acknowledged before the work it unlocks.
+  events.forEach((e, i) => {
+    if (e.type === "INPUT_RECEIVED") add(i, 0, acknowledgeInput(e, graph))
+  })
 
-  // 6. State changes (course correction)
-  for (const notice of mission.stateChanges) {
-    const affectedSteps = mission.plan.filter((s) => notice.affectedStepIds.includes(s.id))
-    const seenRefs = new Set<string>()
-    const affected = affectedSteps.filter((s) => {
-      const key = `${s.ref.kind}:${s.ref.id}`
-      if (seenRefs.has(key)) return false
-      seenRefs.add(key)
-      return true
-    })
-    blocks.push(
-      block(
-        "state_change",
-        "paused",
-        [
-          [
-            entity(target, targetLabel),
-            text(" changed while I was working. I paused before the next update."),
-          ],
-          [
-            text("What changed: "),
-            entity(notice.ref, labelOf(notice.ref, graph)),
-            text(` ${notice.summary} by ${actorName(graph, notice.actorId)} at `),
-            time(notice.at),
-            text("."),
-          ],
-          affected.length > 0
-            ? [
-                text("What it affects: "),
-                ...joinEntities(affected.map((s) => [s.ref, s.label] as const)),
-                text("."),
-              ]
-            : [text("What it affects: nothing still planned.")],
-        ],
-        mission.state === "STALE"
-          ? [
-              { kind: "continue", label: "Continue" },
-              { kind: "cancel", label: "Stop" },
-            ]
-          : [],
-      ),
+  // Durable step results: reconciliations, mismatches, declines.
+  for (const step of mission.plan) {
+    const blocks = renderStepResult(ctx, step)
+    if (blocks.length === 0) continue
+    const at = events.findIndex(
+      (e) =>
+        (e.type === "WRITE_TIMEOUT_RECONCILED" ||
+          e.type === "ACTION_FAILED" ||
+          e.type === "ACTION_DECLINED") &&
+        e.refs.some((r) => r.id === step.ref.id),
     )
+    add(at < 0 ? last : at, 4, ...blocks)
+  }
+
+  // Course correction: what changed, what it affects, what the agent did about it.
+  for (const notice of mission.stateChanges) {
+    const at = events.findIndex(
+      (e) => (e.type === "MISSION_PAUSED" || e.type === "STATE_CHANGED") && e.at >= notice.at,
+    )
+    add(at < 0 ? last : at, 5, renderStateChange(ctx, target, targetLabel, notice))
     if (mission.state !== "STALE" && notice.replan) {
-      const next = nextActionable(mission.blockers)
-      const line: Inline[] = [
-        text("Replanned. "),
-        count(notice.replan.kept),
-        text(` of `),
-        count(notice.replan.planned),
-        text(
-          ` ${plural(notice.replan.planned, "update")} still ${notice.replan.kept === 1 ? "applies" : "apply"}.`,
-        ),
-      ]
-      if (next && !mission.landedAt)
-        line.push(text(" Next: "), ...firstActionLabel(next, graph), text("."))
-      blocks.push(block("replanned", "neutral", [line]))
+      const replanAt = indexOf("MISSION_REPLANNED", Math.max(at, 0))
+      add(replanAt < 0 ? last : replanAt, 6, renderCourseCorrection(ctx, notice.replan))
     }
   }
 
-  // 7. Pending decision
-  blocks.push(...renderPending(ctx, target))
+  // The one thing the agent needs from a person, where it asked.
+  const requested = events
+    .map((e, i) => (e.type === "ACTION_REQUESTED" ? i : -1))
+    .filter((i) => i >= 0)
+  add(
+    requested.length > 0 ? requested[requested.length - 1]! : last,
+    7,
+    ...renderPending(ctx, target),
+  )
 
-  // 8. Terminal
-  blocks.push(...renderTerminal(ctx, target, targetLabel))
-  return blocks
+  // Outcome, then the evidence that it held.
+  add(last, 8, ...renderTerminal(ctx, target, targetLabel))
+  if (terminal) add(last, 9, evaluationBlock(mission, events, graph))
+  return finish(timeline)
+}
+
+function finish(timeline: readonly Anchored[]): Block[] {
+  return [...timeline].sort((a, b) => a.at - b.at || a.order - b.order).map((t) => t.block)
+}
+
+function acknowledgeGoal(target: EntityRef, label: string): Block {
+  return block("acknowledgement", "neutral", [
+    [text("Got it. I'll get "), entity(target, label), text(" to completed.")],
+    [text("I'll check its governance requirements and resolve anything blocking it.")],
+  ])
+}
+
+function acknowledgeInput(event: AgentEvent, graph: WorkspaceGraph): Block {
+  const ref = event.refs[0]
+  const value = event.detail["value"]
+  const field = event.detail["input"]
+  const what =
+    field === "hours" && typeof value === "number"
+      ? `${value} ${plural(value, "hour")}`
+      : String(value ?? "")
+  return block("acknowledgement", "neutral", [
+    [
+      text(`Got it — ${what}`),
+      ...(ref ? [text(" for "), entity(ref, labelOf(ref, graph))] : []),
+      text("."),
+    ],
+    [text("I'll log that, verify it, and continue with the original goal.")],
+  ])
+}
+
+function activityBlock(
+  index: number,
+  items: readonly ActivityItem[],
+  summary: readonly Inline[],
+  collapsed: boolean,
+): Block {
+  return {
+    ...block("activity", "neutral", [summary]),
+    id: `activity-${index}`,
+    activity: items,
+    collapsed,
+  }
+}
+
+const CHECK_LABEL: Record<EvaluationCheckId, string> = {
+  policy_violation: "Governance",
+  unauthorized_write: "Authorization",
+  unverified_completion: "Verification",
+  scope_expansion: "Scope",
+  expected_final_state: "Final state",
+}
+
+/** Evidence that the invariants held for this run, judged from the log and a fresh read. Collapsed. */
+function evaluationBlock(
+  mission: Mission,
+  events: readonly AgentEvent[],
+  graph: WorkspaceGraph,
+): Block {
+  const evaluation = evaluateMission(mission, events, graph)
+  const failed = evaluation.checks.filter((c) => !c.passed).length
+  const verdict =
+    failed === 0
+      ? "Governance held, every write was authorized and verified, scope was kept, and the final state matches."
+      : `${failed} ${plural(failed, "check")} failed.`
+  const versions = evaluation.versions
+  return {
+    ...block("evaluation", failed === 0 ? "neutral" : "error", [
+      [text("Evaluation")],
+      [text(verdict)],
+    ]),
+    id: `evaluation-${mission.id}`,
+    activity: evaluation.checks.map((c) => ({
+      icon: c.passed ? ("check" as const) : ("error" as const),
+      label: CHECK_LABEL[c.id],
+      detail: [text(c.detail)],
+    })),
+    detail: [
+      [
+        text(
+          `Agent ${versions.agent} · Policies ${versions.policySet} · Dataset ${versions.dataset} · Evaluation ${versions.evaluation} · ${evaluation.writes} ${plural(evaluation.writes, "write")}`,
+        ),
+      ],
+    ],
+    collapsed: true,
+  }
+}
+
+function renderStateChange(
+  ctx: Ctx,
+  target: EntityRef,
+  targetLabel: string,
+  notice: Mission["stateChanges"][number],
+): Block {
+  const { mission, graph } = ctx
+  const affectedSteps = mission.plan.filter((s) => notice.affectedStepIds.includes(s.id))
+  const seenRefs = new Set<string>()
+  const affected = affectedSteps.filter((s) => {
+    const key = `${s.ref.kind}:${s.ref.id}`
+    if (seenRefs.has(key)) return false
+    seenRefs.add(key)
+    return true
+  })
+  return block(
+    "state_change",
+    "paused",
+    [
+      [
+        entity(target, targetLabel),
+        text(" changed while I was working. I paused before the next update."),
+      ],
+      [
+        text("What changed: "),
+        entity(notice.ref, labelOf(notice.ref, graph)),
+        text(` ${notice.summary} by ${actorName(graph, notice.actorId)} at `),
+        time(notice.at),
+        text("."),
+      ],
+      affected.length > 0
+        ? [
+            text("What it affects: "),
+            ...joinEntities(affected.map((s) => [s.ref, s.label] as const)),
+            text("."),
+          ]
+        : [text("What it affects: nothing still planned.")],
+    ],
+    mission.state === "STALE"
+      ? [
+          { kind: "continue", label: "Continue" },
+          { kind: "cancel", label: "Stop" },
+        ]
+      : [],
+  )
+}
+
+function renderCourseCorrection(
+  ctx: Ctx,
+  replan: { readonly kept: number; readonly planned: number },
+): Block {
+  const { mission, graph } = ctx
+  const next = nextActionable(mission.blockers)
+  const detail: Inline[] = [
+    count(replan.kept),
+    text(` of `),
+    count(replan.planned),
+    text(` ${plural(replan.planned, "update")} still ${replan.kept === 1 ? "applies" : "apply"}.`),
+  ]
+  if (next && !mission.landedAt)
+    detail.push(text(" Next: "), ...firstActionLabel(next, graph), text("."))
+  return {
+    ...block("course_correction", "neutral", [
+      [
+        text(
+          "Course correction. The previous plan is no longer valid; I've updated the remaining steps.",
+        ),
+      ],
+    ]),
+    detail: [detail],
+  }
 }
 
 function renderBlockerChain(ctx: Ctx, current: Blocker): Block[] {
@@ -318,27 +486,8 @@ function renderStepResult(ctx: Ctx, step: PlanStep): Block[] {
       ]),
     )
   }
-  if (step.transition !== "COMPLETED") {
-    if (step.status === "succeeded") {
-      blocks.push(
-        block("result.verified", "success", [
-          [text("Verified: time logged on "), entity(step.ref, step.label), text(".")],
-        ]),
-      )
-    }
-    return blocks
-  }
-  if (step.status === "succeeded") {
-    const suffix =
-      step.retries > 0
-        ? ` ${step.retries} ${plural(step.retries, "retry", "retries")}, no duplicate write.`
-        : ""
-    blocks.push(
-      block("result.verified", "success", [
-        [text("Verified: "), entity(step.ref, step.label), text(` is Completed.${suffix}`)],
-      ]),
-    )
-  } else if (step.status === "failed" && step.verification === "MISMATCH") {
+  if (step.transition !== "COMPLETED") return blocks
+  if (step.status === "failed" && step.verification === "MISMATCH") {
     blocks.push(
       block("result.mismatch", "error", [
         [
@@ -477,22 +626,39 @@ function renderPending(ctx: Ctx, target: EntityRef): Block[] {
 function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block[] {
   const { mission, graph } = ctx
   switch (mission.state) {
-    case "COMPLETED":
+    case "COMPLETED": {
+      const evidence = mission.plan.filter(
+        (s) =>
+          s.transition === "COMPLETED" &&
+          s.status === "succeeded" &&
+          !(s.ref.kind === target.kind && s.ref.id === target.id),
+      )
       return [
-        block(
-          "landing",
-          "success",
-          [
+        {
+          ...block(
+            "landing",
+            "success",
             [
-              entity(target, targetLabel),
-              text(" completed. Verified at "),
-              time(mission.landedAt ?? mission.updatedAt),
-              text("."),
+              [entity(target, targetLabel), text(" completed.")],
+              [
+                text(`All required updates were completed and verified. Final state verified at `),
+                time(mission.landedAt ?? mission.updatedAt),
+                text("."),
+              ],
             ],
-          ],
-          [{ kind: "view_activity", label: "View activity" }],
-        ),
+            [{ kind: "view_activity", label: "View activity" }],
+          ),
+          activity: evidence.map((s) => ({
+            icon: "check" as const,
+            label: s.label,
+            detail:
+              s.retries > 0
+                ? [text(`Verified after ${s.retries} ${plural(s.retries, "retry", "retries")}`)]
+                : null,
+          })),
+        },
       ]
+    }
     case "CANCELLED": {
       // A decline is its own record ("Not done. X stays open."); no second stop line.
       if (mission.plan.some((s) => s.note === "declined by user")) return []
@@ -594,10 +760,25 @@ function renderTerminal(ctx: Ctx, target: EntityRef, targetLabel: string): Block
 }
 
 function renderBatch(ctx: Ctx): Block[] {
-  const { mission } = ctx
+  const { mission, graph, events } = ctx
   const blocks: Block[] = []
   const writes = mission.plan.filter((s) => s.transition === "COMPLETED")
   const projects = mission.targets.length
+  const terminal = isTerminal(mission) || mission.state === "BLOCKED"
+
+  if (mission.origin === "user") {
+    blocks.push(
+      block("acknowledgement", "neutral", [
+        [text(`Got it. I'll work through ${projects} ${plural(projects, "project")}.`)],
+        [text("I'll check each one's governance and report exactly what happened.")],
+      ]),
+    )
+  }
+  const phases = activityPhases(mission, graph, events)
+  for (const phase of phases) {
+    const current = !terminal && phase.index === phases[phases.length - 1]?.index
+    blocks.push(activityBlock(phase.index, phase.items, phase.summary, !current))
+  }
 
   if (mission.pending?.kind === "confirm_plan") {
     blocks.push({
@@ -668,6 +849,7 @@ function renderBatch(ctx: Ctx): Block[] {
   if (mission.state === "CANCELLED") {
     blocks.push(block("cancelled", "paused", [[text("Stopped. Nothing further was written.")]]))
   }
+  if (terminal) blocks.push(evaluationBlock(mission, events, graph))
   return blocks
 }
 
@@ -869,7 +1051,49 @@ function block(
   actions: readonly BlockAction[] = [],
 ): Block {
   const id = `${type}-${fnv1a(JSON.stringify(lines))}`
-  return { id, type, lines, actions, detail: null, path: null, tone }
+  return {
+    id,
+    type,
+    lines,
+    actions,
+    detail: null,
+    path: null,
+    tone,
+    icon: ICON_BY_TYPE[type],
+    activity: null,
+    collapsed: false,
+  }
+}
+
+/** Deterministic: the kind of work a block represents. Plain agent speech carries no icon. */
+const ICON_BY_TYPE: Record<Block["type"], SemanticIcon | null> = {
+  acknowledgement: null,
+  activity: null,
+  evaluation: "policy",
+  "outcome.blocked": "blocker",
+  "outcome.ready": "project",
+  already_complete: "check",
+  blocker: "dependency",
+  resolution_path: "action",
+  "action_request.input": "person",
+  "action_request.confirm": "person",
+  "action_request.batch_confirm": "person",
+  "notification.blocked": "person",
+  declined: "cancel",
+  consequence: "task",
+  "result.mismatch": "error",
+  timeout_reconciled: "refresh",
+  state_change: "change",
+  course_correction: "course",
+  stale_on_resume: "change",
+  scope_change: "change",
+  cancelled: "cancel",
+  partial_summary: "landing",
+  permission_denied: "blocker",
+  clarification: "person",
+  boundary: null,
+  landing: "landing",
+  status: "execution",
 }
 
 function joinEntities(items: ReadonlyArray<readonly [EntityRef, string]>): Inline[] {

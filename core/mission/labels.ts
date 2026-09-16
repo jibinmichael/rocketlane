@@ -5,7 +5,7 @@ export const MISSION_LABEL: Record<MissionState, string> = {
   READY: "Ready",
   ACTIVE: "Working",
   WAITING: "Waiting for you",
-  EXECUTING: "Updating",
+  EXECUTING: "In flight",
   VERIFYING: "Verifying",
   COMPLETED: "Landed",
   BLOCKED: "Blocked",

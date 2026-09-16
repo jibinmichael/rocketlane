@@ -170,6 +170,11 @@ export class MissionEngine {
       return denied
     }
 
+    this.emit(mission, "INPUT_RECEIVED", [step.ref], {
+      input: pending.input.field,
+      value: validated.value,
+      step: step.label,
+    })
     mission = this.decide(mission, "input", stepId, `${validated.value} ${pending.input.field}`)
     mission = {
       ...this.setStep(mission, stepId, { status: "running" }, "EXECUTING"),
@@ -308,6 +313,26 @@ export class MissionEngine {
       steps: plan.steps.length,
       requiresConfirmation: plan.requiresPlanConfirmation,
     })
+    // Governance consulted at planning time is observable work, not only the per-write check.
+    for (const target of mission.targets) {
+      const decision = evaluateGovernance(
+        graph,
+        { target, to: "COMPLETED" },
+        {
+          config: this.governance,
+          ...(this.deps.policies ? { policies: this.deps.policies } : {}),
+        },
+      )
+      this.emit(mission, "POLICY_CHECKED", [target], {
+        phase: "plan",
+        allowed: decision.allowed,
+        checked: decision.evaluations.length,
+        policies: decision.evaluations
+          .filter((e) => e.triggerMatched)
+          .map((e) => e.policyId)
+          .join(","),
+      })
+    }
     for (const b of blockers) {
       this.emit(mission, "DEPENDENCY_FOUND", b.dependencyPath, {
         policy: b.policyId,
@@ -581,7 +606,11 @@ export class MissionEngine {
     verify: (graph: WorkspaceGraph) => boolean,
     expectedVersion: number | null,
   ): Promise<Mission> {
-    this.emit(mission, "ACTION_STARTED", [step.ref], { step: step.label, command: cmd.kind })
+    this.emit(mission, "ACTION_STARTED", [step.ref], {
+      step: step.label,
+      command: cmd.kind,
+      ...(cmd.kind === "add_time_entry" ? { hours: cmd.hours } : {}),
+    })
     const meta = {
       idempotencyKey: step.id,
       expectedVersion,
