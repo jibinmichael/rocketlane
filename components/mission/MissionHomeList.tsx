@@ -86,14 +86,8 @@ export function MissionHomeList() {
       fill={fill}
     />
   )
-  const trust = sending ? (
-    <div className="flex items-center gap-2 pt-1">
-      <AgentMark size={16} />
-      <Body muted className="text-[12px]">
-        Preparing mission
-      </Body>
-    </div>
-  ) : (
+  // The trust line is the only thing under the composer; the agent's work shows in the thread.
+  const trust = (
     <p className="text-muted-foreground text-center text-[11px]">
       AI can make mistakes. Every consequential change is verified before it&apos;s marked complete.
     </p>
