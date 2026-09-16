@@ -16,7 +16,7 @@ Every end-user action is a block with inline actions or an inline input. There a
 
 ## Canonical block list (single source; glossary mirrors this)
 
-Templates carry `EntityRef` slots rendered as chips (shown here as **bold**). Policy references render as a metadata chip ("Policy 3"), never inside prose. Pluralisation happens in the renderer.
+Templates carry `EntityRef` slots rendered as chips (shown here as **bold**). Policy references render as a metadata chip ("Policy 3"), never inside prose, with one exception: the missing-input reason line quotes the rule the person must satisfy ("Policy 4 requires hours before completion"). Pluralisation happens in the renderer.
 
 | Block | Copy |
 |---|---|
@@ -25,7 +25,8 @@ Templates carry `EntityRef` slots rendered as chips (shown here as **bold**). Po
 | `already_complete` | "**{target}** is already complete. Nothing to do." (the export carries no reliable completion date for projects, so none is claimed) |
 | `blocker` | "**{node}** can't complete: {policy.rule} — {evidence}." e.g. "Go-Live can't complete: predecessor Deploy API is incomplete." / "QA Complete can't complete: no time logged." |
 | `resolution_path` | "{n} updates to complete **{target}**. First: {action.label} on **{node}**." + expandable full path |
-| `action_request.input` | "I need hours for **{node}**." · "It's assigned to {assignees}; hours you enter are recorded as yours." (or "Hours you enter are recorded as yours." when the actor is the assignee) · inline numeric field described by the block text · `[Log time]`. Hours are never prefilled. |
+| `action_request.input` | Three lines, from the step's `RequiredInput`: reason from policy evidence "**{node}** has no logged time. {Policy} requires {field} before completion." · the question "How many hours should I log for **{node}**?" · the authorized actor "{node} is assigned to {assignees}; I'll record the hours as yours, {actor}." (or "I'll record them as your hours, {actor}."). **No field, no button: the composer is the input.** Values arrive as "2 hours", "2h", "2"; once answered, the ask freezes into the thread above the answer with the receipt "Logged 2 hours by {actor}", exactly like a button decision. Invalid values re-state the ask: "I need a number of hours for **{node}**, for example 2 or 1.5. Nothing has been logged." Empty input is not a turn. |
+| `notification.blocked` | Routine origin only: "**{target}** is blocked because **{node}** has no logged time. {Policy} requires {field} before completion. I need the number of hours from the authorized actor." then the same question and actor lines. The mission stays WAITING; a person answers in the same thread. |
 | `action_request.confirm` | "Complete **{target}**? {milestonesDone} milestones complete. {openTasks} tasks remain open (does not block under current policies). Status → Completed." `[Complete project] [Not now]` — the block becomes the decision record: "Confirmed by {actor} at {time}". |
 | `action_request.batch_confirm` | "{n} updates across {projects} projects. One confirmation covers the set." + expandable list of the projects (the scope the user asked for: "my projects" lists only owned projects) `[Run {n} updates] [Not now]` |
 | `declined` | "Not done. **{node}** stays {state}." then "Nothing was written." or "The {n} earlier updates stand; nothing further was written." The mission lands **Cancelled** (the user said no; nothing blocks it) and this block is the only stop line. |

@@ -16,15 +16,15 @@ Type: **Mark Acme Implementation as completed.** (Try **Mark all my projects as 
 
 What to say: the agent resolved the project, checked the four policies, and found it cannot complete yet. It traced the blocker three levels deep and shows only the shortest useful path. Point at the policy chips: every reason maps to one supplied policy. Click **Show full path** to prove the depth is available, not dumped.
 
-It asks for one thing it cannot invent: hours on QA Complete, and says whose task it is and whose time it will be. Type **2** in the field, **Log time**.
+It asks for one thing it cannot invent, in the conversation: "QA Complete has no logged time. Policy 4 requires hours before completion. How many hours should I log for QA Complete?" and says whose task it is and whose time it will be. Try **two hours** first: it refuses to guess and re-states the ask. Then reply **2 hours**.
 
-Watch the time entry and then five completions verify in dependency order. The band moves from 0 of 6 to 5 of 6. Then the high-impact confirmation, in the thread, with the consequence stated: one task remains open and does not block under current policies. **Complete project.**
+Watch the time entry verify, then five completions in dependency order with no further questions. The band moves from 0 of 6 to 5 of 6. Then the high-impact confirmation, in the thread, with the consequence stated: one task remains open and does not block under current policies. **Complete project.**
 
 Landed. **View activity** shows who, what, why, when, result, verified.
 
 ## 2. Course correction (two tabs)
 
-Tab one: type **complete acme** on a fresh dataset (Test Lab → Reset first, or use Beacon Rollout instead). Stop when it asks for hours.
+Tab one: type **complete acme** on a fresh dataset (Test Lab → Reset first, or use Beacon Rollout instead). Stop when it asks for hours. (Reply **2 hours** later, in the composer.)
 
 Tab two: **Test Lab → World**. Project Acme Implementation, task Train admins, status completed, acting as Mei Tanaka. **Apply.**
 
@@ -38,7 +38,7 @@ Type **complete Beacon Rollout**. It runs straight to the project confirmation b
 
 ## 4. Verification is real
 
-**Test Lab → World**: arm **timeout once** on Deploy API. Back in the agent: **complete acme**, **2**, and watch the reconciliation beat: "The write to Deploy API timed out. I re-read it: it had applied." Zero retries, one ledger entry.
+**Test Lab → World**: arm **timeout once** on Deploy API. Back in the agent: **complete acme**, **2 hours**, and watch the reconciliation beat: "The write to Deploy API timed out. I re-read it: it had applied." Zero retries, one ledger entry.
 
 ## 5. Test Lab: the system, not the demo
 
