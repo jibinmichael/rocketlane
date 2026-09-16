@@ -1,0 +1,13 @@
+ProjectId,TaskId,TaskName,Status,ProjectName,PhaseId,Phase,Assignee,Priority,StartDate,DueDate,HoursTracked,Is this a Billing Milestone?,Invoice Raised?,% of amount to be billed,Dependency,ParentTaskId,ParentTask,AtRisk,Progress,ActualStartDate,CompletedAt,RemainingHours,Effort(hrs),Billable,Category
+PRJ-ACME,TSK-A01,Kickoff,Completed,Acme Implementation,PHS-A1,Initiate,Priya Raman,,2026-06-01,2026-06-03,4.00,,,,,,,,,2026-06-01,2026-06-03,0.00,,true,Project Setup
+PRJ-ACME,TSK-A02,QA Complete,In progress,Acme Implementation,PHS-A2,Build,Mei Tanaka,,2026-08-01,2026-08-20,0.00,,,,,,,,,2026-08-01,,0.00,,true,Test Execution
+PRJ-ACME,TSK-A03,Deploy API,To do,Acme Implementation,PHS-A2,Build,Daniel Okafor,,2026-08-21,2026-08-28,6.00,,,,QA Complete,,,,,,,0.00,,true,Build and Deployment
+PRJ-ACME,TSK-A04,Go-Live,To do,Acme Implementation,PHS-A3,Launch,Priya Raman,,2026-09-01,2026-09-05,2.00,true,,,Deploy API,,,,,,,0.00,,true,Release and Go-Live
+PRJ-ACME,TSK-A05,Training Complete,To do,Acme Implementation,PHS-A3,Launch,Mei Tanaka,,2026-09-01,2026-09-10,3.00,true,,,,,,,,,,0.00,,true,Transition
+PRJ-ACME,TSK-A06,Train admins,To do,Acme Implementation,PHS-A3,Launch,Mei Tanaka,,2026-09-02,2026-09-04,1.00,,,,,TSK-A05,Training Complete,,,,,0.00,,true,Transition
+PRJ-ACME,TSK-A07,Documentation,To do,Acme Implementation,PHS-A3,Launch,Daniel Okafor,,2026-09-06,2026-09-20,0.00,,,,,,,,,,,0.00,,true,Program Management
+PRJ-BEACON,TSK-B01,Design review,Completed,Beacon Rollout,PHS-B1,Discover,Priya Raman,,2026-07-15,2026-07-20,5.00,,,,,,,,,2026-07-15,2026-07-20,0.00,,true,Discovery
+PRJ-BEACON,TSK-B02,Load test,To do,Beacon Rollout,PHS-B2,Build,Mei Tanaka,,2026-09-01,2026-09-05,3.00,,,,,,,,,,,0.00,,true,Test Execution
+PRJ-BEACON,TSK-B03,Go-Live,To do,Beacon Rollout,PHS-B3,Launch,Priya Raman,,2026-09-08,2026-09-08,2.00,true,,,Load test,,,,,,,0.00,,true,Release and Go-Live
+PRJ-BEACON,TSK-B04,Handover,To do,Beacon Rollout,PHS-B3,Launch,Priya Raman,,2026-09-09,2026-09-12,1.00,true,,,,,,,,,,0.00,,true,Transition
+PRJ-NORTH,TSK-N01,Cutover,Completed,Northwind Migration,PHS-N1,Launch,Daniel Okafor,,2026-05-20,2026-05-25,8.00,true,,,,,,,,2026-05-20,2026-05-25,0.00,,true,Release and Go-Live

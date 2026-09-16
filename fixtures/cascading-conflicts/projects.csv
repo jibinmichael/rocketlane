@@ -1,0 +1,4 @@
+ProjectId,ProjectName,ProjectStatus,StartDate,DueDate,ProjectOwner,ProjectOwnerId,ProjectOwnerEmail,CustomerName,CustomerId,TeamMembers,Region
+PRJ-ACME,Acme Implementation,In progress,2026-06-01,2026-09-30,Priya Raman,ACT-PRIYA,priya.raman@example.com,Acme Corp,90001,"Priya Raman|priya.raman@example.com, Daniel Okafor|daniel.okafor@example.com, Mei Tanaka|mei.tanaka@example.com",AMER
+PRJ-BEACON,Beacon Rollout,In progress,2026-07-15,2026-10-15,Priya Raman,ACT-PRIYA,priya.raman@example.com,Beacon Health,90002,"Priya Raman|priya.raman@example.com, Mei Tanaka|mei.tanaka@example.com",Europe
+PRJ-NORTH,Northwind Migration,Completed,2026-01-10,2026-05-30,Daniel Okafor,ACT-DANIEL,daniel.okafor@example.com,Northwind Traders,90003,"Daniel Okafor|daniel.okafor@example.com",APAC
