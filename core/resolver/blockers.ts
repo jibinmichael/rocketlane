@@ -52,6 +52,7 @@ export function resolveClosure(
   target: EntityRef,
   graph: WorkspaceGraph,
   config: GovernanceConfig = DEFAULT_GOVERNANCE_CONFIG,
+  excluded: ReadonlySet<string> = new Set(),
 ): ClosureResult {
   const required: RequiredTransition[] = []
   const blockers: Blocker[] = []
@@ -60,6 +61,8 @@ export function resolveClosure(
 
   const visitTask = (task: Task, path: readonly EntityRef[]): void => {
     if (visited.has(task.id)) return
+    // A user exclusion ("leave Go-Live open") prunes that node and everything that exists only for it.
+    if (excluded.has(`task:${task.id}`)) return
     visited.add(task.id)
     entityIds.add(task.id)
     const here: EntityRef = { kind: "task", id: task.id }
