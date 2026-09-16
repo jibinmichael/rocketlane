@@ -20,6 +20,10 @@ Templates carry `EntityRef` slots rendered as chips (shown here as **bold**). Po
 
 | Block | Copy |
 |---|---|
+| `acknowledgement` (goal) | "Got it. I'll get **{target}** to completed." · "I'll check its governance requirements and resolve anything blocking it." Batch: "Got it. I'll work through {n} projects." · "I'll check each one's governance and report exactly what happened." A routine-origin mission asked nobody and gets none. No "Sure", "Absolutely", "Happy to help". |
+| `acknowledgement` (answer) | "Got it — {value} for **{node}**." · "I'll log that, verify it, and continue with the original goal." Emitted from `INPUT_RECEIVED`, never before validation. |
+| `activity` | Observable work from the audit log, one block per phase (phases end at an input, an approval, a decline or a replan). Items: icon · label · context: "Checking project **{target}**", "Checking milestones · {n} milestones", "Checking governance · {n} policies checked", "Tracing dependencies · **A** → **B** → **C**", "Logging time · {n}h", "Time verified", "Rechecking dependencies", "**{task}** · Verified", "Verifying project". The current phase is open; finished phases fold to one past-tense sentence ("Logged time, rechecked dependencies and verified 5 updates.") with "Show activity". Never "Thinking…", never an internal name. |
+| `evaluation` | After any finished mission: "Evaluation" · "Governance held, every write was authorized and verified, scope was kept, and the final state matches." (or "{n} checks failed."). Evidence on demand: Governance · Authorization · Verification · Scope · Final state, each with the sentence behind the verdict; versions and write count in the detail. No score. |
 | `outcome.blocked` | "I can't complete **{target}** yet." Chosen from mission state (`BLOCKED`), a pending time request, or a non-empty blocker list; never from the blocker list alone. |
 | `outcome.ready` | "**{target}** can be completed. {n} updates required." + flight plan artifact list |
 | `already_complete` | "**{target}** is already complete. Nothing to do." (the export carries no reliable completion date for projects, so none is claimed) |
@@ -31,11 +35,10 @@ Templates carry `EntityRef` slots rendered as chips (shown here as **bold**). Po
 | `action_request.batch_confirm` | "{n} updates across {projects} projects. One confirmation covers the set." + expandable list of the projects (the scope the user asked for: "my projects" lists only owned projects) `[Run {n} updates] [Not now]` |
 | `declined` | "Not done. **{node}** stays {state}." then "Nothing was written." or "The {n} earlier updates stand; nothing further was written." The mission lands **Cancelled** (the user said no; nothing blocks it) and this block is the only stop line. |
 | `consequence` | "{n} tasks remain open in **{project}**. This does not block completion under current policies." expandable list |
-| `result.verified` | "Verified: **{node}** is {state}." |
 | `result.mismatch` | "The update did not verify. **{node}** is still {actual}. I have not marked it complete." |
 | `timeout_reconciled` | "The write to **{node}** timed out. I re-read it: {actual}. Retrying once with the same request." → then `result.verified` with "1 retry, no duplicate write." |
 | `state_change` | "**{project}** changed while I was working. I paused before the next update." · What changed: "**{node}** {change} by {actor} at {time}." · What it affects: "{affected}." · Next: "{next}." |
-| `replanned` | "Replanned. {kept} of {planned} updates still apply. Next: {action.label} on **{node}**." |
+| `course_correction` | "Course correction. The previous plan is no longer valid; I've updated the remaining steps." Detail: "{kept} of {planned} updates still apply. Next: {action.label} on **{node}**." |
 | `stale_on_resume` | "**{project}** changed since this mission was planned." + diff, then `replanned` |
 | `scope_change` | "Stopped. **{node}** stays open. Continuing with {newScope}." + if any: "{n} updates completed before the change: {list}." |
 | `cancelled` | "Stopped. Nothing was written." or "Stopped. {n} updates completed before you cancelled; nothing further was written." |
@@ -46,7 +49,7 @@ Templates carry `EntityRef` slots rendered as chips (shown here as **bold**). Po
 | `routine.created` | "Every morning I'll check **{target}**. If all milestones are complete I'll notify you and complete it." + routine artifact (`Run now · Pause · Stop`) |
 | `routine.check.not_ready` | collapsed by default: "Checked {time}. Not ready — {blocker}." |
 | `notification.ready` | "**{target}** is ready. {what changed}. The remaining governance checks pass. I can complete it now." `[Complete project] [Review checks]` |
-| `landing` | "**{project}** completed. Verified at {time}." `[View activity]` |
+| `landing` | "**{project}** completed." · "All required updates were completed and verified. Final state verified at {time}." + compact evidence (one check row per verified update) `[View activity]`. Per-step "Verified:" lines are not blocks; they are activity items while the mission runs. |
 
 ## Tone (spec §15, §42)
 
@@ -90,7 +93,8 @@ Calm, direct, precise, accountable, concise. First person for the agent's own ac
 - **Colour:** existing neutral oklch scale. One restrained accent chosen at Gate 10 from two candidates. Status colours desaturated (~60% chroma of defaults).
 - **Surfaces:** hairline `--border`, radius 6–10px, shadows only on floating layers. Rows and dividers by default; a bounded surface only when the artifact needs one (`density: "block"`).
 - **Density:** 32–36px rows, 8px grid, 720px thread column, 220px left nav.
-- **Chrome:** left nav (Projects · Governance Agent · Policies · Activity · Test Lab). One 52px mission band: goal left · current activity while working · "{done} of {total} updates" · state chip right · hairline bottom border. Composer pinned bottom. No third pinned region.
+- **Chrome:** left nav (Projects · Governance Agent · Policies · Activity · Test Lab). One 52px mission band: goal left · current activity while working ("Preparing mission", "Checking governance", "In flight · Updating **{node}**", "Verifying", "Course correction") · state chip right · indeterminate hairline while working, solid on landing. **No operation counts anywhere in the chrome.** Composer pinned bottom. No third pinned region.
+- **Icons:** every block and activity item carries a `SemanticIcon` from the contract (project, milestone, task, time, dependency, policy, blocker, person, action, execution, check, refresh, change, course, pause, error, cancel, landing), rendered with lucide at 14px, tone-coloured, subordinate to the text. Plain agent speech carries none. Never emoji, never decorative.
 - **Scroll rule:** stick to bottom only if the user is within 80px of it; otherwise a pill in the band labelled with the mission state, e.g. "Paused — project changed ↓".
 - **Agent home:** composer at the **top** ("What do you want done?"), missions listed below as `mission` artifacts, needs-input first. The home is the inbox; there is no notification center. Starting a mission routes to `/m/[id]`.
 - **Post-landing rule:** read intents stay in the thread; write intents start a new mission with "from mission {id}" in its band.

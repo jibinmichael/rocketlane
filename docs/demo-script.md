@@ -14,13 +14,13 @@ Open **Test Lab → Dataset → Reset to original** so the demo workspace is cle
 
 Type: **Mark Acme Implementation as completed.** (Try **Mark all my projects as completed.** afterwards: it resolves to the projects you own, never the whole workspace.)
 
-What to say: the agent resolved the project, checked the four policies, and found it cannot complete yet. It traced the blocker three levels deep and shows only the shortest useful path. Point at the policy chips: every reason maps to one supplied policy. Click **Show full path** to prove the depth is available, not dumped.
+What to say: it acknowledges the goal, then you watch real work: checking project, milestones, governance (4 policies), tracing dependencies. Every row is an event in the audit log; nothing is simulated. It found it cannot complete yet, traced the blocker three levels deep and shows only the shortest useful path. Point at the policy chips: every reason maps to one supplied policy. Click **Show full path** to prove the depth is available, not dumped.
 
 It asks for one thing it cannot invent, in the conversation: "QA Complete has no logged time. Policy 4 requires hours before completion. How many hours should I log for QA Complete?" and says whose task it is and whose time it will be. Try **two hours** first: it refuses to guess and re-states the ask. Then reply **2 hours**.
 
-Watch the time entry verify, then five completions in dependency order with no further questions. The band moves from 0 of 6 to 5 of 6. Then the high-impact confirmation, in the thread, with the consequence stated: one task remains open and does not block under current policies. **Complete project.**
+It acknowledges the answer ("Got it — 2 hours for QA Complete. I'll log that, verify it, and continue with the original goal."), then you watch it log time, verify it, recheck dependencies and verify five updates with no further questions. The band says what it is doing, never how many operations are left. Then the high-impact confirmation, in the thread, with the consequence stated: one task remains open and does not block under current policies. **Complete project.**
 
-Landed. **View activity** shows who, what, why, when, result, verified.
+Landed: one outcome line, compact evidence, **View activity**. Finished phases fold to one sentence each. Then **View evaluation evidence**: governance, authorization, verification, scope and final state, judged from the log and a fresh read.
 
 ## 2. Course correction (two tabs)
 
@@ -42,13 +42,12 @@ Type **complete Beacon Rollout**. It runs straight to the project confirmation b
 
 ## 5. Test Lab: the system, not the demo
 
-**Dataset → Load Rocketlane export.** Read the ingestion report: 31 projects, 325 tasks, 76 completed tasks with no time logged, a duplicate task name, 28 projects without tasks. Nothing hidden.
+**Test with your project data.** Upload a two-file export, or **Load Rocketlane export.** Read the ingestion report: 31 projects, 325 tasks, 76 completed tasks with no time logged, a duplicate task name, 28 projects without tasks. Nothing hidden.
 
-**Scenarios → Run all 12.** All green in well under a second: hero, happy path, timeout, course correction, cancel, scope change, permission, the real-export cascade, already complete, ambiguity, boundary, and the real-export batch with its exact breakdown.
+The same engine runs against it. State an outcome in the Governance Agent; the mission ends with its evaluation, and the Test Lab lists every mission on this data with the five checks. (The twelve deterministic scenarios, including weakening a policy and watching the evaluator catch it, run in `pnpm test`.)
 
 **The real data has the brief's 4-level conflict.** Acting as Robert Oconnell, type **complete Stone-Gonzalez**: project → milestone Project Plan Sign-off → predecessor BRD Sign-off → predecessors COE Review and Peer Review, all without time logged. Same engine, real export, nothing staged. Bowen-Chapman has the real BLOCKED task (Legacy Migration): the agent holds it, and that hold is the first committed regression record.
 
-Now weaken the engine: click **P4 time**, then **Run** on the hero. The evaluator flags `no_policy_violation`: the engine completed QA Complete with no time logged, judged against the reference policies at write time. A regression record appears below with the diagnosis. Click **P4 time** again to restore.
 
 ## 6. Close
 
