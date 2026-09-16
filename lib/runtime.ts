@@ -415,6 +415,33 @@ export class Runtime {
     threadPersistence.save(this.threads)
   }
 
+  /**
+   * A conversation is one trail. When a turn in one thread starts a new mission, the new record
+   * begins with everything said so far, so nothing on screen disappears at the hand-off.
+   */
+  private carryThread(from: string, to: string): void {
+    if (from === to) return
+    const prior = this.threads[from] ?? []
+    const last = prior[prior.length - 1]
+    const carried = last?.kind === "user" ? prior.slice(0, -1) : prior
+    if (carried.length === 0) return
+    this.threads[to] = [...carried.map((e) => ({ ...e })), ...(this.threads[to] ?? [])]
+    threadPersistence.save(this.threads)
+  }
+
+  /** Opens a record with agent blocks that were on screen before its first user turn. */
+  openWith(missionId: string, blocks: readonly Block[]): void {
+    const entries = this.threads[missionId] ?? []
+    if (entries[0]?.kind === "agent" || blocks.length === 0) return
+    const at = (entries[0]?.at ?? this.clock.now()) - 1
+    this.threads[missionId] = [
+      { kind: "agent", blocksJson: JSON.stringify(blocks), at, actionTaken: null },
+      ...entries,
+    ]
+    threadPersistence.save(this.threads)
+    this.publish()
+  }
+
   private pushUser(missionId: string, text: string): void {
     const entries = this.threads[missionId] ?? []
     entries.push({ kind: "user", text, at: this.clock.now() })
@@ -557,7 +584,10 @@ export class Runtime {
         nextMissionId: () => {
           const id = this.newMissionId()
           startedId = id
-          if (missionId) this.setBusy(missionId, null)
+          if (missionId) {
+            this.setBusy(missionId, null)
+            this.carryThread(missionId, id)
+          }
           this.pushUser(id, utterance)
           return id
         },
@@ -662,6 +692,7 @@ export class Runtime {
       const goalText = utterance?.kind === "user" ? utterance.text : action.label
       const newId = this.newMissionId()
       this.freeze(missionId, action.label)
+      this.carryThread(missionId, newId)
       this.pushUser(newId, goalText)
       this.setBusy(newId, "PLANNING")
       try {
@@ -683,6 +714,7 @@ export class Runtime {
       if (!actor || !source) return missionId
       const newId = this.newMissionId("u")
       this.freeze(missionId, action.label)
+      this.carryThread(missionId, newId)
       this.pushUser(newId, `Undo "${source.goalText}"`)
       this.setBusy(newId, "PLANNING")
       try {

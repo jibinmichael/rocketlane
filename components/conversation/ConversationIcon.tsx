@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 const ICON: Record<SemanticIcon, { name: LinearIconName; rotate?: number }> = {
   project: { name: "network" },
   milestone: { name: "two-flags" },
-  task: { name: "issues" },
+  task: { name: "circle" },
   time: { name: "clock" },
   dependency: { name: "branch" },
   policy: { name: "shield-star" },

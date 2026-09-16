@@ -146,7 +146,7 @@ export function ConversationComposer({
           placeholder={rotating ? "" : placeholder}
           autoFocus={autoFocus}
           aria-label="Message the governance agent"
-          className="text-foreground placeholder:text-muted-foreground block w-full resize-none border-0 bg-transparent p-0 text-[14px] leading-[1.6] outline-none disabled:cursor-default"
+          className="text-foreground placeholder:text-muted-foreground/60 block w-full resize-none border-0 bg-transparent p-0 text-[14px] leading-[1.6] outline-none disabled:cursor-default"
         />
         {rotating && !hasText && current && (
           <div
@@ -218,8 +218,7 @@ export function ConversationComposer({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={springEnter}
-                className="relative flex size-8 shrink-0 items-center justify-center rounded-full"
-                style={{ background: "var(--vibe-gradient)" }}
+                className="bg-foreground relative flex size-8 shrink-0 items-center justify-center rounded-full"
               >
                 <span
                   aria-hidden
@@ -256,11 +255,10 @@ export function ConversationComposer({
                 transition={springEnter}
                 className={cn(
                   "flex size-8 shrink-0 items-center justify-center rounded-full transition-[background,color,transform] duration-[var(--motion-normal)]",
-                  hasText && !disabled ? "text-foreground" : "bg-muted text-muted-foreground",
+                  hasText && !disabled
+                    ? "bg-foreground text-background"
+                    : "bg-muted text-muted-foreground",
                 )}
-                {...(hasText && !disabled
-                  ? { style: { background: "var(--vibe-gradient-soft)" } }
-                  : {})}
               >
                 <LinearIcon name="arrow-right" className="size-4" />
               </motion.button>

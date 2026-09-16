@@ -18,7 +18,7 @@ const MS_PER_CHAR = 28
 const KIND_ICON: Record<string, LinearIconName> = {
   project: "network",
   phase: "two-flags",
-  task: "issues",
+  task: "circle",
 }
 
 /** Characters a part occupies in the typing budget; chips count as one beat. */
@@ -82,7 +82,7 @@ export function ConversationInlineText({
             return <PeopleText key={i} text={text} actors={actors} />
           }
           case "entity": {
-            const icon = KIND_ICON[part.ref.kind] ?? "issues"
+            const icon = KIND_ICON[part.ref.kind] ?? "circle"
             const chip = (
               <span
                 className="bg-muted text-foreground mx-px inline-block rounded-full px-2 align-baseline text-[13px] leading-[20px] font-medium whitespace-nowrap"
@@ -109,7 +109,7 @@ export function ConversationInlineText({
             return (
               <span
                 key={i}
-                className="text-muted-foreground border-border ml-1 inline rounded-full border px-1.5 py-px text-[11px] font-medium"
+                className="text-muted-foreground border-border ml-1 inline rounded-full border px-1.5 py-px text-[11px] font-medium whitespace-nowrap"
                 data-policy={part.policyId}
               >
                 {part.label}

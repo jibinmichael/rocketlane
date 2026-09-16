@@ -238,6 +238,16 @@ function finish(timeline: readonly Anchored[]): Block[] {
   return [...timeline].sort((a, b) => a.at - b.at || a.order - b.order).map((t) => t.block)
 }
 
+/** The agent's opening turn on a new chat: what it is for, in two lines. */
+export function renderGreeting(): Block[] {
+  return [
+    block("acknowledgement", "neutral", [
+      [text("Keep every project on course.")],
+      [text("Tell me the outcome. I'll handle governance, dependencies, and verification.")],
+    ]),
+  ]
+}
+
 function acknowledgeUndo(target: EntityRef, label: string, updates: number): Block {
   return block("acknowledgement", "neutral", [
     [text("Got it. I'll undo the changes to "), entity(target, label), text(".")],

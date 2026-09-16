@@ -19,6 +19,8 @@ export function reconcile(remote: Intent | null, local: Intent): Intent {
   const remoteEmpty = remote.kind === "unsupported" || remote.kind === "ambiguous"
   if (remoteEmpty && localActs) return local
   if (isTargeted(local) && BARE_DECISIONS.has(remote.kind)) return local
+  // The grammar found and grounded a name the model missed: a grounded reading beats a bare one.
+  if (isTargeted(local) && !isTargeted(remote) && local.kind === remote.kind) return local
   return remote
 }
 

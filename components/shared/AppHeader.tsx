@@ -1,15 +1,14 @@
 import Link from "next/link"
 
-import { WorkspaceMenu } from "@/components/agent/WorkspaceMenu"
+import { WorkspaceLabel } from "@/components/agent/WorkspaceLabel"
 import { MissionHistoryMenu } from "@/components/mission/MissionHistoryMenu"
-import type { FixtureLoader } from "@/components/shared/RuntimeProvider"
 
 /**
  * The only chrome above the agent, full bleed: workspace mark left, the mission title as a
  * history dropdown beside it, the acting user and workspace controls right. No module navigation;
  * the agent is the product (final brief §3–4). "Acme" is prototype data; the mark is a fabricated glyph.
  */
-export function AppHeader({ loadFixture }: { loadFixture: FixtureLoader }) {
+export function AppHeader() {
   return (
     <header className="border-border/60 bg-background/90 sticky top-0 z-20 border-b backdrop-blur">
       <div className="flex h-12 w-full items-center justify-between gap-4 px-4">
@@ -32,7 +31,7 @@ export function AppHeader({ loadFixture }: { loadFixture: FixtureLoader }) {
           </span>
           <MissionHistoryMenu />
         </div>
-        <WorkspaceMenu loadFixture={loadFixture} />
+        <WorkspaceLabel />
       </div>
     </header>
   )

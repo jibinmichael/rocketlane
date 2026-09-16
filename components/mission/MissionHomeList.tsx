@@ -12,6 +12,7 @@ import { MissionQuickActions, quickActionsFor } from "@/components/mission/Missi
 import { HeightReveal } from "@/components/shared/HeightReveal"
 import { LinearIcon } from "@/components/shared/LinearIcon"
 import { Body } from "@/components/shared/Typography"
+import { renderGreeting } from "@/core/agent/conversation/renderer"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
 import { crossfade, settle } from "@/lib/motion"
 
@@ -42,6 +43,8 @@ export function MissionHomeList() {
     setSending(true)
     try {
       const id = await runtime.send(text, null)
+      // The greeting was the agent's first turn on screen; it stays the first turn of the record.
+      if (id && chat) runtime.openWith(id, renderGreeting())
       if (id) router.push(`/m/${id}`)
       else setSending(false)
     } catch {
@@ -79,7 +82,7 @@ export function MissionHomeList() {
       onAttach={() => setDataOpen(true)}
       disabled={snapshot.status !== "ready" || sending}
       autoFocus
-      placeholder={firstProject ? `Complete ${firstProject}.` : "State an outcome."}
+      placeholder={firstProject ? `e.g. Complete ${firstProject}.` : "e.g. Complete a project."}
       fill={fill}
     />
   )
@@ -154,9 +157,9 @@ export function MissionHomeList() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12, transition: crossfade }}
                 transition={settle}
-                className="flex flex-1 flex-col items-center justify-end gap-5 pt-16 pb-6 text-center"
+                className="flex flex-1 flex-col items-start justify-end gap-3 pt-16 pb-6 text-left"
               >
-                <AgentMark size={56} />
+                <AgentMark size={20} />
                 <div className="flex flex-col gap-1.5">
                   <h1 className="text-foreground text-[20px] leading-[1.3] font-semibold tracking-[-0.015em]">
                     Keep every project on course.

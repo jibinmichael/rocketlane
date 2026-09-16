@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils"
 
 /**
  * Mission history behind the current title (ClickUp Brain pattern: the conversation name is a
- * dropdown of past conversations). On the home it reads "Missions"; on a mission it reads the
+ * dropdown of past conversations). On the home it reads "Chat history"; on a mission it reads the
  * goal. Rows are grouped by day, needs-you first; "New chat" opens the home in chat mode.
  */
 export function MissionHistoryMenu() {
@@ -74,7 +74,7 @@ export function MissionHistoryMenu() {
         aria-haspopup="menu"
         className="text-foreground hover:bg-muted flex h-8 max-w-[420px] min-w-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors duration-[var(--motion-fast)]"
       >
-        <span className="truncate">{current ? current.goalText : "Missions"}</span>
+        <span className="truncate">{current ? current.goalText : "Chat history"}</span>
         <LinearIcon name="chevron-down" className="text-muted-foreground size-3 shrink-0" />
       </button>
       <AnimatePresence>

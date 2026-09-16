@@ -35,7 +35,7 @@ export default async function RootLayout({
               </linearGradient>
             </defs>
           </svg>
-          <AppHeader loadFixture={loadFixture} />
+          <AppHeader />
           <main className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</main>
         </RuntimeProvider>
       </body>
