@@ -12,7 +12,7 @@ import { ALL_CLOSURE_RULES, resolveClosure, traceCurrentBlockers } from "@/core/
  */
 export type Suggestion = {
   readonly id: string
-  readonly icon: "network" | "search" | "layers" | "branch" | "clock" | "timeline"
+  readonly icon: "network" | "search" | "layers" | "branch" | "timeline"
   readonly text: string
   /** A UI action instead of a typed turn (the landing's activity view). */
   readonly action?: "view_activity"
@@ -82,9 +82,6 @@ export function iceBreakers(
       : []),
     ...(first
       ? [{ id: "path", icon: "timeline" as const, text: `Show the full path for ${first}` }]
-      : []),
-    ...(second
-      ? [{ id: "routine", icon: "clock" as const, text: `Every morning check ${second}` }]
       : []),
   ]
   const pick = at(third, seed)

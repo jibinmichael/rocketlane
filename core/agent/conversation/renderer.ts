@@ -1577,16 +1577,35 @@ export function renderIntentReply(
     case "pause":
     case "continue":
       return []
-    case "create_routine":
+    case "create_routine": {
+      // Scheduled checks are not built; the honest offer is the same check, right now.
+      const target = intent.targets[0]
+      if (!target) {
+        return [
+          block("boundary", "neutral", [
+            [text("I can't schedule checks yet. Name a project and I'll check it right now.")],
+          ]),
+        ]
+      }
+      const label = labelOf(target, graph)
       return [
-        block("boundary", "neutral", [
+        block(
+          "boundary",
+          "neutral",
           [
-            text(
-              "Routine checks are designed but not built in this prototype. See the README's known limitations.",
-            ),
+            [
+              text("I can't schedule checks yet, but I can check "),
+              entity(target, label),
+              text(" right now."),
+            ],
           ],
-        ]),
+          [
+            { kind: "resend", text: `What's blocking ${label}?`, label: "Check it now" },
+            { kind: "resend", text: `Complete ${label}`, label: "Complete it" },
+          ],
+        ),
       ]
+    }
     case "log_time":
       if (!mission)
         return [
