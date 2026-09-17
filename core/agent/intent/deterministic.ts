@@ -193,14 +193,9 @@ const RULES: readonly Rule[] = [
     build: () => noTarget("show_path"),
   },
   {
-    pattern:
-      /\b(?:status|where\s+are\s+we|where\s+is\s+it|progress|what\s+remains|what'?s\s+left|what\s+are\s+you\s+doing|what'?s\s+happening|what\s+is\s+happening)\b/i,
-    build: () => noTarget("show_status"),
-  },
-  {
     // A person asking what this is: answered in context, never with a capability disclaimer.
     pattern:
-      /^\s*(?:hi|hello|hey|help|what\s+(?:all\s+)?can\s+you\s+(?:do|help)|what\s+can\s+you\s+help\s+(?:me\s+)?with|what\s+do\s+you\s+do|how\s+do(?:es)?\s+(?:this|it|you)\s+work|who\s+are\s+you|what\s+is\s+this|what\s+are\s+you)\b/i,
+      /^\s*(?:hi|hello|hey|help|what\s+(?:all\s+)?can\s+you\s+(?:do|help)|what\s+can\s+you\s+help\s+(?:me\s+)?with|what\s+do\s+you\s+do|how\s+do(?:es)?\s+(?:this|it|you)\s+work|who\s+are\s+you|what\s+is\s+this|what\s+are\s+you(?!\s+doing))\b/i,
     build: () => noTarget("help"),
   },
   {
@@ -236,6 +231,12 @@ const RULES: readonly Rule[] = [
       all: false,
       mine: false,
     }),
+  },
+  {
+    // Last, so a task or project whose name contains "status" is still a target, not a question.
+    pattern:
+      /\b(?:status|where\s+are\s+we|where\s+is\s+it|progress|what\s+remains|what'?s\s+left|what\s+are\s+you\s+doing|what'?s\s+happening|what\s+is\s+happening)\b/i,
+    build: () => noTarget("show_status"),
   },
 ]
 
