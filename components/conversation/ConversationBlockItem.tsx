@@ -96,7 +96,9 @@ export function ConversationBlockItem({
   const showActions =
     block.actions.length > 0 &&
     typed &&
-    (!frozen || (actionTaken === null && block.actions.every((a) => a.kind === "resend")))
+    (!frozen ||
+      (actionTaken === null &&
+        block.actions.every((a) => a.kind === "resend" || a.kind === "pick_candidate")))
   const speech = block.icon === null && !isActivity
 
   if (isActivity) {

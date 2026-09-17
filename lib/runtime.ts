@@ -26,6 +26,7 @@ import {
 } from "@/core/system/persistence"
 import type { WriteCommand } from "@/core/system/system-of-record"
 import { type AgentEvent, EventLog } from "@/core/telemetry/events"
+import { rankByComplexity } from "@/lib/suggestions"
 
 /**
  * Client composition root. Wires core adapters together, persists across reloads and tabs, and
@@ -273,18 +274,14 @@ export class Runtime {
 
     const graph = sor.current()
     const actors = graph.actors
-    // Default to someone whose project has real governance to exercise: the owner of the first
-    // project with milestones on record, so the suggested outcome traces an actual chain.
-    const ownerWithMilestones = graph.projects.find(
-      (p) => p.ownerId !== null && graph.milestonesOf(p.id).length > 0,
-    )?.ownerId
+    // Default to the owner of the deepest cascade in the workspace, so the first suggested
+    // outcome exercises real governance rather than a project with nothing to trace.
+    const ownerOfDeepest = rankByComplexity(graph).find((r) => r.project.ownerId !== null)?.project
+      .ownerId
     const preferredActor =
       this.snapshot.actorId && actors.some((a) => a.id === this.snapshot.actorId)
         ? this.snapshot.actorId
-        : (ownerWithMilestones ??
-          actors.find((a) => a.role === "owner")?.id ??
-          actors[0]?.id ??
-          null)
+        : (ownerOfDeepest ?? actors.find((a) => a.role === "owner")?.id ?? actors[0]?.id ?? null)
     this.publish({
       status: "ready",
       error: null,

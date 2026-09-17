@@ -178,7 +178,7 @@ const RULES: readonly Rule[] = [
     },
   },
   {
-    pattern: /^\s*(?:why|what(?:'s|\s+is)\s+blocking|what\s+blocks|explain)\b\s*(.*)$/i,
+    pattern: /^\s*(?:why|what(?:'?s|\s+is)\s+blocking|what\s+blocks|explain)\b\s*(.*)$/i,
     build: (m, u) => ({
       kind: "explain_blocker",
       targetSpans: targetSpan(m, 1, u),

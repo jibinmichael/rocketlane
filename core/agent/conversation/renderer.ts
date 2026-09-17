@@ -702,9 +702,10 @@ function closestNames(query: string, graph: WorkspaceGraph, limit = 3): string[]
   const q = norm(query)
   if (q.length < 3) return []
   const names = [...graph.projects.map((p) => p.name), ...graph.tasks.map((t) => t.name)]
+  // A single near-token ("corp" ~ "core") is noise; a suggestion needs a near-whole match or two.
   const scored = names
     .map((name) => ({ name, score: similarity(q, norm(name)) }))
-    .filter((x) => x.score > 0)
+    .filter((x) => x.score >= 2)
     .sort((x, y) => y.score - x.score)
   const out: string[] = []
   for (const x of scored) {
@@ -1270,15 +1271,33 @@ export function renderIntentReply(
   mission: Mission | null,
 ): Block[] {
   switch (intent.kind) {
-    case "ambiguous":
+    case "ambiguous": {
+      // Two tasks can share a name across projects; the project tells them apart.
+      const labels = intent.candidates.map((c) => c.label)
+      const labelFor = (c: (typeof intent.candidates)[number]) => {
+        const shared = labels.filter((l) => l === c.label).length > 1
+        const projectId =
+          c.ref.kind === "task"
+            ? graph.task(c.ref.id)?.projectId
+            : c.ref.kind === "phase"
+              ? graph.phase(c.ref.id)?.projectId
+              : null
+        const project = projectId ? graph.project(projectId)?.name : null
+        return shared && project ? `${c.label} · ${project}` : c.label
+      }
       return [
         block(
           "clarification",
           "waiting",
           [[text(`Which one do you mean by "${intent.query}"?`)]],
-          intent.candidates.map((c) => ({ kind: "pick_candidate", ref: c.ref, label: c.label })),
+          intent.candidates.map((c) => ({
+            kind: "pick_candidate",
+            ref: c.ref,
+            label: labelFor(c),
+          })),
         ),
       ]
+    }
     case "unsupported":
       if (intent.reason === "target_not_found") {
         const query = intent.query ?? ""

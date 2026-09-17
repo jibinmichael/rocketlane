@@ -1,6 +1,9 @@
+import type { Project } from "@/core/domain/entities"
 import type { WorkspaceGraph } from "@/core/domain/graph"
 import type { ActorId } from "@/core/domain/ids"
+import { DEFAULT_GOVERNANCE_CONFIG } from "@/core/governance/engine"
 import type { Mission } from "@/core/mission/mission"
+import { ALL_CLOSURE_RULES, resolveClosure, traceCurrentBlockers } from "@/core/resolver/blockers"
 
 /**
  * Suggested next steps: every one is a real capability phrased as the person would type it, chosen
@@ -15,8 +18,44 @@ export type Suggestion = {
   readonly action?: "view_activity"
 }
 
+export type RankedProject = {
+  readonly project: Project
+  /** Updates the closure needs, hours the agent must ask for, and the deepest chain: the work. */
+  readonly score: number
+}
+
+const ranked = new WeakMap<WorkspaceGraph, readonly RankedProject[]>()
+
+/** Open projects, most cascading complexity first, from the same resolver the engine plans with. */
+export function rankByComplexity(graph: WorkspaceGraph): readonly RankedProject[] {
+  const cached = ranked.get(graph)
+  if (cached) return cached
+  const rows = graph.projects
+    .filter((p) => p.status !== "COMPLETED")
+    .map((project) => {
+      const ref = { kind: "project" as const, id: project.id }
+      const closure = resolveClosure(
+        ref,
+        graph,
+        DEFAULT_GOVERNANCE_CONFIG,
+        new Set(),
+        ALL_CLOSURE_RULES,
+      )
+      const depth = Math.max(
+        0,
+        ...traceCurrentBlockers(ref, graph, DEFAULT_GOVERNANCE_CONFIG).map(
+          (b) => b.dependencyPath.length,
+        ),
+      )
+      return { project, score: closure.requiredTransitions.length + depth }
+    })
+    .sort((a, b) => b.score - a.score || a.project.name.localeCompare(b.project.name))
+  ranked.set(graph, rows)
+  return rows
+}
+
 function openProjects(graph: WorkspaceGraph | null, actorId: ActorId | null) {
-  const open = (graph?.projects ?? []).filter((p) => p.status !== "COMPLETED")
+  const open = graph ? rankByComplexity(graph).map((r) => r.project) : []
   const owned = actorId ? open.filter((p) => p.ownerId === actorId) : []
   return { owned: owned.length > 0 ? owned : open, open }
 }
@@ -30,9 +69,11 @@ export function iceBreakers(
   actorId: ActorId | null,
   seed: number,
 ): Suggestion[] {
-  const { owned } = openProjects(graph, actorId)
-  const first = at(owned, seed)?.name ?? null
-  const second = at(owned, seed + 1)?.name ?? first
+  const { owned, open } = openProjects(graph, actorId)
+  // The deepest cascade the person owns leads; the question rotates over the next deepest anywhere.
+  const first = owned[0]?.name ?? null
+  const rest = open.filter((p) => p.name !== first).slice(0, 3)
+  const second = at(rest, seed)?.name ?? first
   const out: Suggestion[] = [
     {
       id: "complete",
@@ -68,10 +109,11 @@ export function followUps(input: {
   seed: number
 }): Suggestion[] {
   const { graph, actorId, mission, asked, seed } = input
-  const { owned } = openProjects(graph, actorId)
+  const { owned, open } = openProjects(graph, actorId)
   const target = mission?.targetLabels[0] ?? null
   const others = owned.filter((p) => p.name !== target)
-  const other = at(others, seed)?.name ?? null
+  const other = others[0]?.name ?? null
+  const deepest = open.filter((p) => p.name !== target && p.name !== other).slice(0, 3)
   const mentioned =
     graph?.projects.find((p) => asked.some((a) => a.toLowerCase().includes(p.name.toLowerCase())))
       ?.name ?? null
@@ -81,18 +123,23 @@ export function followUps(input: {
       out.push({ id: "complete", icon: "network", text: `Complete ${mentioned}` })
       out.push({ id: "path", icon: "branch", text: `Show the full path for ${mentioned}` })
     }
-    if (other && other !== mentioned)
-      out.push({ id: "blocking", icon: "search", text: `What's blocking ${other}?` })
+    const ask =
+      at(
+        deepest.filter((p) => p.name !== mentioned),
+        seed,
+      )?.name ?? null
+    if (ask) out.push({ id: "blocking", icon: "search", text: `What's blocking ${ask}?` })
     if (out.length < 3) out.push({ id: "mine", icon: "layers", text: "Complete all my projects" })
   } else if (mission.state === "COMPLETED" || mission.state === "PARTIALLY_COMPLETED") {
     // The landing block already carries "View activity"; the chips point forward.
     if (other) out.push({ id: "complete", icon: "network", text: `Complete ${other}` })
-    const another = at(others, seed + 1)?.name ?? other
+    const another = at(deepest, seed)?.name ?? null
     if (another) out.push({ id: "blocking", icon: "search", text: `What's blocking ${another}?` })
     out.push({ id: "mine", icon: "layers", text: "Complete all my projects" })
   } else {
     if (target) out.push({ id: "path", icon: "branch", text: `Show the full path for ${target}` })
-    if (other) out.push({ id: "blocking", icon: "search", text: `What's blocking ${other}?` })
+    const another = at(deepest, seed)?.name ?? other
+    if (another) out.push({ id: "blocking", icon: "search", text: `What's blocking ${another}?` })
     out.push({ id: "mine", icon: "layers", text: "Complete all my projects" })
   }
   const lower = new Set(asked.map((a) => a.trim().toLowerCase()))
