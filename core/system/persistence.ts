@@ -24,11 +24,15 @@ export type ThreadEntry =
       readonly at: number
       readonly actionTaken: string | null
     }
+  /** One typed answer ("2 hours each") that the runtime applied to these input events. */
+  | { readonly kind: "standing"; readonly eventIds: readonly string[]; readonly at: number }
 
 export type PersistedWorkspace = {
   readonly datasetId: string
   readonly system: SerializedSystemState
   readonly savedAt: number
+  /** Who was acting; kept so a reload never switches the person silently. */
+  readonly actorId?: string | undefined
 }
 
 /**
@@ -44,6 +48,7 @@ const ThreadEntrySchema = z.discriminatedUnion("kind", [
     at: z.number(),
     actionTaken: z.string().nullable(),
   }),
+  z.object({ kind: z.literal("standing"), eventIds: z.array(z.string()), at: z.number() }),
 ])
 const ThreadsSchema = z.record(z.string(), z.array(ThreadEntrySchema))
 
@@ -72,6 +77,7 @@ const EventsSchema = z.array(
 const WorkspaceEnvelopeSchema = z.object({
   datasetId: z.string(),
   savedAt: z.number(),
+  actorId: z.string().optional(),
   system: z.custom<SerializedSystemState>(
     (v) =>
       typeof v === "object" &&

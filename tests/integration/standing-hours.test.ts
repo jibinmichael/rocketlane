@@ -45,10 +45,16 @@ describe('Runtime — "2 hours each" answers every later hours ask in the missio
       const task = s.ref.kind === "task" ? graph.task(s.ref.id) : null
       expect(task?.timeEntries.some((e) => e.hours === 2 && e.actorId === jordan.id)).toBe(true)
     }
-    // Every answered ask keeps its receipt in the thread.
+    // One decision, one receipt on the ask that was answered, one acknowledgement, one phase.
     const receipts = rt
       .thread(id)
       .filter((e) => e.kind === "agent" && e.actionTaken?.includes("same for each"))
-    expect(receipts.length).toBe(needHours)
+    expect(receipts.length).toBe(1)
+    const live = rt.liveBlocks(id)
+    const acks = live.filter((b) => b.type === "acknowledgement")
+    expect(acks.length).toBe(1)
+    expect(JSON.stringify(acks[0]!.lines)).toContain("2 hours each")
+    expect(live.filter((b) => b.type === "activity").length).toBe(1)
+    expect(live.filter((b) => b.type === "action_request.input").length).toBe(0)
   })
 })

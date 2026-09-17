@@ -187,7 +187,7 @@ export class Runtime {
         (!Object.hasOwn(DATASET_LABELS, persisted.datasetId) || persisted.datasetId === wanted)
       if (persisted && keep) {
         const sor = InMemorySystemOfRecord.restore(persisted.system, this.clock)
-        this.install(sor, persisted.datasetId, null)
+        this.install(sor, persisted.datasetId, null, persisted.actorId ?? null)
       } else {
         await this.loadFixtureById(wanted)
       }
@@ -237,6 +237,7 @@ export class Runtime {
     sor: InMemorySystemOfRecord,
     datasetId: string,
     report: IngestionReport | null,
+    rememberedActor: string | null = null,
   ): void {
     this.sor = sor
     this.store = new LocalStorageMissionStore()
@@ -279,10 +280,15 @@ export class Runtime {
     // outcome exercises real governance rather than a project with nothing to trace.
     const ownerOfDeepest = rankByComplexity(graph).find((r) => r.project.ownerId !== null)?.project
       .ownerId
+    const known = (id: string | null): ActorId | null =>
+      id ? (actors.find((a) => a.id === id)?.id ?? null) : null
     const preferredActor =
-      this.snapshot.actorId && actors.some((a) => a.id === this.snapshot.actorId)
-        ? this.snapshot.actorId
-        : (ownerOfDeepest ?? actors.find((a) => a.role === "owner")?.id ?? actors[0]?.id ?? null)
+      known(this.snapshot.actorId) ??
+      known(rememberedActor) ??
+      ownerOfDeepest ??
+      actors.find((a) => a.role === "owner")?.id ??
+      actors[0]?.id ??
+      null
     this.publish({
       status: "ready",
       error: null,
@@ -300,6 +306,7 @@ export class Runtime {
       datasetId: this.snapshot.datasetId,
       system: this.sor.serialize(),
       savedAt: this.clock.now(),
+      ...(this.snapshot.actorId ? { actorId: this.snapshot.actorId } : {}),
     })
   }
 
@@ -317,7 +324,7 @@ export class Runtime {
       const persisted = workspacePersistence.load()
       if (persisted) {
         const sor = InMemorySystemOfRecord.restore(persisted.system, this.clock)
-        this.install(sor, persisted.datasetId, null)
+        this.install(sor, persisted.datasetId, null, persisted.actorId ?? null)
       }
     }
   }
@@ -326,6 +333,7 @@ export class Runtime {
 
   setActor(id: ActorId): void {
     this.publish({ actorId: id })
+    this.coalesce("workspace", () => this.persistWorkspace())
   }
 
   setInterpreterMode(mode: InterpreterMode): void {
@@ -346,6 +354,7 @@ export class Runtime {
   thread(missionId: string): readonly FrozenEntry[] {
     return (this.threads[missionId] ?? []).flatMap((e): FrozenEntry[] => {
       if (e.kind === "user") return [e]
+      if (e.kind !== "agent") return []
       const blocks = parseBlocks(e.blocksJson)
       return blocks ? [{ kind: "agent", blocks, at: e.at, actionTaken: e.actionTaken }] : []
     })
@@ -360,9 +369,38 @@ export class Runtime {
     for (const entry of this.thread(missionId)) {
       if (entry.kind === "agent") for (const b of entry.blocks) frozen.add(blockKey(b))
     }
-    return renderMission(mission, graph, this.events.forMission(missionId)).filter(
-      (b) => !frozen.has(blockKey(b)),
+    // Answers the runtime gave on the person's behalf ("2 hours each") are marked so the record
+    // reads them as one decision; while that batch runs, the per-task ask is not shown.
+    const standing = this.standingIds(missionId)
+    const events = this.events
+      .forMission(missionId)
+      .map((e) => (standing.has(e.id) ? { ...e, detail: { ...e.detail, each: true } } : e))
+    const batchRunning = this.standingHours.has(missionId)
+    return renderMission(mission, graph, events).filter(
+      (b) => !frozen.has(blockKey(b)) && !(batchRunning && b.type === "action_request.input"),
     )
+  }
+
+  private standingIds(missionId: string): ReadonlySet<string> {
+    const ids = new Set<string>()
+    for (const e of this.threads[missionId] ?? []) {
+      if (e.kind === "standing") for (const id of e.eventIds) ids.add(id)
+    }
+    return ids
+  }
+
+  private noteStanding(missionId: string, eventIds: readonly string[]): void {
+    if (eventIds.length === 0) return
+    const entries = this.threads[missionId] ?? []
+    const existing = entries.find((e) => e.kind === "standing")
+    if (existing && existing.kind === "standing") {
+      const merged = { ...existing, eventIds: [...existing.eventIds, ...eventIds] }
+      this.threads[missionId] = entries.map((e) => (e === existing ? merged : e))
+    } else {
+      entries.push({ kind: "standing", eventIds: [...eventIds], at: this.clock.now() })
+      this.threads[missionId] = entries
+    }
+    threadPersistence.save(this.threads)
   }
 
   session(missionId: string): AgentSessionState {
@@ -628,6 +666,10 @@ export class Runtime {
           this.insertBeforeLastUser(missionId, decision, receipt)
         }
         if (missionId && intent.kind === "log_time" && intent.each) {
+          const head = [...this.events.forMission(missionId)]
+            .reverse()
+            .find((e) => e.type === "INPUT_RECEIVED")
+          if (head) this.noteStanding(missionId, [head.id])
           this.standingHours.set(missionId, intent.hours)
           await this.applyStandingHours(missionId)
         }
@@ -655,40 +697,39 @@ export class Runtime {
   private async applyStandingHours(missionId: string): Promise<void> {
     const hours = this.standingHours.get(missionId)
     if (hours === undefined || !this.engine) return
-    const who = this.actor()?.name ?? "you"
-    for (let guard = 0; guard < 100; guard += 1) {
-      const mission = this.mission(missionId)
-      if (!mission || mission.pending?.kind !== "input" || mission.pending.input.field !== "hours")
-        return
-      const decision = this.liveBlocks(missionId).filter(carriesDecision)
-      const stepId = mission.pending.stepId
-      this.setBusy(missionId, "EXECUTING")
-      try {
-        await this.engine.provideInput(missionId, stepId, hours)
-      } finally {
-        this.setBusy(missionId, null)
+    try {
+      for (let guard = 0; guard < 100; guard += 1) {
+        const mission = this.mission(missionId)
+        if (
+          !mission ||
+          mission.pending?.kind !== "input" ||
+          mission.pending.input.field !== "hours"
+        )
+          return
+        const stepId = mission.pending.stepId
+        const before = this.events.forMission(missionId).length
+        this.setBusy(missionId, "EXECUTING")
+        try {
+          await this.engine.provideInput(missionId, stepId, hours)
+        } finally {
+          this.setBusy(missionId, null)
+        }
+        this.noteStanding(
+          missionId,
+          this.events
+            .forMission(missionId)
+            .slice(before)
+            .filter((e) => e.type === "INPUT_RECEIVED")
+            .map((e) => e.id),
+        )
+        const after = this.mission(missionId)
+        if (after?.pending?.kind === "input" && after.pending.stepId === stepId) return
       }
-      const after = this.mission(missionId)
-      if (after?.pending?.kind === "input" && after.pending.stepId === stepId) return
-      this.pushAgentReceipt(
-        missionId,
-        decision,
-        `Logged ${hours} ${hours === 1 ? "hour" : "hours"} by ${who} · same for each`,
-      )
+    } finally {
+      // The standing answer covers this batch only; a later ask is a new question.
+      this.standingHours.delete(missionId)
+      this.publish()
     }
-  }
-
-  private pushAgentReceipt(missionId: string, blocks: readonly Block[], actionTaken: string): void {
-    if (blocks.length === 0) return
-    const entries = this.threads[missionId] ?? []
-    entries.push({
-      kind: "agent",
-      blocksJson: JSON.stringify(blocks),
-      at: this.clock.now(),
-      actionTaken,
-    })
-    this.threads[missionId] = entries
-    threadPersistence.save(this.threads)
   }
 
   /** Inline block actions (buttons). */

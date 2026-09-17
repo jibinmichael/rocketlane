@@ -162,10 +162,23 @@ export function renderMission(
     add(chainAt, 3, ...renderBlockerChain(ctx, current))
   }
 
-  // Every accepted answer is acknowledged before the work it unlocks.
+  // Every accepted answer is acknowledged before the work it unlocks; a standing answer once.
+  let answered = 0
+  let eachAcknowledged = false
   events.forEach((e, i) => {
-    if (e.type === "INPUT_RECEIVED")
-      add(i, 0, keyed(acknowledgeInput(e, graph), `acknowledgement-input-${i}`))
+    if (e.type !== "INPUT_RECEIVED") return
+    const each = e.detail["each"] === true
+    if (each && eachAcknowledged) return
+    if (each) eachAcknowledged = true
+    add(
+      i,
+      0,
+      keyed(
+        acknowledgeInput(e, graph, { each, brief: answered > 0, mission }),
+        `acknowledgement-input-${i}`,
+      ),
+    )
+    answered += 1
   })
 
   // Durable step results: reconciliations, mismatches, declines.
@@ -268,7 +281,11 @@ function acknowledgeGoal(target: EntityRef, label: string): Block {
   ])
 }
 
-function acknowledgeInput(event: AgentEvent, graph: WorkspaceGraph): Block {
+function acknowledgeInput(
+  event: AgentEvent,
+  graph: WorkspaceGraph,
+  opts: { each: boolean; brief: boolean; mission: Mission },
+): Block {
   const ref = event.refs[0]
   const value = event.detail["value"]
   const field = event.detail["input"]
@@ -276,14 +293,32 @@ function acknowledgeInput(event: AgentEvent, graph: WorkspaceGraph): Block {
     field === "hours" && typeof value === "number"
       ? `${value} ${plural(value, "hour")}`
       : String(value ?? "")
-  return block("acknowledgement", "neutral", [
+  if (opts.each) {
+    // One decision for every task that still needs the input: said once, then the work.
+    const tasks = opts.mission.plan.filter(
+      (s) =>
+        s.transition === "TIME_LOGGED" && s.status !== "already_complete" && s.status !== "skipped",
+    ).length
+    return block("acknowledgement", "neutral", [
+      [text(`Got it — ${what} each.`)],
+      [
+        text(
+          `I'll log that on the ${tasks} ${plural(tasks, "task")} that need it, verify each one, and continue with the original goal.`,
+        ),
+      ],
+    ])
+  }
+  const lines: Inline[][] = [
     [
       text(`Got it — ${what}`),
       ...(ref ? [text(" for "), entity(ref, labelOf(ref, graph))] : []),
       text("."),
     ],
-    [text("I'll log that, verify it, and continue with the original goal.")],
-  ])
+  ]
+  // The promise is made once; later answers in the same mission keep to the fact.
+  if (!opts.brief)
+    lines.push([text("I'll log that, verify it, and continue with the original goal.")])
+  return block("acknowledgement", "neutral", lines)
 }
 
 function activityBlock(

@@ -77,8 +77,14 @@ export function activityPhases(
     index += 1
     items = []
   }
+  // A standing answer ("2 hours each") is one decision: the first answer opens the phase, the
+  // answers the runtime gave on the person's behalf do not close it.
+  let eachSeen = false
   events.forEach((event, i) => {
-    if (BOUNDARY.has(event.type) && i > 0) {
+    const each = event.type === "INPUT_RECEIVED" && event.detail["each"] === true
+    const boundary = BOUNDARY.has(event.type) && i > 0 && !(each && eachSeen)
+    if (each) eachSeen = true
+    if (boundary) {
       close()
       startIndex = i
     }
