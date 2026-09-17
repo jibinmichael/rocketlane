@@ -12,7 +12,7 @@ import { ALL_CLOSURE_RULES, resolveClosure, traceCurrentBlockers } from "@/core/
  */
 export type Suggestion = {
   readonly id: string
-  readonly icon: "network" | "search" | "layers" | "branch" | "clock" | "compass"
+  readonly icon: "network" | "search" | "layers" | "branch" | "clock" | "timeline"
   readonly text: string
   /** A UI action instead of a typed turn (the landing's activity view). */
   readonly action?: "view_activity"
@@ -81,7 +81,7 @@ export function iceBreakers(
       ? [{ id: "mine", icon: "layers" as const, text: "Complete all my projects" }]
       : []),
     ...(first
-      ? [{ id: "path", icon: "branch" as const, text: `Show the full path for ${first}` }]
+      ? [{ id: "path", icon: "timeline" as const, text: `Show the full path for ${first}` }]
       : []),
     ...(second
       ? [{ id: "routine", icon: "clock" as const, text: `Every morning check ${second}` }]
@@ -89,7 +89,7 @@ export function iceBreakers(
   ]
   const pick = at(third, seed)
   if (pick) out.push(pick)
-  out.push({ id: "help", icon: "compass", text: "What can I do here?" })
+  out.push({ id: "help", icon: "branch", text: "What can I do here?" })
   return out
 }
 
@@ -114,7 +114,7 @@ export function followUps(input: {
   if (!mission) {
     if (mentioned) {
       out.push({ id: "complete", icon: "network", text: `Complete ${mentioned}` })
-      out.push({ id: "path", icon: "branch", text: `Show the full path for ${mentioned}` })
+      out.push({ id: "path", icon: "timeline", text: `Show the full path for ${mentioned}` })
     }
     const ask =
       at(
@@ -131,7 +131,7 @@ export function followUps(input: {
     if (another) out.push({ id: "blocking", icon: "search", text: `What's blocking ${another}?` })
     if (owned.length > 0) out.push({ id: "mine", icon: "layers", text: "Complete all my projects" })
   } else {
-    if (target) out.push({ id: "path", icon: "branch", text: `Show the full path for ${target}` })
+    if (target) out.push({ id: "path", icon: "timeline", text: `Show the full path for ${target}` })
     const another = at(deepest, seed)?.name ?? other
     if (another) out.push({ id: "blocking", icon: "search", text: `What's blocking ${another}?` })
     if (owned.length > 0) out.push({ id: "mine", icon: "layers", text: "Complete all my projects" })
