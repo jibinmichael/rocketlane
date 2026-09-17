@@ -128,14 +128,9 @@ export function ConversationComposer({
     }
   }
 
-  const trailing: "send" | "stop" | "skip" | "resume" =
-    executing && onPause
-      ? "stop"
-      : skipping && onPause
-        ? "skip"
-        : paused && onResume
-          ? "resume"
-          : "send"
+  // While the agent is still writing there is no control to press: Esc skips, the hint says so.
+  const trailing: "send" | "stop" | "none" | "resume" =
+    executing && onPause ? "stop" : skipping ? "none" : paused && onResume ? "resume" : "send"
 
   return (
     <div
@@ -217,13 +212,13 @@ export function ConversationComposer({
 
         <div className="flex items-center gap-1">
           <AnimatePresence mode="popLayout" initial={false}>
-            {trailing === "stop" || trailing === "skip" ? (
+            {trailing === "none" ? null : trailing === "stop" ? (
               <motion.button
-                key={trailing}
+                key="stop"
                 type="button"
                 onClick={onPause}
-                aria-label={trailing === "stop" ? "Pause the mission (Esc)" : "Skip ahead (Esc)"}
-                title={trailing === "stop" ? "Pause (Esc)" : "Skip (Esc)"}
+                aria-label="Pause the mission (Esc)"
+                title="Pause (Esc)"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
@@ -234,19 +229,7 @@ export function ConversationComposer({
                   aria-hidden
                   className="bg-card absolute inset-[3px] flex items-center justify-center rounded-full"
                 >
-                  {trailing === "stop" ? (
-                    <Pause
-                      className="text-foreground size-3"
-                      strokeWidth={2.5}
-                      fill="currentColor"
-                    />
-                  ) : (
-                    <LinearIcon
-                      name="arrow-right"
-                      rotate={90}
-                      className="text-foreground size-3.5"
-                    />
-                  )}
+                  <Pause className="text-foreground size-3" strokeWidth={2.5} fill="currentColor" />
                 </span>
               </motion.button>
             ) : trailing === "resume" ? (
