@@ -240,7 +240,7 @@ function finish(timeline: readonly Anchored[]): Block[] {
 }
 
 /** Ids carry the mission, so a record carried from an earlier mission never hides a new block. */
-function scoped(blocks: readonly Block[], missionId: string): Block[] {
+export function scoped(blocks: readonly Block[], missionId: string): Block[] {
   return blocks.map((b) => ({ ...b, id: `${missionId}:${b.id}` }))
 }
 
@@ -721,12 +721,16 @@ function similarity(q: string, name: string): number {
   const budget = Math.max(2, Math.floor(Math.max(q.length, name.length) * 0.34))
   let score = whole <= budget ? 2 + (budget - whole) : 0
   const nameTokens = name.split(" ")
-  for (const qt of q.split(" ")) {
+  const qTokens = q.split(" ")
+  // A one-word query is judged on that word alone: a near miss of five letters or more counts
+  // double, so "zunga" finds Zuniga Ltd while "corp" ~ "core" stays noise.
+  const single = qTokens.filter((t) => t.length >= 4).length === 1
+  for (const qt of qTokens) {
     if (qt.length < 4) continue
     for (const nt of nameTokens) {
-      if (nt === qt) score += 1
+      if (nt === qt) score += single ? 2 : 1
       else if (nt.length >= 4 && levenshtein(qt, nt) <= Math.max(1, Math.floor(nt.length * 0.25)))
-        score += 1
+        score += single && qt.length >= 5 ? 2 : 1
     }
   }
   return score
@@ -1285,15 +1289,20 @@ export function renderIntentReply(
         const project = projectId ? graph.project(projectId)?.name : null
         return shared && project ? `${c.label} · ${project}` : c.label
       }
+      const firstPass = intent.candidates.map(labelFor)
+      const finalLabel = (c: (typeof intent.candidates)[number], i: number) => {
+        const label = firstPass[i]!
+        return firstPass.filter((l) => l === label).length > 1 ? `${label} · ${c.ref.id}` : label
+      }
       return [
         block(
           "clarification",
           "waiting",
           [[text(`Which one do you mean by "${intent.query}"?`)]],
-          intent.candidates.map((c) => ({
+          intent.candidates.map((c, i) => ({
             kind: "pick_candidate",
             ref: c.ref,
-            label: labelFor(c),
+            label: finalLabel(c, i),
           })),
         ),
       ]

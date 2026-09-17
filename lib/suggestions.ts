@@ -41,11 +41,9 @@ export function rankByComplexity(graph: WorkspaceGraph): readonly RankedProject[
         new Set(),
         ALL_CLOSURE_RULES,
       )
-      const depth = Math.max(
+      const depth = traceCurrentBlockers(ref, graph, DEFAULT_GOVERNANCE_CONFIG).reduce(
+        (max, b) => Math.max(max, b.dependencyPath.length),
         0,
-        ...traceCurrentBlockers(ref, graph, DEFAULT_GOVERNANCE_CONFIG).map(
-          (b) => b.dependencyPath.length,
-        ),
       )
       return { project, score: closure.requiredTransitions.length + depth }
     })
@@ -57,7 +55,7 @@ export function rankByComplexity(graph: WorkspaceGraph): readonly RankedProject[
 function openProjects(graph: WorkspaceGraph | null, actorId: ActorId | null) {
   const open = graph ? rankByComplexity(graph).map((r) => r.project) : []
   const owned = actorId ? open.filter((p) => p.ownerId === actorId) : []
-  return { owned: owned.length > 0 ? owned : open, open }
+  return { owned, open }
 }
 
 const at = <T>(list: readonly T[], i: number): T | undefined =>
@@ -73,21 +71,15 @@ export function iceBreakers(
   // The deepest cascade the person owns leads; the question rotates over the next deepest anywhere.
   const first = owned[0]?.name ?? null
   const rest = open.filter((p) => p.name !== first).slice(0, 3)
-  const second = at(rest, seed)?.name ?? first
-  const out: Suggestion[] = [
-    {
-      id: "complete",
-      icon: "network",
-      text: first ? `Complete ${first}` : "Complete a project",
-    },
-    {
-      id: "blocking",
-      icon: "search",
-      text: second ? `What's blocking ${second}?` : "What's blocking my projects?",
-    },
-  ]
+  const second = at(rest, seed)?.name ?? first ?? open[0]?.name ?? null
+  const out: Suggestion[] = []
+  // An outcome is only offered for something the person can act on.
+  if (first) out.push({ id: "complete", icon: "network", text: `Complete ${first}` })
+  if (second) out.push({ id: "blocking", icon: "search", text: `What's blocking ${second}?` })
   const third: Suggestion[] = [
-    { id: "mine", icon: "layers", text: "Complete all my projects" },
+    ...(owned.length > 0
+      ? [{ id: "mine", icon: "layers" as const, text: "Complete all my projects" }]
+      : []),
     ...(first
       ? [{ id: "path", icon: "branch" as const, text: `Show the full path for ${first}` }]
       : []),
@@ -129,18 +121,19 @@ export function followUps(input: {
         seed,
       )?.name ?? null
     if (ask) out.push({ id: "blocking", icon: "search", text: `What's blocking ${ask}?` })
-    if (out.length < 3) out.push({ id: "mine", icon: "layers", text: "Complete all my projects" })
+    if (out.length < 3 && owned.length > 0)
+      out.push({ id: "mine", icon: "layers", text: "Complete all my projects" })
   } else if (mission.state === "COMPLETED" || mission.state === "PARTIALLY_COMPLETED") {
     // The landing block already carries "View activity"; the chips point forward.
     if (other) out.push({ id: "complete", icon: "network", text: `Complete ${other}` })
     const another = at(deepest, seed)?.name ?? null
     if (another) out.push({ id: "blocking", icon: "search", text: `What's blocking ${another}?` })
-    out.push({ id: "mine", icon: "layers", text: "Complete all my projects" })
+    if (owned.length > 0) out.push({ id: "mine", icon: "layers", text: "Complete all my projects" })
   } else {
     if (target) out.push({ id: "path", icon: "branch", text: `Show the full path for ${target}` })
     const another = at(deepest, seed)?.name ?? other
     if (another) out.push({ id: "blocking", icon: "search", text: `What's blocking ${another}?` })
-    out.push({ id: "mine", icon: "layers", text: "Complete all my projects" })
+    if (owned.length > 0) out.push({ id: "mine", icon: "layers", text: "Complete all my projects" })
   }
   const lower = new Set(asked.map((a) => a.trim().toLowerCase()))
   const goal = mission?.goalText.trim().toLowerCase() ?? ""

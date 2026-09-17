@@ -23,8 +23,14 @@ export function reconcile(remote: Intent | null, local: Intent): Intent {
   if (isTargeted(local) && !isTargeted(remote) && local.kind === remote.kind) return local
   // The grammar found the name ambiguous in the workspace: a clarification beats a guess.
   if (local.kind === "ambiguous") return local
-  // The grammar saw a name that is not in the workspace: "did you mean" beats a bare reply.
-  if (local.kind === "unsupported" && local.reason === "target_not_found" && !isTargeted(remote))
+  // The grammar saw what looks like a name (capitals, hyphens, digits) that is not in the
+  // workspace: "did you mean" beats a bare reply. Free-text tails stay with the model.
+  if (
+    local.kind === "unsupported" &&
+    local.reason === "target_not_found" &&
+    !isTargeted(remote) &&
+    /[A-Z\-\d]/.test(local.query ?? "")
+  )
     return local
   return remote
 }

@@ -181,7 +181,7 @@ export function ConversationThread({ missionId }: { missionId: string }) {
     })
     ro.observe(inner)
     return () => ro.disconnect()
-  }, [pinned])
+  }, [pinned, snapshot.status])
 
   const onScroll = () => {
     const el = scrollRef.current

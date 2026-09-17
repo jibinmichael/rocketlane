@@ -1,5 +1,5 @@
 import { type Block, type BlockAction, carriesDecision } from "@/core/agent/conversation/blocks"
-import { renderIntentReply, renderMission } from "@/core/agent/conversation/renderer"
+import { renderIntentReply, renderMission, scoped } from "@/core/agent/conversation/renderer"
 import { DeterministicInterpreter } from "@/core/agent/intent/deterministic"
 import { ground } from "@/core/agent/intent/ground"
 import { reconcile } from "@/core/agent/intent/reconcile"
@@ -183,7 +183,8 @@ export class Runtime {
       // A built-in dataset is not the person's data: the configured default wins over a remembered
       // fixture. Uploaded project files (any other id) are kept.
       const keep =
-        persisted && (!(persisted.datasetId in DATASET_LABELS) || persisted.datasetId === wanted)
+        persisted &&
+        (!Object.hasOwn(DATASET_LABELS, persisted.datasetId) || persisted.datasetId === wanted)
       if (persisted && keep) {
         const sor = InMemorySystemOfRecord.restore(persisted.system, this.clock)
         this.install(sor, persisted.datasetId, null)
@@ -359,9 +360,8 @@ export class Runtime {
     for (const entry of this.thread(missionId)) {
       if (entry.kind === "agent") for (const b of entry.blocks) frozen.add(blockKey(b))
     }
-    // Records frozen before ids were mission-scoped carry the bare id; both spellings count.
     return renderMission(mission, graph, this.events.forMission(missionId)).filter(
-      (b) => !frozen.has(blockKey(b)) && !frozen.has(blockKey(b).slice(missionId.length + 1)),
+      (b) => !frozen.has(blockKey(b)),
     )
   }
 
@@ -438,7 +438,12 @@ export class Runtime {
     if (entries[0]?.kind === "agent" || blocks.length === 0) return
     const at = (entries[0]?.at ?? this.clock.now()) - 1
     this.threads[missionId] = [
-      { kind: "agent", blocksJson: JSON.stringify(blocks), at, actionTaken: null },
+      {
+        kind: "agent",
+        blocksJson: JSON.stringify(scoped(blocks, missionId)),
+        at,
+        actionTaken: null,
+      },
       ...entries,
     ]
     threadPersistence.save(this.threads)
@@ -599,7 +604,7 @@ export class Runtime {
           const id = startedId ?? missionId
           if (!id) return
           if (grounded.kind === "change_scope")
-            this.pushAgent(id, renderIntentReply(grounded, graph, current))
+            this.pushAgent(id, scoped(renderIntentReply(grounded, graph, current), id))
           if (session) this.setBusy(id, session)
         },
       })
@@ -632,7 +637,10 @@ export class Runtime {
         // No command to run: reply in the mission's thread, or in a scratch thread with a synthetic id.
         const scratchId = missionId ?? this.newMissionId("reply")
         if (!missionId) this.pushUser(scratchId, utterance)
-        this.pushAgent(scratchId, renderIntentReply(outcome.intent, graph, current))
+        this.pushAgent(
+          scratchId,
+          scoped(renderIntentReply(outcome.intent, graph, current), scratchId),
+        )
         this.publish()
         return scratchId
       }
