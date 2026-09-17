@@ -697,6 +697,8 @@ export class Runtime {
   private async applyStandingHours(missionId: string): Promise<void> {
     const hours = this.standingHours.get(missionId)
     if (hours === undefined || !this.engine) return
+    // One busy state for the whole batch, so the composer does not flip between asks.
+    this.setBusy(missionId, "EXECUTING")
     try {
       for (let guard = 0; guard < 100; guard += 1) {
         const mission = this.mission(missionId)
@@ -708,12 +710,7 @@ export class Runtime {
           return
         const stepId = mission.pending.stepId
         const before = this.events.forMission(missionId).length
-        this.setBusy(missionId, "EXECUTING")
-        try {
-          await this.engine.provideInput(missionId, stepId, hours)
-        } finally {
-          this.setBusy(missionId, null)
-        }
+        await this.engine.provideInput(missionId, stepId, hours)
         this.noteStanding(
           missionId,
           this.events
@@ -728,7 +725,7 @@ export class Runtime {
     } finally {
       // The standing answer covers this batch only; a later ask is a new question.
       this.standingHours.delete(missionId)
-      this.publish()
+      this.setBusy(missionId, null)
     }
   }
 
