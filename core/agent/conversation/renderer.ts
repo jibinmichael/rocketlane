@@ -246,12 +246,7 @@ export function scoped(blocks: readonly Block[], missionId: string): Block[] {
 
 /** The agent's opening turn on a new chat: what it is for, in two lines. */
 export function renderGreeting(): Block[] {
-  return [
-    block("acknowledgement", "neutral", [
-      [text("Keep every project on course.")],
-      [text("Tell me the outcome. I'll handle governance, dependencies, and verification.")],
-    ]),
-  ]
+  return [block("acknowledgement", "neutral", [[text("Keep every project on course.")]])]
 }
 
 function acknowledgeUndo(target: EntityRef, label: string, updates: number): Block {
@@ -1411,10 +1406,14 @@ export function renderIntentReply(
         block("status", "neutral", [
           [
             text(
-              "I can help you get project work done: check governance, trace dependencies, resolve blockers, make authorized updates and verify the result.",
+              "Tell me what you want done: complete a project or a task, log time, ask what's blocking something, or trace its path.",
             ),
           ],
-          [text("Tell me what you want done and I'll take it from there.")],
+          [
+            text(
+              "I check governance and permissions first, make each update, verify it by re-reading, and you can pause, stop or undo along the way.",
+            ),
+          ],
         ]),
       ]
     }

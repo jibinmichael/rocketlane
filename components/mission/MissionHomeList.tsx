@@ -142,8 +142,7 @@ export function MissionHomeList() {
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <span className="text-foreground text-[13px] font-semibold">{AGENT_NAME}</span>
                 <p className="text-foreground text-[15px] leading-[22px]">
-                  Keep every project on course. Tell me the outcome. I&apos;ll handle governance,
-                  dependencies, and verification.
+                  Keep every project on course.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">
                   {actions
@@ -198,10 +197,6 @@ export function MissionHomeList() {
                   <h1 className="text-foreground text-[20px] leading-[1.3] font-semibold tracking-[-0.015em]">
                     Keep every project on course.
                   </h1>
-                  <p className="text-muted-foreground text-[13px] leading-[1.55]">
-                    Tell me the outcome. I&apos;ll handle governance, dependencies, and
-                    verification.
-                  </p>
                 </div>
               </motion.div>
             )}

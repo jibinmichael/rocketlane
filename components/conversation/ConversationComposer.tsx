@@ -193,7 +193,7 @@ export function ConversationComposer({
             <button
               type="button"
               onClick={onAttach}
-              className="text-muted-foreground hover:text-foreground hover:bg-muted flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium transition-colors duration-[var(--motion-fast)]"
+              className="text-muted-foreground bg-muted/60 hover:text-foreground hover:bg-muted flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium transition-colors duration-[var(--motion-fast)]"
             >
               <LinearIcon name="upload" className="icon-vibe size-3.5" />
               Test any project files

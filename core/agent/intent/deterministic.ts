@@ -195,7 +195,7 @@ const RULES: readonly Rule[] = [
   {
     // A person asking what this is: answered in context, never with a capability disclaimer.
     pattern:
-      /^\s*(?:hi|hello|hey|help|what\s+(?:all\s+)?can\s+you\s+(?:do|help)|what\s+can\s+you\s+help\s+(?:me\s+)?with|what\s+do\s+you\s+do|how\s+do(?:es)?\s+(?:this|it|you)\s+work|who\s+are\s+you|what\s+is\s+this|what\s+are\s+you(?!\s+doing))\b/i,
+      /^\s*(?:hi|hello|hey|help|what\s+(?:all\s+)?can\s+you\s+(?:do|help)|what\s+can\s+you\s+help\s+(?:me\s+)?with|what\s+can\s+i\s+do(?:\s+here)?|what\s+do\s+you\s+do|how\s+do(?:es)?\s+(?:this|it|you)\s+work|who\s+are\s+you|what\s+is\s+this|what\s+are\s+you(?!\s+doing))\b/i,
     build: () => noTarget("help"),
   },
   {
