@@ -1028,9 +1028,23 @@ function landingSummary(
     text("."),
   ]
   if (updates === 0 && failed === 0) return [text("No other updates were needed."), ...checked]
+  // An undo also takes back the time the source mission logged; say so, it is a real change.
+  const removed =
+    verb === "reverted"
+      ? mission.plan.filter((s) => s.transition === "TIME_REMOVED" && s.status === "succeeded")
+          .length
+      : 0
   return [
     count(updates),
-    text(` ${plural(updates, "update")} ${verb}, `),
+    text(` ${plural(updates, "update")} ${verb}`),
+    ...(removed > 0
+      ? [
+          text(" and "),
+          count(removed),
+          text(` ${plural(removed, "time entry", "time entries")} removed`),
+        ]
+      : []),
+    text(", "),
     count(failed),
     text(" failed."),
     ...checked,
