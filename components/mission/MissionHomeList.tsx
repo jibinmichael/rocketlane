@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react"
+import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 
@@ -15,6 +16,7 @@ import { LinearIcon } from "@/components/shared/LinearIcon"
 import { Body } from "@/components/shared/Typography"
 import { renderGreeting } from "@/core/agent/conversation/renderer"
 import { useRuntime, useRuntimeSnapshot } from "@/hooks/use-runtime"
+import { avatarFor } from "@/lib/avatar"
 import { crossfade, settle } from "@/lib/motion"
 
 const AGENT_NAME = "Governance Agent"
@@ -32,6 +34,7 @@ export function MissionHomeList() {
   const params = useSearchParams()
   const chat = params.get("chat") === "1"
   const [sending, setSending] = useState(false)
+  const [pendingText, setPendingText] = useState<string | null>(null)
   const [dataOpen, setDataOpen] = useState(false)
   const [fill, setFill] = useState<{ text: string; key: number } | null>(null)
   const [recentOpen, setRecentOpen] = useState(true)
@@ -42,16 +45,47 @@ export function MissionHomeList() {
 
   const onSend = async (text: string) => {
     setSending(true)
+    setPendingText(text)
     try {
       const id = await runtime.send(text, null)
       // The greeting was the agent's first turn on screen; it stays the first turn of the record.
       if (id && chat) runtime.openWith(id, renderGreeting())
       if (id) router.push(`/m/${id}`)
-      else setSending(false)
+      else {
+        setSending(false)
+        setPendingText(null)
+      }
     } catch {
       setSending(false)
+      setPendingText(null)
     }
   }
+  const actorIndex = snapshot.actors.findIndex((a) => a.id === snapshot.actorId)
+  const actorName = actorIndex >= 0 ? (snapshot.actors[actorIndex]?.name ?? "You") : "You"
+  // Sent, not yet answered: the words stay on screen and the agent is visibly reading them.
+  const pending = sending && pendingText !== null && (
+    <div className="flex flex-col gap-6">
+      <div className="flex gap-3">
+        <Image
+          src={avatarFor(actorIndex)}
+          alt=""
+          width={20}
+          height={20}
+          className="mt-px size-5 shrink-0 rounded-full object-cover"
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-foreground text-[13px] font-semibold">{actorName}</span>
+          <p className="text-foreground text-[15px] leading-[22px]">{pendingText}</p>
+        </div>
+      </div>
+      <div className="flex gap-3" aria-live="polite">
+        <span className="flex w-5 shrink-0 justify-center pt-px">
+          <AgentMark size={20} />
+        </span>
+        <span className="text-shimmer text-[13px] leading-[22px]">Preparing mission</span>
+      </div>
+    </div>
+  )
 
   const graph = snapshot.graph
   const firstProject =
@@ -128,6 +162,7 @@ export function MissionHomeList() {
                 </div>
               </div>
             </div>
+            {pending}
           </div>
         </div>
         <div className="shrink-0 px-6 pt-2 pb-5">
@@ -175,8 +210,9 @@ export function MissionHomeList() {
           <motion.div
             layout
             transition={settle}
-            className={sending ? "mt-auto pb-5" : "flex flex-col gap-2"}
+            className={sending ? "mt-auto flex flex-col gap-6 pb-5" : "flex flex-col gap-2"}
           >
+            {pending}
             {composer}
             <div className="min-h-4 px-1" aria-live="polite">
               {trust}

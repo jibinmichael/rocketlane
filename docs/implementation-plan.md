@@ -1,5 +1,7 @@
 # Implementation plan — Rocketlane project governance agent
 
+> Historical. This is the plan as executed on 2026-09-16. The product surface it describes (left navigation, Policies and Activity pages, Test Lab) was superseded the same day by the final brief: the agent is the product. See `README.md` and `docs/agent-context/05-build-ledger.md` for what exists now.
+
 **Status:** Executed 2026-09-16 under the 8-hour compression recorded in the build ledger. Built as planned except: routines/notifications, five-file ingestion shape, scale generator, replay cassettes and scenario authoring UI are designed but not built (see README known limitations). Component names in §2 were simplified during the build (block rendering lives in `ConversationBlockItem`; artifact presentations are `ArtifactStateChip`, `ArtifactMissionRow`, `MissionPathList`).
 **Date:** 2026-09-16
 **Inputs:** `docs/spec/ROCKETLANE_AGENT_BUILD_SPEC.md`, `docs/audit/2026-09-16-current-state-report.md`, `fixtures/rocketlane-export/*`

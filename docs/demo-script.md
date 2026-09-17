@@ -1,64 +1,45 @@
 # Demo script
 
-Twelve minutes. Every beat is a real engine event; nothing is staged. Have two browser tabs open on `http://localhost:3000`.
+Ten minutes. Every beat is a real engine event; nothing is staged. Use the live build, https://rocketlane-one.vercel.app, in a fresh browser (or open the title dropdown and **Clear all chats**). The header reads **Robert Oconnell · Rocketlane export**: the masked export from the brief, 31 projects, 325 tasks, and Robert owns the deepest cascade in it.
 
-## Before you start
+## 1. The hero: a four-deep cascade on real data
 
-```bash
-pnpm dev
-```
+The home leads with the three most complex projects in the data, ranked by the engine's own resolver. Click **Complete Stone-Gonzalez - CLM Implementation**, or type **Complete Stone Gonzalez** (case, hyphens and partial names are fine).
 
-Open the workspace menu (top right, your name) and **Reset** so the demo workspace is clean. The header should read **Priya Raman · Demo workspace**. If `ANTHROPIC_API_KEY` is in `.env.local`, the band will say "Interpreted by model" after each turn; without it, the deterministic interpreter runs and nothing else changes.
+What to say: it acknowledges the goal, then you watch real work: checking project, milestones (2), governance (4 policies, hover the underline for all four verdicts), tracing dependencies. It cannot complete yet. The chain reads as a ladder: milestone Initiate ISAT Survey · Policy 1 → Business Go-Live · Policy 3 → Go-Live GO/No GO review · Policy 3 → UAT Sign-off · Policy 4. **Show why** opens the hops; the path list ends at "UAT Sign-off · Start here". Then: "12 updates to complete Stone-Gonzalez. First: log time on UAT Sign-off. 10 of them need hours from you."
 
-## 1. The hero
+It asks for the one thing it cannot invent: "How many hours should I log for UAT Sign-off? I'll record them as your hours, Robert Oconnell." Try **two hours**: it refuses to guess and re-states the ask. Try **0**: too small, nothing logged. Then reply **2 hours each**.
 
-The home says "Your projects are already moving. I'll help keep them on course." No navigation to learn.
+Ten asks answer themselves, one verified write at a time, each with its receipt "Logged 2 hours by Robert Oconnell · same for each". Then the high-impact confirmation, in the thread: **Complete project**. Landed: "All set, Robert Oconnell. Stone-Gonzalez is complete and verified. 12 updates completed, 0 failed." **Show the 12 updates**, **View evidence** (governance, authorization, verification, scope, final state, judged from the log and a fresh read), **View activity** (the audit, as a column beside the chat, with **Show audit detail**).
 
-Type: **Mark Acme Implementation as completed.** (Try **Mark all my projects as completed.** afterwards: it resolves to the projects you own, never the whole workspace.)
+## 2. Undo, as a mission
 
-What to say: it acknowledges the goal, then you watch real work: checking project, milestones, governance (4 policies), tracing dependencies. Every row is an event in the audit log; nothing is simulated. It found it cannot complete yet, traced the blocker three levels deep and shows only the shortest useful path. Point at the policy chips: every reason maps to one supplied policy. Click **Show full path** to prove the depth is available, not dumped.
+Click **Undo this mission**. A new mission reverses the writes newest first: "Reopen Stone-Gonzalez? Status → In progress." **Reopen project.** Every task returns to the status it held, the ten time entries are removed, each step verified: "Undone, Robert Oconnell. Stone-Gonzalez is back to In progress, verified." Run the hero again from the title dropdown → **New chat**: same chain, from the start.
 
-It asks for one thing it cannot invent, in the conversation: "QA Complete has no logged time. Policy 4 requires hours before completion. How many hours should I log for QA Complete?" and says whose task it is and whose time it will be. Try **two hours** first: it refuses to guess and re-states the ask. Then reply **2 hours**.
+## 3. Questions, typos, ambiguity
 
-It acknowledges the answer ("Got it — 2 hours for QA Complete. I'll log that, verify it, and continue with the original goal."), then you watch it log time, verify it, recheck dependencies and verify five updates with no further questions. The band says what it is doing, never how many operations are left. Then the high-impact confirmation, in the thread, with the consequence stated: one task remains open and does not block under current policies. **Complete project.**
+From **New chat**:
 
-Landed: one outcome line, compact evidence, **View activity**. Finished phases fold to one sentence each. Then **View evaluation evidence**: governance, authorization, verification, scope and final state, judged from the log and a fresh read. Back on the home, the mission sits under **Previous missions** with its outcome; click it to reopen the whole record.
+- **What's blocking Martinez-Wilson?** → the blocker and the first thing to act on, with **Yes, complete it**.
+- **Complete Stone-Gonzales** → "I couldn't find "Stone-Gonzales". Did you mean one of these?" with the real name as a chip.
+- **Complete CLM Implementation** → "Which one do you mean?" with the three projects that share the suffix. **Complete UAT Sign-off** → two chips labelled by project.
+- **Complete Horn LLC** → grounds to Horn LLC - CLM Migration, then an honest "Only the project owner can complete… Tommy Walter owns it."
+- **What all can you do?** → a plain answer, never a disclaimer. **Write me a poem** → "That one's outside what I do here."
 
-Pause: type **pause** (or press Esc while it runs). "Got it. I've paused the mission." with where it stopped and what did not happen. **Resume**: "Got it. I'll recheck the current state, then continue."
+## 4. Pause, resume, scope
 
-## 2. Course correction (two tabs)
-
-Tab one: type **complete acme** on a fresh dataset (Reset first from the workspace menu, or use Beacon Rollout instead). Stop when it asks for hours. (Reply **2 hours** later, in the composer.)
-
-Tab two: workspace menu → **Simulate the outside world**. Project Acme Implementation, task Train admins, status completed, acting as Mei Tanaka. **Apply.**
-
-Tab one, hands off the keyboard: the mission pauses. "Acme Implementation changed while I was working. I paused before the next update." What changed, what it affects. **Continue.** Replanned: 5 of 6 updates still apply; the world already did one, and the band now counts 5.
-
-Single-screen fallback: do the same from the workspace menu in the same tab; the mission pauses and asks you to continue.
-
-## 3. Interruption
-
-Type **complete Beacon Rollout**. It runs straight to the project confirmation because Beacon has time logged everywhere. Type **actually leave Handover open**. The agent replies that Handover was already verified complete before you asked and that no policy lets it reopen it. Nothing is reverted.
-
-## 4. Verification is real
-
-Workspace menu → **Simulate the outside world**: arm **timeout once** on Deploy API. Back in the agent: **complete acme**, **2 hours**, and watch the reconciliation beat: "The write to Deploy API timed out. I re-read it: it had applied." Zero retries, one ledger entry.
+Start **Complete Bowen-Chapman** (Jordan Henderson owns it, so it is refused honestly). Start **Complete Adkins Group** (Robert's other project) and press **Esc** while it is executing: "Got it. I've paused the mission." **Resume**: "I'll recheck the current state, then continue." **stop** stops; completed and verified work stays.
 
 ## 5. Your data, same agent
 
-On the home, **Test with project data**: upload a two-file export (or load the Rocketlane export from the workspace menu). The panel says what loaded and what needs attention; nothing is dropped silently. Read the ingestion report: 31 projects, 325 tasks, 76 completed tasks with no time logged, a duplicate task name, 28 projects without tasks. Nothing hidden.
-
-The same engine runs against it. State an outcome; the mission ends with its evaluation (governance, authorization, verification, scope, final state), and it appears under Previous missions with its exact buckets. (The twelve deterministic scenarios, including weakening a policy and watching the evaluator catch it, run in `pnpm test`.)
-
-**The real data has the brief's 4-level conflict.** Acting as Robert Oconnell, type **complete Stone-Gonzalez**: project → milestone Project Plan Sign-off → predecessor BRD Sign-off → predecessors COE Review and Peer Review, all without time logged. Same engine, real export, nothing staged. Bowen-Chapman has the real BLOCKED task (Legacy Migration): the agent holds it, and that hold is the first committed regression record.
-
+**Test any project files** in the composer: upload any two-file export (`projects.csv` + `tasks.csv`). The panel says what loaded and lists every rejected row, warning and finding. The demo workspace (`fixtures/cascading-conflicts`, Acme Implementation, Priya Raman) loads the same way and runs the brief's three-deep hero. Nothing leaves the browser.
 
 ## 6. Close
 
-"The demo is one scenario. The system is the product." The same engine, the same policies, the same verification path ran the conversation and the Lab. The model, when present, only pointed at words in a sentence.
+"The demo is one scenario. The system is the product." The same engine, policies and verification path ran every turn. The model, when present, only pointed at words in a sentence; the grammar can still veto a guess, and every consequence was checked by a re-read before it was reported.
 
 ## If something goes wrong
 
-- Blank workspace or stale state: workspace menu → **Reset**.
-- Colours missing after a code change: restart `pnpm dev` (Turbopack CSS chunk cache).
-- Model interpreter slow: the band says "Interpreted locally" and the demo continues unchanged.
+- Stale chats in the list: title dropdown → **Clear all chats**.
+- A reply takes a few seconds: the model is reading the sentence; the grammar answers instantly if it times out.
+- Local dev only: colours missing after a code change means the Turbopack CSS cache; restart `pnpm dev`.

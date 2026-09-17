@@ -1,6 +1,6 @@
 # Architecture overview
 
-One operating model, two expressions: the conversation (end user) and the Test Lab (operator). Both drive the same engine.
+One operating model, two expressions: the conversation (end user) and the scenario runner in the test suite (operator). Both drive the same engine.
 
 ```
 USER GOAL → INTENT + SCOPE → CONTEXT → PLAN → GOVERNANCE → DEPENDENCY RESOLUTION → EXECUTION → REVALIDATION → RESULT

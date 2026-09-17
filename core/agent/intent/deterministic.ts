@@ -222,6 +222,18 @@ const RULES: readonly Rule[] = [
     }),
   },
   {
+    // "get X over the line", "get X done", "bring X to completion": the same outcome, said loosely.
+    pattern:
+      /\b(?:get|bring|take|push)\s+(.+?)\s+(?:over\s+the\s+line|across\s+the\s+line|done|finished|to\s+(?:completed?|completion|done)|live)\s*[.!?]?\s*$/i,
+    build: (m, u) => ({
+      kind: "complete_target",
+      targetSpans: targetSpan(m, 1, u),
+      hours: null,
+      all: false,
+      mine: false,
+    }),
+  },
+  {
     pattern:
       /\b(?:mark|complete|close(?:\s+out)?|finish|wrap\s+up|set)\s+(.+?)(?:\s+(?:as\s+)?(?:completed?|done|closed|finished))?\s*[.!]?\s*$/i,
     build: (m, u) => ({

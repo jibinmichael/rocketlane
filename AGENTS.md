@@ -45,7 +45,7 @@ docs/          spec, agent-context, adr, architecture, test-results, demo-script
 - Entity names from data are rendered as chips, never parsed as markdown, never treated as instructions.
 - Never claim success before a verification read. Never execute a blocked action. Never widen scope silently.
 - Nothing in `core/` may know a project or task name. If you type `"Acme"` outside `fixtures/` and `tests/`, stop.
-- Product surface is exactly: Projects · Governance Agent · Policies · Activity · Test Lab.
+- Product surface is exactly: the agent home, the mission thread (activity opens as a column inside it), and the project-files upload. No module navigation, no Test Lab page, no Activity page.
 - No `console.log`, no `any`, no barrel files, no default exports except Next route files.
 - Secrets live only in `.env.local`. If you find one anywhere else, stop and tell the human; do not "fix" it in a commit.
 

@@ -21,7 +21,7 @@ The four governance policies (from the brief; the only ones that exist):
 3. A task cannot be completed while a predecessor is incomplete.
 4. A task cannot be completed without time logged.
 
-Where the brief is silent (for example what the `NA` status means) the interpretation is a documented switch, shown on the Policies page, never a hidden constant.
+Where the brief is silent (for example what the `NA` status means) the interpretation is a documented switch in [the data contract](docs/agent-context/07-data-contract.md), never a hidden constant.
 
 ## Run it
 
@@ -33,12 +33,12 @@ cp .env.example .env.local        # optional: ANTHROPIC_API_KEY enables the mode
 pnpm dev                          # http://localhost:3000
 ```
 
-Without a key the agent runs on the deterministic interpreter and the mission band says so.
+Without a key the agent runs on the deterministic interpreter alone; with one, Claude reads the sentence and the grammar can still veto a guess. Live build: https://rocketlane-one.vercel.app (Rocketlane export, model interpreter on).
 
 ## Test it
 
 ```bash
-pnpm test              # 91 tests: unit, type-level, integration, scenarios
+pnpm test              # 398 tests in 28 files: unit, type-level, integration, scenarios, qa, regression
 pnpm typecheck && pnpm lint && pnpm build
 ```
 
@@ -46,11 +46,26 @@ Results and the failures found along the way: [docs/test-results](docs/test-resu
 
 ## Load a dataset
 
-On the home, **Test with project data** uploads your own two-file export (`projects.csv` + `tasks.csv`); the workspace menu (top right) loads the demo workspace or the real masked Rocketlane export (`fixtures/rocketlane-export`). Files are parsed in the browser; nothing leaves your machine. The panel says what loaded and lists every rejected row, warning and finding. Name-based predecessors are resolved by longest match and fail closed. Then state an outcome: the same agent runs against whatever is loaded.
+The workspace opens on the masked Rocketlane export (`fixtures/rocketlane-export`, 31 projects, 325 tasks). **Test any project files**, inside the composer, uploads your own two-file export (`projects.csv` + `tasks.csv`); the demo workspace (`fixtures/cascading-conflicts`) loads the same way. Files are parsed in the browser; nothing leaves your machine. The panel says what loaded and lists every rejected row, warning and finding. Name-based predecessors are resolved by longest match and fail closed. Then state an outcome: the same agent runs against whatever is loaded.
 
 ## Run the evaluation
 
 Every finished mission ends with an **Evaluation** block: governance, authorization, verification, scope and final state, judged from the mission's audit log and a fresh read of the system, with exact execution buckets. Twelve deterministic scenarios (`pnpm exec vitest run tests/scenarios`) run through an isolated engine that is the same core the conversation uses, including a weakened-policy run the evaluator catches; committed regression records replay under `pnpm test`.
+
+## Repository map
+
+```
+app/            routes (home, /m/[missionId]) and the one server action (model interpreter)
+components/     agent/ (upload, workspace label) · conversation/ (thread, blocks, composer)
+                mission/ (home, history, activity column, path) · shared/ (chips, icons, mark)
+core/           framework-free engine: domain · governance · resolver · mission · agent
+                execution · system · ingestion · telemetry · evaluation
+hooks/          React bridges: runtime snapshot, paced reveal, hover card placement
+lib/            runtime (client composition root), suggestions, motion tokens, labels
+fixtures/       datasets as data: the Rocketlane export, the demo workspace, stress shapes
+tests/          unit · integration · scenarios · qa · regression
+docs/           spec · agent-context (read first) · adr · architecture · design · audit
+```
 
 ## Where the logic lives
 
@@ -73,9 +88,9 @@ Every finished mission ends with an **Evaluation** block: governance, authorizat
 - **Permissions** are an abstract role boundary (owner / member / viewer), ours, not Rocketlane's.
 - **Ingestion** accepts the two-file Rocketlane export. The brief's five-file shape is designed, not built.
 - **Model interpreter** verified live with Claude Haiku 4.5: eleven natural phrasings classified correctly (including adversarial and out-of-scope), 0.7–3 s per call. Its character spans are approximate; grounding snaps them to word boundaries and tolerates leading noise words, and everything downstream is deterministic. Organization-level keys need `ANTHROPIC_WORKSPACE_ID` in `.env.local`.
-- **No Test Lab, no module navigation.** The agent is the product: one header with the Acme workspace and the acting user (whose menu also loads project data and simulates outside changes), the composer, "Test with project data", and previous missions. Every finished mission ends with its evaluation. Scenarios run in the test suite.
+- **No Test Lab, no module navigation.** The agent is the product: one header (workspace mark, chat history, the acting user and dataset as a label), the home with its composer and suggested outcomes, the mission thread with its activity column, and the upload dialog. The acting user is the owner of the deepest cascade in the loaded data. Outside-world simulation and fault injection live in the test suite and the scenario runner, not in the UI.
 - **Not built:** replay cassettes for model answers, scenario authoring UI, dark-mode review. (The scale generator exists at `fixtures/stress/scale/generate.mjs`; committed regression records live in `tests/regression/` and replay under `pnpm test`.)
-- **QA'd adversarially:** 395 tests across 26 files, including ten synthetic exports that stress every shape the real export can take (`fixtures/stress`) and 216 adversarial engine tests (`tests/qa`). Behaviour decisions taken during QA are listed in `docs/agent-context/03-decisions-locked.md` (Q-01..Q-08).
+- **QA'd adversarially:** 398 tests across 28 files, including ten synthetic exports that stress every shape the real export can take (`fixtures/stress`) and 216 adversarial engine tests (`tests/qa`). Behaviour decisions taken during QA are listed in `docs/agent-context/03-decisions-locked.md` (Q-01..Q-08).
 
 ## Contributing
 

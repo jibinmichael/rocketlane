@@ -24,6 +24,8 @@ pnpm dev                                                 # http://localhost:3000
 
 Demo actors: Priya Raman (owner of Acme Implementation and Beacon Rollout; default), Mei Tanaka (member), Daniel Okafor (owner of Northwind Migration, which is already complete). Acting user changes in the workspace menu (top right, the acting user's name). The band says "Interpreted by model" if `ANTHROPIC_API_KEY` is set in `.env.local`, otherwise "Interpreted locally"; both paths must behave identically downstream. Reset the workspace any time from the workspace menu → **Reset**.
 
+> **Update 2026-09-17.** The product surface changed after this prompt was written. The workspace opens on the masked Rocketlane export with **Robert Oconnell** acting (owner of the deepest cascade, Stone-Gonzalez: 12 updates, 10 hours asks, chain depth 5). The workspace menu, acting-user switcher, Reset and "Simulate the outside world" no longer exist in the UI; outside-world changes and faults run through the scenario runner in `tests/`. "Test with project data" is now **Test any project files** inside the composer; uploading the demo workspace files (`fixtures/cascading-conflicts`) restores the Acme journeys below. Live build: https://rocketlane-one.vercel.app.
+
 ## Part 1: the five journeys in the browser (black box)
 
 Follow `docs/demo-script.md` exactly, then deviate. For each journey, screenshot the thread at the end and compare every sentence to the canonical block list in `04-ux-and-copy-contract.md`. Any banned word, any exclamation mark, any jargon ("closure", "shortest path", "resolving"), any block out of the Outcome → Blocker → Reason → Path → Action → Result order is a finding.
