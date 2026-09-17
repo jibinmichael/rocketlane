@@ -323,8 +323,11 @@
     radial-gradient(circle at 42% 0%, rgba(139, 92, 246, 0.08), transparent 36%),
     radial-gradient(circle at 58% 0%, rgba(96, 165, 250, 0.06), transparent 40%);
 }
-/* Suggested rows: the four stops on the icon always, on the text while hovered. */
+/* The four stops on a glyph always (the composer's upload), or only while its row is hovered. */
 .icon-vibe [fill="currentColor"] {
+  fill: url(#vibe-gradient);
+}
+.group:hover .icon-vibe-hover [fill="currentColor"] {
   fill: url(#vibe-gradient);
 }
 .group:hover .text-vibe-hover {

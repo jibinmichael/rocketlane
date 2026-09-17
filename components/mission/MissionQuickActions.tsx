@@ -44,7 +44,10 @@ export function MissionQuickActions({
               onClick={() => onPick(action)}
               className="group text-foreground focus-visible:ring-ring/50 flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors duration-[var(--motion-fast)] focus-visible:ring-2 focus-visible:outline-none"
             >
-              <LinearIcon name={action.icon} className="icon-vibe size-3.5" />
+              <LinearIcon
+                name={action.icon}
+                className="icon-vibe-hover text-muted-foreground size-3.5"
+              />
               <span className="text-vibe-hover truncate">{action.title}</span>
             </button>
           </li>

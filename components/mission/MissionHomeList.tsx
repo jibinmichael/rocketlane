@@ -154,7 +154,10 @@ export function MissionHomeList() {
                         onClick={() => pick(a)}
                         className="group border-border text-foreground hover:border-foreground/30 flex h-8 items-center gap-2 rounded-full border px-3 text-[13px] transition-colors duration-[var(--motion-fast)]"
                       >
-                        <LinearIcon name={a.icon} className="icon-vibe size-3.5" />
+                        <LinearIcon
+                          name={a.icon}
+                          className="icon-vibe-hover text-muted-foreground size-3.5"
+                        />
                         <span className="text-vibe-hover">{a.title}</span>
                       </button>
                     ))}
